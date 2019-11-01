@@ -1,0 +1,44 @@
+WHITESPACE = _{ " " | "\t" | "\n" | "\r" }
+
+// Types
+int   = @{ "-"? ~ ("0" | '1'..'9' ~ '0'..'9'* ) }
+float = @{ "-"? ~ ("0" ~ "." ~ '0'..'9'+ | '1'..'9' ~ '0'..'9'* ~ "." ~ '0'..'9'+)}
+boolean = @{ "true" | "false" | "True" | "False" }
+string  = @{ "\"" ~ (!("\"") ~ ANY)* ~ "\""}
+object  = {
+    "{" ~ "}" |
+    "{" ~ pair ~ ("," ~ pair)* ~ "}"
+}
+pair = { string ~ ":" ~ value}
+array = {
+    "[" ~ "]" |
+    "[" ~ value ~ ("," ~ value)* ~ "]"
+}
+null = { "null" }
+
+// Class instance
+class_name = { ASCII_ALPHANUMERIC+ }
+class_arg = _{ class_name | value }
+class_kwarg = _{ pair }
+class_params = _{ class_kwarg | class_arg }
+class_instance = { class_name ~ "(" ~ (class_params ~ ("," ~ class_params)*)? ~ ")" }
+
+// Value
+value = _{( object | array | class_instance | float | int | boolean | null | string )}
+
+// Property and section
+property_char = _{ ASCII_ALPHANUMERIC | "." | "_" | "/" }
+property_name = { property_char+ }
+section = { "[" ~ property_name ~ "]" }
+property = { property_name+ ~ "=" ~ value }
+
+// Comment
+comment_chars = _{ !NEWLINE ~ ANY }
+comment = @{ ";" ~ comment_chars* }
+
+// Line
+line = _{ (comment | section | property) }
+
+file = {
+    SOI ~ (line)* ~ EOI
+}

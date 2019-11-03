@@ -5,6 +5,7 @@ Toy project (for now) written in Rust.
 
 ## Roadmap
 
+- [x] Parse the Godot project file
 - [ ] Get project information using the project.godot file
 - [ ] Write a common "project file" to store configuration
 - [ ] Manage dependencies (in the addons folder)

@@ -6,26 +6,34 @@ use pest::error::Error;
 use pest::Parser;
 
 #[derive(Parser)]
-#[grammar = "parsers/gdproject.pest"]
-struct GdProjectParser;
+#[grammar = "gdsettings.pest"]
+struct GdSettingsParser;
 
 /// Godot value
 #[derive(PartialEq, Debug)]
 pub enum GdValue {
+    /// Object
     Object(Vec<(String, GdValue)>),
+    /// Array
     Array(Vec<GdValue>),
+    /// String
     String(String),
+    /// Int
     Int(i32),
+    /// Float
     Float(f64),
+    /// Boolean
     Boolean(bool),
+    /// Class name
     ClassName(String),
-    // An instance is composed of a name, arguments and keyword arguments
+    /// Class instance: a name, arguments and keyword arguments
     ClassInstance(String, Vec<GdValue>, Vec<(String, GdValue)>),
+    /// Null
     Null,
 }
 
-/// Godot properties map
-pub type GdProperties = BTreeMap<String, BTreeMap<String, GdValue>>;
+/// Godot settings map
+pub type GdSettings = BTreeMap<String, BTreeMap<String, GdValue>>;
 
 /// Serialize a GdValue to string
 ///
@@ -73,13 +81,13 @@ pub fn serialize_gdvalue(val: &GdValue) -> String {
     }
 }
 
-/// Serialize a GdProperties object to String
+/// Serialize a GdSettings object to String
 ///
 /// # Arguments
 ///
-/// * `properties` - GdProperties object
+/// * `settings` - GdSettings object
 ///
-pub fn serialize_gdproperties(properties: &GdProperties) -> String {
+pub fn serialize_gdsettings(settings: &GdSettings) -> String {
     let mut output = String::new();
 
     fn write_props(hmap: &BTreeMap<String, GdValue>, output: &mut String) {
@@ -91,15 +99,15 @@ pub fn serialize_gdproperties(properties: &GdProperties) -> String {
         }
     }
 
-    // First, get global properties
-    let globs = properties.get("");
+    // First, get global settings
+    let globs = settings.get("");
     if let Some(hmap) = globs {
         write_props(hmap, &mut output);
         output.push_str("\n");
     }
 
     // Then
-    for (k, v) in properties.iter() {
+    for (k, v) in settings.iter() {
         if k != "" {
             output.push_str("[");
             output.push_str(k);
@@ -113,19 +121,19 @@ pub fn serialize_gdproperties(properties: &GdProperties) -> String {
     output
 }
 
-/// Parse Godot project file
+/// Parse Godot settings file
 ///
 /// # Arguments
 ///
 /// * `contents` - File contents
 ///
-pub fn parse_gdproject_file(contents: &str) -> Result<GdProperties, Error<Rule>> {
+pub fn parse_gdsettings_file(contents: &str) -> Result<GdSettings, Error<Rule>> {
     use pest::iterators::Pair;
 
-    let data = GdProjectParser::parse(Rule::file, contents)?
+    let data = GdSettingsParser::parse(Rule::file, contents)?
         .next()
         .unwrap();
-    let mut properties: GdProperties = BTreeMap::new();
+    let mut properties: GdSettings = BTreeMap::new();
     let mut current_section = "";
 
     fn parse_gdvalue(pair: Pair<Rule>) -> GdValue {
@@ -218,10 +226,10 @@ mod tests {
         let mut input = File::open(project_file).unwrap();
         input.read_to_string(&mut content).unwrap();
 
-        let data = parse_gdproject_file(&content).unwrap();
-        let ser = serialize_gdproperties(&data);
+        let data = parse_gdsettings_file(&content).unwrap();
+        let ser = serialize_gdsettings(&data);
 
-        let serdata = parse_gdproject_file(&ser).unwrap();
+        let serdata = parse_gdsettings_file(&ser).unwrap();
         assert_eq!(data, serdata);
     }
 
@@ -239,8 +247,8 @@ mod tests {
         let mut input = File::open(project_file).unwrap();
         input.read_to_string(&mut content).unwrap();
 
-        let data = parse_gdproject_file(&content).unwrap();
-        serialize_gdproperties(&data);
+        let data = parse_gdsettings_file(&content).unwrap();
+        serialize_gdsettings(&data);
     }
 
     #[test]
@@ -257,7 +265,7 @@ mod tests {
         let mut input = File::open(project_file).unwrap();
         input.read_to_string(&mut content).unwrap();
 
-        GdProjectParser::parse(Rule::file, &content).unwrap();
+        GdSettingsParser::parse(Rule::file, &content).unwrap();
     }
 
     #[test]
@@ -271,7 +279,7 @@ mod tests {
 ;   [section] ; section goes between []
 ;   param=value ; assign values to parameters";
 
-        GdProjectParser::parse(Rule::file, &content).expect("failed to parse");
+        GdSettingsParser::parse(Rule::file, &content).expect("failed to parse");
     }
 
     #[test]
@@ -291,6 +299,6 @@ config/icon="res://icon.png"
 
 environment/default_environment="res://default_env.tres""###;
 
-        GdProjectParser::parse(Rule::file, &content).expect("failed to parse");
+        GdSettingsParser::parse(Rule::file, &content).expect("failed to parse");
     }
 }

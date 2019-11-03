@@ -3,7 +3,7 @@ use std::fs;
 use std::io::Read;
 use std::path::Path;
 
-use gdpm::parsers::{parse_gdproject_file, serialize_gdproperties};
+use gdsettings_parser::{parse_gdsettings_file, serialize_gdsettings};
 
 #[test]
 fn main() {
@@ -28,10 +28,10 @@ fn main() {
 }
 
 fn test_project_file(file_contents: &str) {
-    let data = parse_gdproject_file(file_contents).unwrap();
+    let data = parse_gdsettings_file(file_contents).unwrap();
 
     assert_eq!(
-        parse_gdproject_file(&serialize_gdproperties(&data)).unwrap(),
+        parse_gdsettings_file(&serialize_gdsettings(&data)).unwrap(),
         data
     );
 }

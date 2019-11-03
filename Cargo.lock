@@ -45,6 +45,10 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 [[package]]
 name = "gdpm"
 version = "0.1.0"
+
+[[package]]
+name = "gdsettings_parser"
+version = "0.1.0"
 dependencies = [
  "pest 2.1.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "pest_derive 2.1.0 (registry+https://github.com/rust-lang/crates.io-index)",

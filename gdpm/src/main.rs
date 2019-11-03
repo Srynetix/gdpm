@@ -1,3 +1,11 @@
+use gdpm::run_shell;
+
 fn main() {
-    println!("Hello, world!");
+    if let Err(error) = run_shell() {
+        eprintln!(
+            "Error during execution: {} {}",
+            error.as_fail(),
+            error.backtrace()
+        );
+    }
 }

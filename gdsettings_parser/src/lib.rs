@@ -4,12 +4,15 @@
 
 #![deny(missing_docs)]
 
+#[macro_use]
+extern crate failure;
+
 extern crate pest;
 #[macro_use]
 extern crate pest_derive;
 
+mod gdvalue;
 mod parser;
 
-pub use parser::GdSettings;
-pub use parser::GdValue;
-pub use parser::{parse_gdsettings_file, serialize_gdsettings, serialize_gdvalue};
+pub use gdvalue::GdValue;
+pub use parser::{parse_gdsettings_file, serialize_gdsettings, GdSettings};

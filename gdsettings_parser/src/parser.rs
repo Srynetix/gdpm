@@ -2,82 +2,44 @@
 
 use std::collections::BTreeMap;
 
-use pest::error::Error;
+use failure::Error;
 use pest::Parser;
+
+use crate::GdValue;
 
 #[derive(Parser)]
 #[grammar = "gdsettings.pest"]
 struct GdSettingsParser;
 
-/// Godot value
-#[derive(PartialEq, Debug)]
-pub enum GdValue {
-    /// Object
-    Object(Vec<(String, GdValue)>),
-    /// Array
-    Array(Vec<GdValue>),
-    /// String
-    String(String),
-    /// Int
-    Int(i32),
-    /// Float
-    Float(f64),
-    /// Boolean
-    Boolean(bool),
-    /// Class name
-    ClassName(String),
-    /// Class instance: a name, arguments and keyword arguments
-    ClassInstance(String, Vec<GdValue>, Vec<(String, GdValue)>),
-    /// Null
-    Null,
+/// Parser error
+#[derive(Debug, Fail)]
+pub enum ParserError {
+    /// Parse error
+    #[fail(display = "parse error")]
+    ParseError,
 }
 
 /// Godot settings map
-pub type GdSettings = BTreeMap<String, BTreeMap<String, GdValue>>;
+pub type GdSettingsType = BTreeMap<String, BTreeMap<String, GdValue>>;
 
-/// Serialize a GdValue to string
-///
-/// # Arguments
-///
-/// * `val` - GdValue object
-///
-pub fn serialize_gdvalue(val: &GdValue) -> String {
-    match val {
-        GdValue::Object(o) => {
-            let contents: Vec<_> = o
-                .iter()
-                .map(|(name, value)| format!("{}: {}", name, serialize_gdvalue(value)))
-                .collect();
-            format!("{{{}}}", contents.join(", "))
-        }
-        GdValue::Array(a) => {
-            let contents: Vec<_> = a.iter().map(serialize_gdvalue).collect();
-            format!("[{}]", contents.join(", "))
-        }
-        GdValue::ClassInstance(cls, args, kwargs) => {
-            let args_content = args
-                .iter()
-                .map(serialize_gdvalue)
-                .collect::<Vec<_>>()
-                .join(", ");
-            let kwargs_content = kwargs
-                .iter()
-                .map(|(name, value)| format!("{}: {}", name, serialize_gdvalue(value)))
-                .collect::<Vec<_>>()
-                .join(", ");
+/// GdSettings
+#[derive(PartialEq, Debug)]
+pub struct GdSettings(GdSettingsType);
 
-            if kwargs.is_empty() {
-                format!("{}({})", cls, args_content)
-            } else {
-                format!("{}({}, {})", cls, args_content, kwargs_content)
-            }
-        }
-        GdValue::ClassName(n) => n.to_string(),
-        GdValue::String(s) => s.to_string(),
-        GdValue::Int(n) => n.to_string(),
-        GdValue::Float(n) => format!("{:.9}", n),
-        GdValue::Boolean(b) => b.to_string(),
-        GdValue::Null => "null".to_string(),
+impl GdSettings {
+    /// Create a new wrapper
+    pub fn new(settings: GdSettingsType) -> Self {
+        Self(settings)
+    }
+
+    /// Get property
+    pub fn get_property(&self, section: &str, property: &str) -> Option<GdValue> {
+        self.0.get(section)?.get(property).cloned()
+    }
+
+    /// Get map
+    pub fn get_map(&self) -> &GdSettingsType {
+        &self.0
     }
 }
 
@@ -85,7 +47,7 @@ pub fn serialize_gdvalue(val: &GdValue) -> String {
 ///
 /// # Arguments
 ///
-/// * `settings` - GdSettings object
+/// * `settings` - GdSettingsType object
 ///
 pub fn serialize_gdsettings(settings: &GdSettings) -> String {
     let mut output = String::new();
@@ -94,20 +56,22 @@ pub fn serialize_gdsettings(settings: &GdSettings) -> String {
         for (k, v) in hmap.iter() {
             output.push_str(&k);
             output.push_str(" = ");
-            output.push_str(&serialize_gdvalue(v));
+            output.push_str(&v.to_string());
             output.push_str("\n");
         }
     }
 
+    let map = settings.get_map();
+
     // First, get global settings
-    let globs = settings.get("");
+    let globs = map.get("");
     if let Some(hmap) = globs {
         write_props(hmap, &mut output);
         output.push_str("\n");
     }
 
     // Then
-    for (k, v) in settings.iter() {
+    for (k, v) in map.iter() {
         if k != "" {
             output.push_str("[");
             output.push_str(k);
@@ -127,33 +91,41 @@ pub fn serialize_gdsettings(settings: &GdSettings) -> String {
 ///
 /// * `contents` - File contents
 ///
-pub fn parse_gdsettings_file(contents: &str) -> Result<GdSettings, Error<Rule>> {
+pub fn parse_gdsettings_file(contents: &str) -> Result<GdSettings, Error> {
     use pest::iterators::Pair;
 
     let data = GdSettingsParser::parse(Rule::file, contents)?
         .next()
-        .unwrap();
-    let mut properties: GdSettings = BTreeMap::new();
+        .ok_or(ParserError::ParseError)?;
+    let mut properties: GdSettingsType = BTreeMap::new();
     let mut current_section = "";
 
-    fn parse_gdvalue(pair: Pair<Rule>) -> GdValue {
-        match pair.as_rule() {
+    fn parse_gdvalue(pair: Pair<Rule>) -> Result<GdValue, Error> {
+        let value = match pair.as_rule() {
             Rule::object => GdValue::Object(
                 pair.into_inner()
                     .map(|pair| {
                         let mut inner_rules = pair.into_inner();
                         let name = inner_rules.next().unwrap().as_str();
-                        let value = parse_gdvalue(inner_rules.next().unwrap());
+                        let value = parse_gdvalue(inner_rules.next().unwrap()).unwrap();
                         (name.to_string(), value)
                     })
                     .collect(),
             ),
-            Rule::array => GdValue::Array(pair.into_inner().map(parse_gdvalue).collect()),
+            Rule::array => GdValue::Array(
+                pair.into_inner()
+                    .map(|x| parse_gdvalue(x).unwrap())
+                    .collect(),
+            ),
             Rule::string => GdValue::String(pair.as_str().to_string()),
             Rule::class_name => GdValue::ClassName(pair.as_str().to_string()),
             Rule::class_instance => {
                 let mut inner_rules = pair.into_inner();
-                let class_name = inner_rules.next().unwrap().as_str().to_string();
+                let class_name = inner_rules
+                    .next()
+                    .ok_or(ParserError::ParseError)?
+                    .as_str()
+                    .to_string();
                 let mut args = vec![];
                 let mut kwargs = vec![];
 
@@ -162,37 +134,44 @@ pub fn parse_gdsettings_file(contents: &str) -> Result<GdSettings, Error<Rule>> 
                         // Check for kwarg
                         Rule::pair => {
                             let mut inner_rules = pair.into_inner();
-                            let name = inner_rules.next().unwrap().as_str();
-                            let value = parse_gdvalue(inner_rules.next().unwrap());
+                            let name = inner_rules.next().ok_or(ParserError::ParseError)?.as_str();
+                            let value =
+                                parse_gdvalue(inner_rules.next().ok_or(ParserError::ParseError)?)?;
                             kwargs.push((name.to_string(), value))
                         }
                         // Else convert
-                        _ => args.push(parse_gdvalue(pair)),
+                        _ => args.push(parse_gdvalue(pair)?),
                     }
                 }
 
                 GdValue::ClassInstance(class_name, args, kwargs)
             }
-            Rule::int => GdValue::Int(pair.as_str().parse().unwrap()),
-            Rule::float => GdValue::Float(pair.as_str().parse().unwrap()),
-            Rule::boolean => GdValue::Boolean(pair.as_str().parse().unwrap()),
+            Rule::int => GdValue::Int(pair.as_str().parse()?),
+            Rule::float => GdValue::Float(pair.as_str().parse()?),
+            Rule::boolean => GdValue::Boolean(pair.as_str().parse()?),
             Rule::null => GdValue::Null,
             _ => unreachable!(),
-        }
+        };
+
+        Ok(value)
     }
 
     for line in data.into_inner() {
         match line.as_rule() {
             Rule::section => {
                 let mut inner_rules = line.into_inner();
-                current_section = inner_rules.next().unwrap().as_str();
+                current_section = inner_rules.next().ok_or(ParserError::ParseError)?.as_str();
             }
             Rule::property => {
                 let mut inner_rules = line.into_inner();
 
-                let name = inner_rules.next().unwrap().as_str().to_string();
-                let value = inner_rules.next().unwrap();
-                let value = parse_gdvalue(value);
+                let name = inner_rules
+                    .next()
+                    .ok_or(ParserError::ParseError)?
+                    .as_str()
+                    .to_string();
+                let value = inner_rules.next().ok_or(ParserError::ParseError)?;
+                let value = parse_gdvalue(value)?;
 
                 let section = properties.entry(current_section.to_string()).or_default();
                 section.insert(name, value);
@@ -202,7 +181,7 @@ pub fn parse_gdsettings_file(contents: &str) -> Result<GdSettings, Error<Rule>> 
         }
     }
 
-    Ok(properties)
+    Ok(GdSettings::new(properties))
 }
 
 #[cfg(test)]

@@ -14,6 +14,9 @@ pub enum InfoError {
     /// Project not found
     #[fail(display = "project not found: {}", path)]
     ProjectNotFound { path: String },
+    /// Malformed project
+    #[fail(display = "malformed project")]
+    MalformedProject,
 }
 
 /// Godot project info
@@ -27,15 +30,15 @@ pub struct GdProjectInfo {
 
 impl GdProjectInfo {
     /// Extract project info from settings
-    pub fn from_settings(settings: &GdSettings) -> Self {
+    pub fn from_settings(settings: &GdSettings) -> Result<Self, Error> {
         let project_name = settings
             .get_property("application", "config/name")
             .and_then(|x| x.to_str())
-            .unwrap();
+            .ok_or(InfoError::MalformedProject)?;
         let config_version = settings
             .get_property("", "config_version")
             .and_then(|x| x.to_i32())
-            .unwrap();
+            .ok_or(InfoError::MalformedProject)?;
         let version = settings
             .get_property("application", "config/version")
             .and_then(|x| x.to_str());
@@ -43,12 +46,12 @@ impl GdProjectInfo {
             .get_property("application", "run/main_scene")
             .and_then(|x| x.to_str());
 
-        Self {
+        Ok(Self {
             project_name,
             config_version,
             version,
             main_scene,
-        }
+        })
     }
 
     /// Show project info
@@ -86,9 +89,5 @@ pub fn get_project_info(path: &Path) -> Result<GdProjectInfo, Error> {
     let mut file = File::open(project)?;
     file.read_to_string(&mut contents)?;
 
-    // Parse file
-    match parse_gdsettings_file(&contents) {
-        Ok(data) => Ok(GdProjectInfo::from_settings(&data)),
-        Err(error) => Err(error),
-    }
+    parse_gdsettings_file(&contents).and_then(|data| GdProjectInfo::from_settings(&data))
 }

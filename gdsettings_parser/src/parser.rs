@@ -106,16 +106,17 @@ pub fn parse_gdsettings_file(contents: &str) -> Result<GdSettings, Error> {
                 pair.into_inner()
                     .map(|pair| {
                         let mut inner_rules = pair.into_inner();
-                        let name = inner_rules.next().unwrap().as_str();
-                        let value = parse_gdvalue(inner_rules.next().unwrap()).unwrap();
-                        (name.to_string(), value)
+                        let name = inner_rules.next().ok_or(ParserError::ParseError)?.as_str();
+                        let value =
+                            parse_gdvalue(inner_rules.next().ok_or(ParserError::ParseError)?)?;
+                        Ok((name.to_string(), value))
                     })
-                    .collect(),
+                    .collect::<Result<Vec<(String, GdValue)>, Error>>()?,
             ),
             Rule::array => GdValue::Array(
                 pair.into_inner()
-                    .map(|x| parse_gdvalue(x).unwrap())
-                    .collect(),
+                    .map(parse_gdvalue)
+                    .collect::<Result<Vec<GdValue>, Error>>()?,
             ),
             Rule::string => GdValue::String(pair.as_str().to_string()),
             Rule::class_name => GdValue::ClassName(pair.as_str().to_string()),

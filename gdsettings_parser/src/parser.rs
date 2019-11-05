@@ -19,27 +19,107 @@ pub enum ParserError {
     ParseError,
 }
 
+/// GdSettings error
+#[derive(Debug, Fail)]
+pub enum GdSettingsError {
+    /// Missing section
+    #[fail(display = "missing section: {}", section)]
+    MissingSection { section: String },
+    /// Missing property
+    #[fail(display = "missing property: {}", property)]
+    MissingProperty { property: String },
+}
+
 /// Godot settings map
-pub type GdSettingsType = BTreeMap<String, BTreeMap<String, GdValue>>;
+pub type GdSettingsMap = BTreeMap<String, GdValue>;
+/// Godot settings type
+pub type GdSettingsType = BTreeMap<String, GdSettingsMap>;
 
 /// GdSettings
-#[derive(PartialEq, Debug)]
+#[derive(PartialEq, Debug, Clone)]
 pub struct GdSettings(GdSettingsType);
 
 impl GdSettings {
     /// Create a new wrapper
-    pub fn new(settings: GdSettingsType) -> Self {
-        Self(settings)
+    ///
+    /// # Arguments
+    ///
+    /// * `map` - Map instance
+    ///
+    pub fn new(map: GdSettingsType) -> Self {
+        Self(map)
     }
 
-    /// Get property
+    /// Get property.
+    ///
+    /// # Arguments
+    ///
+    /// * `section` - Section name
+    /// * `property` - Property name
+    ///
     pub fn get_property(&self, section: &str, property: &str) -> Option<GdValue> {
         self.0.get(section)?.get(property).cloned()
+    }
+
+    /// Get section
+    ///
+    /// # Arguments
+    ///
+    /// * `section` - Section name
+    ///
+    pub fn get_section(&self, section: &str) -> Option<GdSettingsMap> {
+        self.0.get(section).cloned()
+    }
+
+    /// Set property
+    ///
+    /// # Arguments
+    ///
+    /// * `section` - Section name
+    /// * `property` - Property name
+    ///
+    pub fn set_property(&mut self, section: &str, property: &str, value: GdValue) {
+        let section_entry = self
+            .0
+            .entry(section.to_string())
+            .or_insert_with(GdSettingsMap::new);
+        section_entry.insert(property.to_string(), value);
+    }
+
+    /// Remove property
+    ///
+    /// # Arguments
+    ///
+    /// * `section` - Section name
+    /// * `property` - Property name
+    ///
+    pub fn remove_property(&mut self, section: &str, property: &str) -> Result<(), Error> {
+        let section_entry = self
+            .0
+            .get_mut(section)
+            .ok_or(GdSettingsError::MissingSection {
+                section: section.to_string(),
+            })?;
+        if section_entry.get(property).is_none() {
+            bail!(GdSettingsError::MissingProperty {
+                property: property.to_string()
+            });
+        }
+
+        section_entry.remove(property);
+
+        Ok(())
     }
 
     /// Get map
     pub fn get_map(&self) -> &GdSettingsType {
         &self.0
+    }
+}
+
+impl ToString for GdSettings {
+    fn to_string(&self) -> String {
+        serialize_gdsettings(&self)
     }
 }
 
@@ -106,7 +186,11 @@ pub fn parse_gdsettings_file(contents: &str) -> Result<GdSettings, Error> {
                 pair.into_inner()
                     .map(|pair| {
                         let mut inner_rules = pair.into_inner();
-                        let name = inner_rules.next().ok_or(ParserError::ParseError)?.as_str();
+                        let name = inner_rules
+                            .next()
+                            .ok_or(ParserError::ParseError)?
+                            .as_str()
+                            .trim_matches('"');
                         let value =
                             parse_gdvalue(inner_rules.next().ok_or(ParserError::ParseError)?)?;
                         Ok((name.to_string(), value))
@@ -118,7 +202,7 @@ pub fn parse_gdsettings_file(contents: &str) -> Result<GdSettings, Error> {
                     .map(parse_gdvalue)
                     .collect::<Result<Vec<GdValue>, Error>>()?,
             ),
-            Rule::string => GdValue::String(pair.as_str().to_string()),
+            Rule::string => GdValue::String(pair.as_str().trim_matches('"').to_string()),
             Rule::class_name => GdValue::ClassName(pair.as_str().to_string()),
             Rule::class_instance => {
                 let mut inner_rules = pair.into_inner();

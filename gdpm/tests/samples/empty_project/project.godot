@@ -8,16 +8,29 @@
 
 config_version=4
 
-_global_script_classes=[  ]
 _global_script_class_icons={
 
 }
+_global_script_classes=[  ]
 
 [application]
 
 config/name="Empty Project"
 config/icon="res://icon.png"
 
+[engine]
+
+version="3.2alpha3"
+
 [rendering]
 
 environment/default_environment="res://default_env.tres"
+4_global_script_classes=[  ]
+_global_script_class_icons={
+
+}
+t_class_icons={
+
+}
+config/name="Empty Project"
+config/icon="res://icon.png"

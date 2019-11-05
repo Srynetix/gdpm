@@ -9,4 +9,7 @@ edition = "2018"
 [dependencies]
 structopt = "0.3"
 failure = "0.1.6"
+dirs = "2.0.2"
+slugify = "0.1.0"
+question = "0.2.2"
 gdsettings_parser = { path = "../gdsettings_parser" }

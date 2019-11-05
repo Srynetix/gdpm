@@ -27,7 +27,7 @@ class_instance = { class_name ~ "(" ~ (class_params ~ ("," ~ class_params)*)? ~ 
 value = _{( object | array | class_instance | float | int | boolean | null | string )}
 
 // Property and section
-property_char = _{ ASCII_ALPHANUMERIC | "." | "_" | "/" }
+property_char = _{ ASCII_ALPHANUMERIC | "." | "_" | "/" | "-" }
 property_name = { property_char+ }
 section = { "[" ~ property_name ~ "]" }
 property = { property_name+ ~ "=" ~ value }

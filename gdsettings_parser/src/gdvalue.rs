@@ -1,5 +1,6 @@
 //! GDValue
 
+use std::collections::BTreeMap;
 use std::string::ToString;
 
 /// Godot value
@@ -30,6 +31,20 @@ impl GdValue {
     pub fn to_array(&self) -> Option<Vec<GdValue>> {
         if let GdValue::Array(a) = &self {
             Some(a.clone())
+        } else {
+            None
+        }
+    }
+
+    /// To object
+    pub fn to_object(&self) -> Option<BTreeMap<String, GdValue>> {
+        if let GdValue::Object(p) = &self {
+            let mut map = BTreeMap::new();
+            for (k, v) in p.iter() {
+                map.insert(k.clone(), v.clone());
+            }
+
+            Some(map)
         } else {
             None
         }
@@ -89,7 +104,7 @@ fn serialize_gdvalue(val: &GdValue) -> String {
         GdValue::Object(o) => {
             let contents: Vec<_> = o
                 .iter()
-                .map(|(name, value)| format!("{}: {}", name, serialize_gdvalue(value)))
+                .map(|(name, value)| format!("\"{}\": {}", name, serialize_gdvalue(value)))
                 .collect();
             format!("{{{}}}", contents.join(", "))
         }
@@ -116,7 +131,7 @@ fn serialize_gdvalue(val: &GdValue) -> String {
             }
         }
         GdValue::ClassName(n) => n.to_string(),
-        GdValue::String(s) => s.to_string(),
+        GdValue::String(s) => format!("\"{}\"", s),
         GdValue::Int(n) => n.to_string(),
         GdValue::Float(n) => format!("{:.9}", n),
         GdValue::Boolean(b) => b.to_string(),

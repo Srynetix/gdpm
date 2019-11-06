@@ -127,13 +127,13 @@ pub fn run_shell() -> Result<(), Error> {
 
     match args.cmd {
         Command::Info { path } => {
-            use crate::actions::project::get_project_info;
+            use crate::project::get_project_info;
             let info = get_project_info(&path)?;
             info.show();
         }
         Command::SetEngine { path, version } => {
-            use crate::actions::engine::{get_default_engine, get_engine_version};
-            use crate::actions::project::set_project_engine;
+            use crate::engine::{get_default_engine, get_engine_version};
+            use crate::project::set_project_engine;
             if version == "" {
                 if let Some(e) = get_default_engine()? {
                     set_project_engine(&path, &e)?;
@@ -156,7 +156,7 @@ pub fn run_shell() -> Result<(), Error> {
             }
         }
         Command::UnsetEngine { path } => {
-            use crate::actions::project::unset_project_engine;
+            use crate::project::unset_project_engine;
             unset_project_engine(&path)?;
             println!(
                 "Engine deassociated from project: {}",
@@ -164,8 +164,8 @@ pub fn run_shell() -> Result<(), Error> {
             );
         }
         Command::Edit { path, version } => {
-            use crate::actions::engine::{get_default_engine, run_engine_version_for_project};
-            use crate::actions::project::{get_project_info, set_project_engine};
+            use crate::engine::{get_default_engine, run_engine_version_for_project};
+            use crate::project::{get_project_info, set_project_engine};
 
             // Use project or default version
             if version == "" {
@@ -216,7 +216,7 @@ pub fn run_shell() -> Result<(), Error> {
         }
         Command::Engine { cmd } => match cmd {
             EngineCommand::List { verbose } => {
-                use crate::actions::engine::{get_default_engine, list_engines_info};
+                use crate::engine::{get_default_engine, list_engines_info};
                 let entries = list_engines_info()?;
                 let default_entry = get_default_engine()?;
                 for entry in entries {
@@ -243,19 +243,19 @@ pub fn run_shell() -> Result<(), Error> {
                 has_mono,
                 from_source,
             } => {
-                use crate::actions::engine::{register_engine_entry, EngineInfo};
+                use crate::engine::{register_engine_entry, EngineInfo};
                 let engine_info = EngineInfo::new(version.clone(), path, has_mono, from_source)?;
 
                 register_engine_entry(engine_info)?;
                 println!("Godot Engine v{} is registered.", version.color("green"));
             }
             EngineCommand::Unregister { version } => {
-                use crate::actions::engine::unregister_engine_entry;
+                use crate::engine::unregister_engine_entry;
                 unregister_engine_entry(&version)?;
                 println!("Godot Engine v{} unregistered.", version.color("green"));
             }
             EngineCommand::Run { version } => {
-                use crate::actions::engine::{get_default_engine, run_engine_version};
+                use crate::engine::{get_default_engine, run_engine_version};
                 if version == "" {
                     if let Some(e) = get_default_engine()? {
                         println!("Running Godot Engine v{} ...", e.color("green"));
@@ -269,7 +269,7 @@ pub fn run_shell() -> Result<(), Error> {
                 }
             }
             EngineCommand::Default { version } => {
-                use crate::actions::engine::{get_default_engine, set_default_engine};
+                use crate::engine::{get_default_engine, set_default_engine};
                 if version.is_empty() {
                     if let Some(e) = get_default_engine()? {
                         println!("{} Godot Engine v{}", "*".color("green"), e.color("green"));

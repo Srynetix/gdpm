@@ -1,16 +1,16 @@
+use std::env;
+use std::path::PathBuf;
+
+use colored::Colorize;
+use env_logger;
 use failure::Error;
 use question::{Answer, Question};
 use slugify::slugify;
-use std::path::PathBuf;
 use structopt::StructOpt;
 
 #[derive(StructOpt, Debug)]
 #[structopt(name = "basic")]
 struct Opt {
-    /// Activate debug mode
-    #[structopt(short, long)]
-    debug: bool,
-
     /// Verbose mode (-v, -vv, -vvv, etc.)
     #[structopt(short, long, parse(from_occurrences))]
     verbose: u8,
@@ -100,16 +100,31 @@ enum EngineCommand {
 }
 
 fn print_missing_default_engine_message() {
-    println!("No default engine registered. Use `engine default <version>` to register one.");
+    println!(
+        "{}",
+        "No default engine registered. Use `engine default <version>` to register one."
+            .color("yellow")
+    );
 }
 
 fn print_missing_project_engine_message() {
-    println!("You have no engine version associated to your project.");
+    println!(
+        "{}",
+        "You have no engine version associated to your project.".color("yellow")
+    );
 }
 
 /// Run gdpm shell
 pub fn run_shell() -> Result<(), Error> {
     let args = Opt::from_args();
+    if args.verbose > 0 {
+        // Enable debug logs
+        env::set_var("RUST_LOG", "debug");
+    }
+
+    // Initialize logger
+    env_logger::init();
+
     match args.cmd {
         Command::Info { path } => {
             use crate::actions::project::get_project_info;
@@ -124,8 +139,8 @@ pub fn run_shell() -> Result<(), Error> {
                     set_project_engine(&path, &e)?;
                     println!(
                         "Godot Engine v{} set for project: {}",
-                        version,
-                        path.to_string_lossy()
+                        version.color("green"),
+                        path.to_string_lossy().color("green")
                     );
                 } else {
                     print_missing_default_engine_message();
@@ -135,8 +150,8 @@ pub fn run_shell() -> Result<(), Error> {
                 set_project_engine(&path, &version)?;
                 println!(
                     "Godot Engine v{} set for project: {}",
-                    version,
-                    path.to_string_lossy()
+                    version.color("green"),
+                    path.to_string_lossy().color("green")
                 );
             }
         }
@@ -145,7 +160,7 @@ pub fn run_shell() -> Result<(), Error> {
             unset_project_engine(&path)?;
             println!(
                 "Engine deassociated from project: {}",
-                path.to_string_lossy()
+                path.to_string_lossy().color("green")
             );
         }
         Command::Edit { path, version } => {
@@ -159,8 +174,8 @@ pub fn run_shell() -> Result<(), Error> {
                 if let Some(e) = project_info.get_engine_version() {
                     println!(
                         "Running Godot Engine v{} for project {} ...",
-                        e,
-                        path.to_string_lossy()
+                        e.color("green"),
+                        path.to_string_lossy().color("green")
                     );
                     run_engine_version_for_project(&e, &path)?;
                 } else {
@@ -169,7 +184,7 @@ pub fn run_shell() -> Result<(), Error> {
                         print_missing_project_engine_message();
                         match Question::new(&format!(
                             "Do you want to associate the default engine (v{}) (y/n)?",
-                            e
+                            e.color("green")
                         ))
                         .confirm()
                         {
@@ -180,8 +195,8 @@ pub fn run_shell() -> Result<(), Error> {
 
                         println!(
                             "Running Godot Engine v{} for project {} ...",
-                            e,
-                            path.to_string_lossy()
+                            e.color("green"),
+                            path.to_string_lossy().color("green")
                         );
                         run_engine_version_for_project(&e, &path)?;
                     } else {
@@ -193,8 +208,8 @@ pub fn run_shell() -> Result<(), Error> {
                 // Use specific version (override)
                 println!(
                     "Running Godot Engine v{} for project {} ...",
-                    version,
-                    path.to_string_lossy()
+                    version.color("green"),
+                    path.to_string_lossy().color("green")
                 );
                 run_engine_version_for_project(&version, &path)?;
             }
@@ -207,7 +222,7 @@ pub fn run_shell() -> Result<(), Error> {
                 for entry in entries {
                     if let Some(default) = &default_entry {
                         if entry.get_slug() == slugify!(default) {
-                            print!("* ");
+                            print!("{} ", "*".color("green"));
                         } else {
                             print!("  ");
                         }
@@ -232,24 +247,24 @@ pub fn run_shell() -> Result<(), Error> {
                 let engine_info = EngineInfo::new(version.clone(), path, has_mono, from_source)?;
 
                 register_engine_entry(engine_info)?;
-                println!("Godot Engine v{} is registered.", version);
+                println!("Godot Engine v{} is registered.", version.color("green"));
             }
             EngineCommand::Unregister { version } => {
                 use crate::actions::engine::unregister_engine_entry;
                 unregister_engine_entry(&version)?;
-                println!("Godot Engine v{} unregistered.", version);
+                println!("Godot Engine v{} unregistered.", version.color("green"));
             }
             EngineCommand::Run { version } => {
                 use crate::actions::engine::{get_default_engine, run_engine_version};
                 if version == "" {
                     if let Some(e) = get_default_engine()? {
-                        println!("Running Godot Engine v{} ...", e);
+                        println!("Running Godot Engine v{} ...", e.color("green"));
                         run_engine_version(&e)?;
                     } else {
                         print_missing_default_engine_message();
                     }
                 } else {
-                    println!("Running Godot Engine v{} ...", version);
+                    println!("Running Godot Engine v{} ...", version.color("green"));
                     run_engine_version(&version)?;
                 }
             }
@@ -257,13 +272,13 @@ pub fn run_shell() -> Result<(), Error> {
                 use crate::actions::engine::{get_default_engine, set_default_engine};
                 if version.is_empty() {
                     if let Some(e) = get_default_engine()? {
-                        println!("* Godot Engine v{}", e);
+                        println!("{} Godot Engine v{}", "*".color("green"), e.color("green"));
                     } else {
                         print_missing_default_engine_message();
                     }
                 } else {
                     set_default_engine(&version)?;
-                    println!("Godot Engine v{} set as default.", version);
+                    println!("Godot Engine v{} set as default.", version.color("green"));
                 }
             }
         },

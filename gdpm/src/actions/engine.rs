@@ -1,14 +1,16 @@
 //! Engine module
 
-use failure::Error;
-use slugify::slugify;
 use std::path::{Path, PathBuf};
 use std::process::Command;
+
+use colored::Colorize;
+use failure::{bail, Error};
+use gdsettings_parser::{GdSettings, GdValue};
+use slugify::slugify;
 
 use crate::config::{
     read_gdpm_configuration, write_gdpm_configuration, ConfigError, ENGINES_SECTION,
 };
-use gdsettings_parser::{GdSettings, GdValue};
 
 /// Engine info
 #[derive(Debug, PartialEq, Clone)]
@@ -139,17 +141,28 @@ impl EngineInfo {
 
     /// Show
     pub fn show(&self) {
-        println!("Godot Engine v{}", self.version);
+        println!("Godot Engine v{}", self.version.color("green"));
     }
 
     /// Show verbose
     pub fn show_verbose(&self) {
+        let mono_str = if self.has_mono {
+            "Yes".color("green")
+        } else {
+            "No".color("red")
+        };
+        let source_str = if self.from_source {
+            "Yes".color("green")
+        } else {
+            "No".color("red")
+        };
+
         println!(
             "Godot Engine v{} ({}) [mono: {} - source: {}]",
-            self.version,
-            self.path.to_string_lossy(),
-            self.has_mono,
-            self.from_source
+            self.version.color("green"),
+            self.path.to_string_lossy().color("yellow"),
+            mono_str,
+            source_str
         );
     }
 }

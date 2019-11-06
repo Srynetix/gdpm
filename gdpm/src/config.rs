@@ -2,7 +2,8 @@
 
 use std::path::{Path, PathBuf};
 
-use failure::Error;
+use failure::{bail, Error, Fail};
+use log::debug;
 
 use crate::fs::{
     read_configuration_file_to_string, read_file_to_string, write_string_to_configuration_file,
@@ -61,6 +62,7 @@ pub fn read_gdpm_configuration() -> Result<GdSettings, Error> {
 pub fn write_gdpm_configuration(settings: GdSettings) -> Result<(), Error> {
     let contents = settings.to_string();
 
+    debug!("Writing gdpm configuration ...");
     write_string_to_configuration_file(Path::new(CONFIG_PATH), &contents)
 }
 
@@ -100,5 +102,9 @@ pub fn write_project_configuration(path: &Path, settings: GdSettings) -> Result<
         });
     }
 
+    debug!(
+        "Writing project configuration to path: {}",
+        project.to_string_lossy()
+    );
     write_string_to_file(&project, &contents)
 }

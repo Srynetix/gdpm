@@ -2,8 +2,9 @@
 
 use std::collections::BTreeMap;
 
-use failure::Error;
+use failure::{bail, Error, Fail};
 use pest::Parser;
+use pest_derive::Parser;
 
 use crate::GdValue;
 

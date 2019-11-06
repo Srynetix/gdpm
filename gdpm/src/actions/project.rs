@@ -3,9 +3,9 @@
 use std::path::Path;
 
 use failure::Error;
+use gdsettings_parser::{GdSettings, GdValue};
 
 use crate::config::{read_project_configuration, write_project_configuration, ConfigError};
-use gdsettings_parser::{GdSettings, GdValue};
 
 /// Godot project info
 #[derive(Debug)]

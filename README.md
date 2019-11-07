@@ -46,7 +46,7 @@ gdpm info --path ./my/project
 
 ### `edit`
 
-Open the project editor for the current folder.  
+Open the engine in editor mode for the current folder.  
 You can pass another folder using the `--path` argument.
 
 If the project has no engine associated, it will ask you if you want to use the default engine for this project.
@@ -108,13 +108,13 @@ The default engine will have a star at start.
 *Examples:*
 
 ```bash
-gdpm list
+gdpm engine list
 # * Godot Engine v3.1.1
 #   Godot Engine v3.1.1-mono
 #   Godot Engine v3.2alpha3
 #   Godot Engine vmaster
 
-gdpm list --verbose
+gdpm engine list --verbose
 # * Godot Engine v3.1.1 (./path/to/3.1.1) [mono: false, source: false]
 #   Godot Engine v3.1.1-mono (./path/to/3.1.1-mono) [mono: true, source: false]
 #   Godot Engine v3.2alpha3 (./path/to/3.2alpha3) [mono: false, source: false]

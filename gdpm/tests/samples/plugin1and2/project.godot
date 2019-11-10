@@ -1,0 +1,17 @@
+_global_script_class_icons = {}
+_global_script_classes = []
+config_version = 4
+
+[application]
+config/icon = "res://icon.png"
+config/name = "Plugin 1 & 2"
+
+[dependencies]
+plugin-1 = {"source": ".", "name": "plugin1", "version": "1.0.0"}
+plugin-2 = {"name": "plugin2", "version": "1.0.0", "source": "."}
+plugin-3 = {"source": "../plugin3", "name": "plugin3", "version": "1.0.0"}
+scene-runner = {"source": "git@github.com:Srynetix/godot-plugin-scenerunner", "name": "scenerunner", "version": "1.0.0"}
+
+[rendering]
+environment/default_environment = "res://default_env.tres"
+

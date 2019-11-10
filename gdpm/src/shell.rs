@@ -51,6 +51,38 @@ enum Command {
         #[structopt(short, long, parse(from_os_str), default_value = ".")]
         path: PathBuf,
     },
+    /// Add dependency
+    Add {
+        /// Project path
+        #[structopt(short, long, parse(from_os_str), default_value = ".")]
+        path: PathBuf,
+        /// Name
+        name: String,
+        /// Version
+        version: String,
+        /// Dependency source
+        source: String,
+    },
+    /// Remove dependency
+    Remove {
+        /// Project path
+        #[structopt(short, long, parse(from_os_str), default_value = ".")]
+        path: PathBuf,
+        /// Name
+        name: String,
+    },
+    /// List dependencies
+    List {
+        /// Project path
+        #[structopt(short, long, parse(from_os_str), default_value = ".")]
+        path: PathBuf,
+    },
+    /// Sync project plugins
+    Sync {
+        /// Project path
+        #[structopt(short, long, parse(from_os_str), default_value = ".")]
+        path: PathBuf,
+    },
     /// Engine management
     Engine {
         #[structopt(subcommand)]
@@ -213,6 +245,49 @@ pub fn run_shell() -> Result<(), Error> {
                 );
                 run_engine_version_for_project(&version, &path)?;
             }
+        }
+        Command::List { path } => {
+            use crate::plugins::list_project_dependencies;
+            let dependencies = list_project_dependencies(&path)?;
+            for dep in dependencies {
+                dep.show();
+            }
+        }
+        Command::Sync { path } => {
+            use crate::plugins::sync_project_plugins;
+            sync_project_plugins(&path)?;
+
+            println!(
+                "Dependencies are now synchronized for project {}.",
+                path.to_string_lossy().color("green")
+            )
+        }
+        Command::Add {
+            path,
+            name,
+            version,
+            source,
+        } => {
+            use crate::plugins::add_dependency;
+            add_dependency(&path, &name, &version, &source)?;
+
+            println!(
+                "Dependency {} (v{}) from {} added to project {}.",
+                name.color("green"),
+                version.color("green"),
+                source.color("blue"),
+                path.to_string_lossy().color("green")
+            );
+        }
+        Command::Remove { path, name } => {
+            use crate::plugins::remove_dependency;
+            remove_dependency(&path, &name)?;
+
+            println!(
+                "Dependency {} removed from project {}.",
+                name.color("green"),
+                path.to_string_lossy().color("green")
+            );
         }
         Command::Engine { cmd } => match cmd {
             EngineCommand::List { verbose } => {

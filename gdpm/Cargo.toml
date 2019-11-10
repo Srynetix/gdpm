@@ -15,4 +15,5 @@ question = "0.2.2"
 colored = "1.8"
 log = "0.4"
 env_logger = "0.7.1"
+fs_extra = "1.1.0"
 gdsettings_parser = { path = "../gdsettings_parser" }

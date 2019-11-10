@@ -25,10 +25,16 @@ pub enum ParserError {
 pub enum GdSettingsError {
     /// Missing section
     #[fail(display = "missing section: {}", section)]
-    MissingSection { section: String },
+    MissingSection {
+        /// Section
+        section: String,
+    },
     /// Missing property
     #[fail(display = "missing property: {}", property)]
-    MissingProperty { property: String },
+    MissingProperty {
+        /// Property
+        property: String,
+    },
 }
 
 /// Godot settings map
@@ -247,6 +253,7 @@ pub fn parse_gdsettings_file(contents: &str) -> Result<GdSettings, Error> {
             Rule::section => {
                 let mut inner_rules = line.into_inner();
                 current_section = inner_rules.next().ok_or(ParserError::ParseError)?.as_str();
+                properties.insert(current_section.to_string(), BTreeMap::new());
             }
             Rule::property => {
                 let mut inner_rules = line.into_inner();

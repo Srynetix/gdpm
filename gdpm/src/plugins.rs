@@ -379,6 +379,23 @@ pub fn add_dependency(
 pub fn remove_dependency(project_path: &Path, name: &str) -> Result<(), Error> {
     let mut data = read_project_configuration(project_path)?;
     let slug = slugify!(name);
+
+    // Check if dependency is present in project
+    if let Some(value) = data.get_property(DEPS_SECTION, &slug) {
+        let dep = Dependency::from_gdvalue(&slug, &value)?;
+        // Check if dependency is installed
+        let dep_folder = project_path.join(ADDONS_FOLDER).join(&dep.name);
+        if dep_folder.exists() {
+            // Remove folder
+            fs::remove_dir_all(&dep_folder)?;
+            println!(
+                "Addon folder {} removed from project {}.",
+                dep_folder.to_string_lossy().color("green"),
+                project_path.to_string_lossy().color("green")
+            );
+        }
+    }
+
     if data.remove_property(DEPS_SECTION, &slug).is_err() {
         bail!(
             "Dependency {} is missing from project {}.",
@@ -401,10 +418,11 @@ pub fn sync_project_plugins(project_path: &Path) -> Result<(), Error> {
     let plugins = list_plugins_from_project(project_path)?;
     for plugin in plugins {
         let slug = slugify!(&plugin.name);
-        // Check if plugin is present
+        // Check if plugin is absent
         if conf.get_property(DEPS_SECTION, &slug).is_none() {
             let dep = Dependency::from_plugin_info(&plugin);
             conf.set_property(DEPS_SECTION, &slug, dep.to_gdvalue());
+            println!("Plugin {} added as dependency for project {}.", dep.name.color("green"), project_path.to_string_lossy().color("green"));
         }
     }
     write_project_configuration(project_path, conf)?;
@@ -413,6 +431,7 @@ pub fn sync_project_plugins(project_path: &Path) -> Result<(), Error> {
     let deps = list_project_dependencies(project_path)?;
     for dep in deps {
         dep.resolve(project_path)?;
+        println!("Plugin {} resolved in project {}.", dep.name.color("green"), project_path.to_string_lossy().color("green"));
     }
 
     Ok(())

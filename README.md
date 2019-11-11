@@ -9,10 +9,12 @@ Toy project (for now) written in Rust.
 - [x] Get project information using the project.godot file
 - [x] Write custom configuration in the project.godot file
 - [x] Manage Godot instances
-- [ ] Manage dependencies (in the addons folder)
-  - [ ] Sync from another project (copy)
+- [-] Manage dependencies (in the addons folder)
+  - [x] Sync from another project
+  - [x] Sync from external source (git)
   - [ ] Sync to another project
-  - [ ] Sync from external source (zip)
+  - [ ] Desync dependencies
+  - [ ] Fork dependency in project (inclusion)
 - [ ] Execute custom actions
 - [ ] Proxy commands to engine instance (like export)
 
@@ -27,21 +29,27 @@ These names will be used in project.godot, with an error if the path is not foun
 
 ## Commands
 
-### `info`
+### `add`
 
-Get project info from current folder.  
-You can pass another folder using the `--path` argument.
+Add a dependency to the current project folder.  
+You can pass another folder using the `--path` argument.  
+The required arguments are: [name], [version] and [source].
+
+If a dependency with the same name is already registered to the project, it will be updated.
+
+*Note*: added dependencies are not automatically resolved. To install the dependencies, use the `gdpm sync` command.
 
 *Examples:*
 
 ```bash
-gdpm info
-# Project: My project
-# - Engine version: v3.2alpha3
+gdpm add plugin1 1.0.0 ../plugin1
+# Dependency plugin1 (v1.0.0) from ../plugin1 added to project ..
 
-gdpm info --path ./my/project
-# Project: My project 2
-# - Engine version: v3.1.1
+gdpm add scenerunner 1.0.0 git@github.com:Srynetix/godot-plugin-scenerunner
+# Dependency scenerunner (v1.0.0) from git@github.com:Srynetix/godot-plugin-scenerunner added to project ..
+
+gdpm add plugin1 1.0.0 ../plugin1 --path ./my/project
+# Dependency plugin1 (v1.0.0) from ../plugin1 added to project ./my/project.
 ```
 
 ### `edit`
@@ -65,6 +73,58 @@ gdpm edit --path ./my/project 3.2alpha3
 # > Running Godot Engine v3.2alpha3 for project ./my/project ...
 ```
 
+### `info`
+
+Get project info from current folder.  
+You can pass another folder using the `--path` argument.
+
+*Examples:*
+
+```bash
+gdpm info
+# Project: My project
+# - Engine version: v3.2alpha3
+
+gdpm info --path ./my/project
+# Project: My project 2
+# - Engine version: v3.1.1
+```
+
+### `list`
+
+List dependencies from the current project.  
+You can pass another folder using the `--path` argument.
+
+*Examples:*
+
+```bash
+gdpm list
+# - plugin1 (v1.0.0) (source: Current)
+# - plugin2 (v1.0.0) (source ../plugin2)
+# - scenerunner (v1.0.0) (source: Git (SSH): git@github.com:Srynetix/godot-plugin-scenerunner)
+
+gdpm list --path ./my/project
+# - plugin1 (v1.0.0) (source: Current)
+# - plugin2 (v1.0.0) (source ../plugin2)
+```
+
+### `remove`
+
+Remove a dependency from the current project.  
+You can pass another folder using the `--path` argument.
+
+If the dependency is installed, its folder will also be removed.
+
+*Examples:*
+
+```bash
+gdpm remove plugin1
+# Dependency plugin1 removed from project ..
+
+gdpm remove plugin1 --path ./my/project
+# Dependency plugin1 removed from project ./my/project.
+```
+
 ### `set-engine`
 
 Associate an engine to a project.  
@@ -83,6 +143,23 @@ gdpm set-engine --path ./my/project
 
 gdpm set-engine --path ./my/project 3.2alpha3
 # > Godot Engine v3.2alpha3 set for project: ./my/project
+```
+
+### `sync`
+
+Synchronize/Install registered dependencies from the current project.  
+You can pass another folder using the `--path` argument.
+
+It will also scan the `addons` folder and register dependencies as `current` if they are not present in the dependency list.
+
+*Examples:*
+
+```bash
+gdpm sync
+# Dependencies are now synchronized for project ..
+
+gdpm sync --path ./my/project
+# Dependencies are now synchronized for project ./my/project.
 ```
 
 ### `unset-engine`

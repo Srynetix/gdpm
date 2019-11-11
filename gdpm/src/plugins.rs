@@ -37,7 +37,7 @@ pub enum PluginError {
 }
 
 /// Dependency source
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum DependencySource {
     /// Git HTTP/HTTPS
     GitHttp(String),
@@ -181,8 +181,23 @@ impl Dependency {
         );
     }
 
-    /// Resolve dependency
-    pub fn resolve(&self, project_path: &Path) -> Result<PluginInfo, Error> {
+    /// Check if the dependency is installed
+    pub fn is_installed(&self, project_path: &Path) -> bool {
+        let path = project_path.join(ADDONS_FOLDER).join(&self.name);
+        path.exists()
+    }
+
+    /// Uninstall dependency
+    pub fn uninstall(&self, project_path: &Path) -> Result<(), Error> {
+        if self.is_installed(project_path) {
+            fs::remove_dir_all(project_path.join(ADDONS_FOLDER).join(&self.name))?;
+        }
+
+        Ok(())
+    }
+
+    /// Install dependency
+    pub fn install(&self, project_path: &Path) -> Result<PluginInfo, Error> {
         match &self.source {
             DependencySource::Current => {
                 // Current project
@@ -384,13 +399,11 @@ pub fn remove_dependency(project_path: &Path, name: &str) -> Result<(), Error> {
     if let Some(value) = data.get_property(DEPS_SECTION, &slug) {
         let dep = Dependency::from_gdvalue(&slug, &value)?;
         // Check if dependency is installed
-        let dep_folder = project_path.join(ADDONS_FOLDER).join(&dep.name);
-        if dep_folder.exists() {
-            // Remove folder
-            fs::remove_dir_all(&dep_folder)?;
+        if dep.is_installed(project_path) {
+            dep.uninstall(project_path)?;
             println!(
                 "Addon folder {} removed from project {}.",
-                dep_folder.to_string_lossy().color("green"),
+                dep.name.color("green"),
                 project_path.to_string_lossy().color("green")
             );
         }
@@ -407,9 +420,9 @@ pub fn remove_dependency(project_path: &Path, name: &str) -> Result<(), Error> {
     write_project_configuration(project_path, data)
 }
 
-/// Sync project plugins
+/// Sync project dependencies
 ///
-/// * Find and register new plugins not listed in dependencies
+/// * Find and register new dependencies in project
 /// * Install up-to-date dependencies in project
 ///
 pub fn sync_project_plugins(project_path: &Path) -> Result<(), Error> {
@@ -434,12 +447,28 @@ pub fn sync_project_plugins(project_path: &Path) -> Result<(), Error> {
     // Install dependencies
     let deps = list_project_dependencies(project_path)?;
     for dep in deps {
-        dep.resolve(project_path)?;
+        dep.install(project_path)?;
         println!(
-            "Plugin {} resolved in project {}.",
+            "Plugin {} installed in project {}.",
             dep.name.color("green"),
             project_path.to_string_lossy().color("green")
         );
+    }
+
+    Ok(())
+}
+
+/// Desynchronize project dependencies
+///
+/// Uninstall not-included dependencies.
+///
+pub fn desync_project_plugins(project_path: &Path) -> Result<(), Error> {
+    let deps = list_project_dependencies(project_path)?;
+    for dep in deps {
+        if dep.source != DependencySource::Current && dep.is_installed(project_path) {
+            // Uninstall dependency
+            dep.uninstall(project_path)?;
+        }
     }
 
     Ok(())

@@ -422,7 +422,11 @@ pub fn sync_project_plugins(project_path: &Path) -> Result<(), Error> {
         if conf.get_property(DEPS_SECTION, &slug).is_none() {
             let dep = Dependency::from_plugin_info(&plugin);
             conf.set_property(DEPS_SECTION, &slug, dep.to_gdvalue());
-            println!("Plugin {} added as dependency for project {}.", dep.name.color("green"), project_path.to_string_lossy().color("green"));
+            println!(
+                "Plugin {} added as dependency for project {}.",
+                dep.name.color("green"),
+                project_path.to_string_lossy().color("green")
+            );
         }
     }
     write_project_configuration(project_path, conf)?;
@@ -431,7 +435,11 @@ pub fn sync_project_plugins(project_path: &Path) -> Result<(), Error> {
     let deps = list_project_dependencies(project_path)?;
     for dep in deps {
         dep.resolve(project_path)?;
-        println!("Plugin {} resolved in project {}.", dep.name.color("green"), project_path.to_string_lossy().color("green"));
+        println!(
+            "Plugin {} resolved in project {}.",
+            dep.name.color("green"),
+            project_path.to_string_lossy().color("green")
+        );
     }
 
     Ok(())

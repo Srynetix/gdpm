@@ -52,6 +52,23 @@ gdpm add plugin1 1.0.0 ../plugin1 --path ./my/project
 # Dependency plugin1 (v1.0.0) from ../plugin1 added to project ./my/project.
 ```
 
+### `desync`
+
+Desynchronize dependencies for the current project.  
+You can pass another folder using the `--path` argument.
+
+Il will remove installed plugins which are not from the project.
+
+*Examples:*
+
+```bash
+gdpm desync
+# Dependencies are desynchronized for project ..
+
+gdpm desync --path ./my/project
+# Dependencies are desynchronized for project ./my/project.
+```
+
 ### `edit`
 
 Open the engine in editor mode for the current folder.  

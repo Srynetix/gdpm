@@ -83,6 +83,12 @@ enum Command {
         #[structopt(short, long, parse(from_os_str), default_value = ".")]
         path: PathBuf,
     },
+    /// Desync project plugins
+    Desync {
+        /// Project path
+        #[structopt(short, long, parse(from_os_str), default_value = ".")]
+        path: PathBuf,
+    },
     /// Engine management
     Engine {
         #[structopt(subcommand)]
@@ -259,6 +265,15 @@ pub fn run_shell() -> Result<(), Error> {
 
             println!(
                 "Dependencies are now synchronized for project {}.",
+                path.to_string_lossy().color("green")
+            )
+        }
+        Command::Desync { path } => {
+            use crate::plugins::desync_project_plugins;
+            desync_project_plugins(&path)?;
+
+            println!(
+                "Dependencies are desynchronized for project {}.",
                 path.to_string_lossy().color("green")
             )
         }

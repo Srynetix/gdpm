@@ -25,7 +25,7 @@ You can use the following workflow.
 
 ### 1. Register engine instances
 
-Before we start to manage your projects, you have to register engine instances.  
+Before you start to manage your projects, you have to register engine instances.  
 For example, imagine you have two Godot instances on your disk:
 - Godot Engine **3.1**, stored in `C:\Godot\3.1\godot.exe`
 - Godot Engine **3.2beta1**, stored in `C:\Godot\3.2beta1\godot.exe`
@@ -97,6 +97,8 @@ gdpm add gitplugin 1.0.0 git@github.com:example/example-project`
 # Now sync everything to register `plugin1` and install the other plugins
 gdpm sync
 ```
+
+Your plugins will be copied in your project.
 
 ## Details
 

@@ -13,7 +13,7 @@ Toy project (for now) written in Rust.
   - [x] Sync from another project
   - [x] Sync from external source (git)
   - [ ] Sync to another project
-  - [ ] Desync dependencies
+  - [x] Desync dependencies
   - [ ] Fork dependency in project (inclusion)
 - [ ] Execute custom actions
 - [ ] Proxy commands to engine instance (like export)

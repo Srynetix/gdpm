@@ -257,19 +257,6 @@ pub fn get_engine_version(version: &str) -> Result<EngineInfo, Error> {
     }
 }
 
-/// Run engine version.
-///
-/// # Arguments
-///
-/// * `version` - Version
-///
-pub fn run_engine_version(version: &str) -> Result<(), Error> {
-    let engine = get_engine_version(version)?;
-    Command::new(engine.path).status()?;
-
-    Ok(())
-}
-
 /// Run engine version for project.
 ///
 /// # Arguments
@@ -283,6 +270,29 @@ pub fn run_engine_version_for_project(version: &str, path: &Path) -> Result<(), 
         .arg("--path")
         .arg(path)
         .arg("-e")
+        .status()?;
+
+    Ok(())
+}
+
+/// Execute engine version command for project.
+///
+/// # Arguments
+///
+/// * `version` - Version
+/// * `args` - Arguments
+/// * `path` - Path
+///
+pub fn exec_engine_version_command_for_project(
+    version: &str,
+    args: &[String],
+    path: &Path,
+) -> Result<(), Error> {
+    let engine = get_engine_version(version)?;
+    Command::new(engine.path)
+        .arg("--path")
+        .arg(path)
+        .args(args)
         .status()?;
 
     Ok(())

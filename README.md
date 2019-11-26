@@ -133,13 +133,13 @@ If a dependency with the same name is already registered to the project, it will
 
 ```bash
 gdpm add plugin1 1.0.0 ../plugin1
-# Dependency plugin1 (v1.0.0) from ../plugin1 added to project ..
+# Dependency plugin1 (v1.0.0) from ../plugin1 added to project MyProject
 
 gdpm add scenerunner 1.0.0 git@github.com:Srynetix/godot-plugin-scenerunner
-# Dependency scenerunner (v1.0.0) from git@github.com:Srynetix/godot-plugin-scenerunner added to project ..
+# Dependency scenerunner (v1.0.0) from git@github.com:Srynetix/godot-plugin-scenerunner added to project MyProject ..
 
 gdpm add plugin1 1.0.0 ../plugin1 --path ./my/project
-# Dependency plugin1 (v1.0.0) from ../plugin1 added to project ./my/project.
+# Dependency plugin1 (v1.0.0) from ../plugin1 added to project MyProject2.
 ```
 
 ### `desync`
@@ -153,10 +153,10 @@ Il will remove installed plugins which are not from the project.
 
 ```bash
 gdpm desync
-# Dependencies are desynchronized for project ..
+# Dependencies are desynchronized for project MyProject.
 
 gdpm desync --path ./my/project
-# Dependencies are desynchronized for project ./my/project.
+# Dependencies are desynchronized for project MyProject2.
 ```
 
 ### `edit`
@@ -171,13 +171,13 @@ You can also specify to open the project in a specific editor version.
 
 ```bash
 gdpm edit
-# > Running Godot Engine v3.1.1 for project . ...
+# > Running Godot Engine v3.1.1 for project MyProject ...
 
 gdpm edit --path ./my/project
-# > Running Godot Engine v3.1.1 for project ./my/project ...
+# > Running Godot Engine v3.1.1 for project MyProject2 ...
 
 gdpm edit --path ./my/project 3.2alpha3
-# > Running Godot Engine v3.2alpha3 for project ./my/project ...
+# > Running Godot Engine v3.2alpha3 for project MyProject2 ...
 ```
 
 ### `info`
@@ -189,11 +189,11 @@ You can pass another folder using the `--path` argument.
 
 ```bash
 gdpm info
-# Project: My project
+# Project: MyProject
 # - Engine version: v3.2alpha3
 
 gdpm info --path ./my/project
-# Project: My project 2
+# Project: MyProject2
 # - Engine version: v3.1.1
 ```
 
@@ -226,10 +226,10 @@ If the dependency is installed, its folder will also be removed.
 
 ```bash
 gdpm remove plugin1
-# Dependency plugin1 removed from project ..
+# Dependency plugin1 removed from project MyProject.
 
 gdpm remove plugin1 --path ./my/project
-# Dependency plugin1 removed from project ./my/project.
+# Dependency plugin1 removed from project MyProject2.
 ```
 
 ### `set-engine`
@@ -243,13 +243,13 @@ If you have a default engine set and if you are not passing a `version` to the c
 
 ```bash
 gdpm set-engine
-# > Godot Engine v3.1.1 set for project: .
+# > Godot Engine v3.1.1 set for project MyProject
 
 gdpm set-engine --path ./my/project
-# > Godot Engine v3.1.1 set for project: ./my/project
+# > Godot Engine v3.1.1 set for project MyProject2
 
 gdpm set-engine --path ./my/project 3.2alpha3
-# > Godot Engine v3.2alpha3 set for project: ./my/project
+# > Godot Engine v3.2alpha3 set for project MyProject2
 ```
 
 ### `sync`
@@ -263,10 +263,10 @@ It will also scan the `addons` folder and register dependencies as `current` if 
 
 ```bash
 gdpm sync
-# Dependencies are now synchronized for project ..
+# Dependencies are now synchronized for project MyProject.
 
 gdpm sync --path ./my/project
-# Dependencies are now synchronized for project ./my/project.
+# Dependencies are now synchronized for project MyProject2.
 ```
 
 ### `unset-engine`
@@ -278,10 +278,10 @@ You can pass another folder using the `--path` argument.
 
 ```bash
 gdpm unset-engine
-# > Engine deassociated from project: .
+# > Engine deassociated from project MyProject
 
 gdpm unset-engine --path ./my/project
-# > Engine deassociated from project: ./my/project
+# > Engine deassociated from project MyProject2
 ```
 
 ### `engine list`

@@ -14,7 +14,7 @@ Toy project (for now) written in Rust.
   - [x] Sync from external source (git)
   - [x] Desync dependencies
   - [x] Fork dependency in project (inclusion)
-- [ ] Proxy commands to engine instance (like export)
+- [x] Proxy commands to engine instance (like export)
 
 ## Installation
 
@@ -298,6 +298,37 @@ gdpm unset-engine --path ./my/project
 # > Engine deassociated from project MyProject2.
 ```
 
+### `engine cmd`
+
+Execute a command on a specific version of an engine, or on the default engine version if `version` is not set.  
+
+*Examples:*
+
+```bash
+gdpm engine cmd -- --test gui
+# > Executing command --test gui on Godot Engine v3.2beta2 ...
+
+gdpm engine cmd -- -h
+# > Executing command -h on Godot Engine v3.2beta2 ...
+```
+
+### `engine default`
+
+Set a registered engine as default, or get the default engine if `version` is not set.
+
+*Examples:*
+
+```bash
+gdpm engine default
+# > No default engine registered. Use `engine default <version>` to register one.
+
+gdpm engine default 3.1.1
+# > Godot Engine v3.1.1 set as default.
+
+gdpm engine default
+# * Godot Engine v3.1.1
+```
+
 ### `engine list`
 
 Get a list of the registered engines for your user.
@@ -339,35 +370,6 @@ gdpm engine register master C:/.../master/bin/godot.exe --source
 # > Godot Engine vmaster registered.
 ```
 
-### `engine unregister`
-
-Unregister an engine for your user.  
-If you unregister the default engine, it will remain unset. You will have to call `engine default <version>`.
-
-*Examples:*
-
-```bash
-gdpm engine unregister v3.2alpha2
-# > Godot Engine v3.2alpha2 unregistered.
-```
-
-### `engine default`
-
-Set a registered engine as default, or get the default engine if `version` is not set.
-
-*Examples:*
-
-```bash
-gdpm engine default
-# > No default engine registered. Use `engine default <version>` to register one.
-
-gdpm engine default 3.1.1
-# > Godot Engine v3.1.1 set as default.
-
-gdpm engine default
-# * Godot Engine v3.1.1
-```
-
 ### `engine run`
 
 Run a specific version of an engine, or run the default engine version if `version` is not set.
@@ -378,4 +380,16 @@ gdpm engine run
 
 gdpm engine run master
 # > Running Godot Engine vmaster ...
+```
+
+### `engine unregister`
+
+Unregister an engine for your user.  
+If you unregister the default engine, it will remain unset. You will have to call `engine default <version>`.
+
+*Examples:*
+
+```bash
+gdpm engine unregister v3.2alpha2
+# > Godot Engine v3.2alpha2 unregistered.
 ```

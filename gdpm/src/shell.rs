@@ -172,14 +172,16 @@ pub fn run_shell() -> Result<(), Error> {
         }
         Command::SetEngine { path, version } => {
             use crate::engine::{get_default_engine, get_engine_version};
-            use crate::project::set_project_engine;
+            use crate::project::{get_project_info, set_project_engine};
+            let info = get_project_info(&path)?;
+
             if version == "" {
                 if let Some(e) = get_default_engine()? {
                     set_project_engine(&path, &e)?;
                     println!(
-                        "Godot Engine v{} set for project: {}",
+                        "Godot Engine v{} set for project {}.",
                         version.color("green"),
-                        path.to_string_lossy().color("green")
+                        info.get_versioned_name().color("green")
                     );
                 } else {
                     print_missing_default_engine_message();
@@ -188,33 +190,36 @@ pub fn run_shell() -> Result<(), Error> {
                 get_engine_version(&version)?;
                 set_project_engine(&path, &version)?;
                 println!(
-                    "Godot Engine v{} set for project: {}",
+                    "Godot Engine v{} set for project {}.",
                     version.color("green"),
-                    path.to_string_lossy().color("green")
+                    info.get_versioned_name().color("green")
                 );
             }
         }
         Command::UnsetEngine { path } => {
-            use crate::project::unset_project_engine;
+            use crate::project::{get_project_info, unset_project_engine};
             unset_project_engine(&path)?;
+            let info = get_project_info(&path)?;
+
             println!(
-                "Engine deassociated from project: {}",
-                path.to_string_lossy().color("green")
+                "Engine deassociated from project {}.",
+                info.get_versioned_name().color("green")
             );
         }
         Command::Edit { path, version } => {
             use crate::engine::{get_default_engine, run_engine_version_for_project};
             use crate::project::{get_project_info, set_project_engine};
 
+            let project_info = get_project_info(&path)?;
+
             // Use project or default version
             if version == "" {
                 // Detect project version
-                let project_info = get_project_info(&path)?;
                 if let Some(e) = project_info.get_engine_version() {
                     println!(
                         "Running Godot Engine v{} for project {} ...",
                         e.color("green"),
-                        path.to_string_lossy().color("green")
+                        project_info.get_versioned_name().color("green")
                     );
                     run_engine_version_for_project(&e, &path)?;
                 } else {
@@ -222,8 +227,9 @@ pub fn run_shell() -> Result<(), Error> {
                     if let Some(e) = get_default_engine()? {
                         print_missing_project_engine_message();
                         match Question::new(&format!(
-                            "Do you want to associate the default engine (v{}) (y/n)?",
-                            e.color("green")
+                            "Do you want to associate the default engine (v{}) to project {} (y/n)?",
+                            e.color("green"),
+                            project_info.get_versioned_name().color("green")
                         ))
                         .confirm()
                         {
@@ -235,7 +241,7 @@ pub fn run_shell() -> Result<(), Error> {
                         println!(
                             "Running Godot Engine v{} for project {} ...",
                             e.color("green"),
-                            path.to_string_lossy().color("green")
+                            project_info.get_versioned_name().color("green")
                         );
                         run_engine_version_for_project(&e, &path)?;
                     } else {
@@ -248,34 +254,45 @@ pub fn run_shell() -> Result<(), Error> {
                 println!(
                     "Running Godot Engine v{} for project {} ...",
                     version.color("green"),
-                    path.to_string_lossy().color("green")
+                    project_info.get_versioned_name().color("green")
                 );
                 run_engine_version_for_project(&version, &path)?;
             }
         }
         Command::List { path } => {
             use crate::plugins::list_project_dependencies;
+            use crate::project::get_project_info;
+            let project_info = get_project_info(&path)?;
             let dependencies = list_project_dependencies(&path)?;
+            println!(
+                "Dependencies from project {}:",
+                project_info.get_versioned_name().color("green")
+            );
+
             for dep in dependencies {
                 dep.show();
             }
         }
         Command::Sync { path } => {
             use crate::plugins::sync_project_plugins;
+            use crate::project::get_project_info;
+            let project_info = get_project_info(&path)?;
             sync_project_plugins(&path)?;
 
             println!(
                 "Dependencies are now synchronized for project {}.",
-                path.to_string_lossy().color("green")
+                project_info.get_versioned_name().color("green")
             )
         }
         Command::Desync { path } => {
             use crate::plugins::desync_project_plugins;
+            use crate::project::get_project_info;
+            let project_info = get_project_info(&path)?;
             desync_project_plugins(&path)?;
 
             println!(
                 "Dependencies are desynchronized for project {}.",
-                path.to_string_lossy().color("green")
+                project_info.get_versioned_name().color("green")
             )
         }
         Command::Add {
@@ -285,6 +302,8 @@ pub fn run_shell() -> Result<(), Error> {
             source,
         } => {
             use crate::plugins::add_dependency;
+            use crate::project::get_project_info;
+            let project_info = get_project_info(&path)?;
             add_dependency(&path, &name, &version, &source)?;
 
             println!(
@@ -292,17 +311,19 @@ pub fn run_shell() -> Result<(), Error> {
                 name.color("green"),
                 version.color("green"),
                 source.color("blue"),
-                path.to_string_lossy().color("green")
+                project_info.get_versioned_name().color("green")
             );
         }
         Command::Remove { path, name } => {
             use crate::plugins::remove_dependency;
+            use crate::project::get_project_info;
+            let project_info = get_project_info(&path)?;
             remove_dependency(&path, &name)?;
 
             println!(
                 "Dependency {} removed from project {}.",
                 name.color("green"),
-                path.to_string_lossy().color("green")
+                project_info.get_versioned_name().color("green")
             );
         }
         Command::Engine { cmd } => match cmd {

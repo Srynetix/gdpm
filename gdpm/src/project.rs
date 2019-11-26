@@ -41,6 +41,15 @@ impl GdProjectInfo {
         })
     }
 
+    /// Get versioned name
+    pub fn get_versioned_name(&self) -> String {
+        if let Some(v) = &self.version {
+            format!("{} (v{})", self.project_name, v)
+        } else {
+            self.project_name.clone()
+        }
+    }
+
     /// Get engine version
     pub fn get_engine_version(&self) -> Option<&str> {
         self.engine_version.as_ref().map(|x| &**x)

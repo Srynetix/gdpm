@@ -420,6 +420,29 @@ pub fn remove_dependency(project_path: &Path, name: &str) -> Result<(), Error> {
     write_project_configuration(project_path, data)
 }
 
+/// Fork dependency: integrate plugin inside of project
+pub fn fork_dependency(project_path: &Path, name: &str) -> Result<(), Error> {
+    let mut data = read_project_configuration(project_path)?;
+    let slug = slugify!(name);
+
+    // Check if dependency is present in project
+    if let Some(value) = data.get_property(DEPS_SECTION, &slug) {
+        let mut dep = Dependency::from_gdvalue(&slug, &value)?;
+        // Check if dependency is not installed
+        if !dep.is_installed(project_path) {
+            // Force installl
+            dep.install(project_path)?;
+        }
+
+        // Set source to current
+        dep.source = DependencySource::Current;
+        data.set_property(DEPS_SECTION, &slug, dep.to_gdvalue());
+        write_project_configuration(project_path, data)?;
+    }
+
+    Ok(())
+}
+
 /// Sync project dependencies
 ///
 /// * Find and register new dependencies in project

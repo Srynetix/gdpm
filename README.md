@@ -101,7 +101,7 @@ How do we specify this? How can we retrieve the plugin code in our project? It's
 # Let's add plugin2 from the ../other-project project
 gdpm add plugin2 1.0.0 ../other-project
 # Then add `gitplugin` from the `git@github.com:example/example-project` project
-gdpm add gitplugin 1.0.0 git@github.com:example/example-project`
+gdpm add gitplugin 1.0.0 git@github.com:example/example-project
 # Now sync everything to register `plugin1` and install the other plugins
 gdpm sync
 ```
@@ -133,13 +133,13 @@ If a dependency with the same name is already registered to the project, it will
 
 ```bash
 gdpm add plugin1 1.0.0 ../plugin1
-# Dependency plugin1 (v1.0.0) from ../plugin1 added to project MyProject
+# > Dependency plugin1 (v1.0.0) from ../plugin1 added to project MyProject.
 
 gdpm add scenerunner 1.0.0 git@github.com:Srynetix/godot-plugin-scenerunner
-# Dependency scenerunner (v1.0.0) from git@github.com:Srynetix/godot-plugin-scenerunner added to project MyProject ..
+# > Dependency scenerunner (v1.0.0) from git@github.com:Srynetix/godot-plugin-scenerunner added to project MyProject.
 
 gdpm add plugin1 1.0.0 ../plugin1 --path ./my/project
-# Dependency plugin1 (v1.0.0) from ../plugin1 added to project MyProject2.
+# > Dependency plugin1 (v1.0.0) from ../plugin1 added to project MyProject2.
 ```
 
 ### `desync`
@@ -153,10 +153,10 @@ Il will remove installed plugins which are not from the project.
 
 ```bash
 gdpm desync
-# Dependencies are desynchronized for project MyProject.
+# > Dependencies are desynchronized for project MyProject.
 
 gdpm desync --path ./my/project
-# Dependencies are desynchronized for project MyProject2.
+# > Dependencies are desynchronized for project MyProject2.
 ```
 
 ### `edit`
@@ -180,6 +180,22 @@ gdpm edit --path ./my/project 3.2alpha3
 # > Running Godot Engine v3.2alpha3 for project MyProject2 ...
 ```
 
+### `fork`
+
+Integrate/Fork a dependency inside of the current folder.  
+It will change the source of the dependency (and install it) as from the current project.  
+You can pass another folder using the `--path` argument.
+
+*Examples:*
+
+```bash
+gdpm add scenerunner 1.0.0 git@github.com:Srynetix/godot-plugin-scenerunner
+# > Dependency scenerunner (v1.0.0) from git@github.com:Srynetix/godot-plugin-scenerunner added to project MyProject.
+
+gdpm fork scenerunner
+# > Dependency scenerunner forked in project MyProject.
+```
+
 ### `info`
 
 Get project info from current folder.  
@@ -189,12 +205,12 @@ You can pass another folder using the `--path` argument.
 
 ```bash
 gdpm info
-# Project: MyProject
-# - Engine version: v3.2alpha3
+# > Project: MyProject
+# > - Engine version: v3.2alpha3
 
 gdpm info --path ./my/project
-# Project: MyProject2
-# - Engine version: v3.1.1
+# > Project: MyProject2
+# > - Engine version: v3.1.1
 ```
 
 ### `list`
@@ -206,13 +222,13 @@ You can pass another folder using the `--path` argument.
 
 ```bash
 gdpm list
-# - plugin1 (v1.0.0) (source: Current)
-# - plugin2 (v1.0.0) (source ../plugin2)
-# - scenerunner (v1.0.0) (source: Git (SSH): git@github.com:Srynetix/godot-plugin-scenerunner)
+# > - plugin1 (v1.0.0) (source: Current)
+# > - plugin2 (v1.0.0) (source ../plugin2)
+# > - scenerunner (v1.0.0) (source: Git (SSH): git@github.com:Srynetix/godot-plugin-scenerunner)
 
 gdpm list --path ./my/project
-# - plugin1 (v1.0.0) (source: Current)
-# - plugin2 (v1.0.0) (source ../plugin2)
+# > - plugin1 (v1.0.0) (source: Current)
+# > - plugin2 (v1.0.0) (source ../plugin2)
 ```
 
 ### `remove`
@@ -226,10 +242,10 @@ If the dependency is installed, its folder will also be removed.
 
 ```bash
 gdpm remove plugin1
-# Dependency plugin1 removed from project MyProject.
+# > Dependency plugin1 removed from project MyProject.
 
 gdpm remove plugin1 --path ./my/project
-# Dependency plugin1 removed from project MyProject2.
+# > Dependency plugin1 removed from project MyProject2.
 ```
 
 ### `set-engine`
@@ -243,13 +259,13 @@ If you have a default engine set and if you are not passing a `version` to the c
 
 ```bash
 gdpm set-engine
-# > Godot Engine v3.1.1 set for project MyProject
+# > Godot Engine v3.1.1 set for project MyProject.
 
 gdpm set-engine --path ./my/project
-# > Godot Engine v3.1.1 set for project MyProject2
+# > Godot Engine v3.1.1 set for project MyProject2.
 
 gdpm set-engine --path ./my/project 3.2alpha3
-# > Godot Engine v3.2alpha3 set for project MyProject2
+# > Godot Engine v3.2alpha3 set for project MyProject2.
 ```
 
 ### `sync`
@@ -263,10 +279,10 @@ It will also scan the `addons` folder and register dependencies as `current` if 
 
 ```bash
 gdpm sync
-# Dependencies are now synchronized for project MyProject.
+# > Dependencies are now synchronized for project MyProject.
 
 gdpm sync --path ./my/project
-# Dependencies are now synchronized for project MyProject2.
+# > Dependencies are now synchronized for project MyProject2.
 ```
 
 ### `unset-engine`
@@ -278,10 +294,10 @@ You can pass another folder using the `--path` argument.
 
 ```bash
 gdpm unset-engine
-# > Engine deassociated from project MyProject
+# > Engine deassociated from project MyProject.
 
 gdpm unset-engine --path ./my/project
-# > Engine deassociated from project MyProject2
+# > Engine deassociated from project MyProject2.
 ```
 
 ### `engine list`

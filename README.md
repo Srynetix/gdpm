@@ -18,6 +18,14 @@ Toy project (for now) written in Rust.
 - [ ] Execute custom actions
 - [ ] Proxy commands to engine instance (like export)
 
+## Installation
+
+The easiest way (you need to have Rust and Cargo):
+
+```bash
+cargo install --git https://github.com/Srynetix/gdpm gdpm
+```
+
 ## Workflow
 
 Using gdpm is quite simple.  

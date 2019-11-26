@@ -9,12 +9,11 @@ Toy project (for now) written in Rust.
 - [x] Get project information using the project.godot file
 - [x] Write custom configuration in the project.godot file
 - [x] Manage Godot instances
-- [ ] Manage dependencies (in the addons folder)
+- [x] Manage dependencies (in the addons folder)
   - [x] Sync from another project
   - [x] Sync from external source (git)
-  - [ ] Sync to another project
   - [x] Desync dependencies
-  - [ ] Fork dependency in project (inclusion)
+  - [x] Fork dependency in project (inclusion)
 - [ ] Execute custom actions
 - [ ] Proxy commands to engine instance (like export)
 

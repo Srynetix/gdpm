@@ -64,6 +64,14 @@ enum Command {
         /// Dependency source
         source: String,
     },
+    /// Fork dependency: integrate in code
+    Fork {
+        /// Project path
+        #[structopt(short, long, parse(from_os_str), default_value = ".")]
+        path: PathBuf,
+        /// Name
+        name: String,
+    },
     /// Remove dependency
     Remove {
         /// Project path
@@ -292,6 +300,18 @@ pub fn run_shell() -> Result<(), Error> {
 
             println!(
                 "Dependencies are desynchronized for project {}.",
+                project_info.get_versioned_name().color("green")
+            )
+        }
+        Command::Fork { path, name } => {
+            use crate::plugins::fork_dependency;
+            use crate::project::get_project_info;
+            let project_info = get_project_info(&path)?;
+            fork_dependency(&path, &name)?;
+
+            println!(
+                "Plugin {} forked in project {}.",
+                name.color("green"),
                 project_info.get_versioned_name().color("green")
             )
         }

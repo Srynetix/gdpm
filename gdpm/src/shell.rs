@@ -8,8 +8,9 @@ use question::{Answer, Question};
 use slugify::slugify;
 use structopt::StructOpt;
 
+/// Manage Godot versions and project dependencies
 #[derive(StructOpt, Debug)]
-#[structopt(name = "basic")]
+#[structopt(name = "gdpm")]
 struct Opt {
     /// Verbose mode (-v, -vv, -vvv, etc.)
     #[structopt(short, long, parse(from_occurrences))]

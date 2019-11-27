@@ -24,6 +24,8 @@ The easiest way (you need to have Rust and Cargo):
 cargo install --git https://github.com/Srynetix/gdpm gdpm
 ```
 
+You can also get the latest release on the [GitHub release page](https://github.com/Srynetix/gdpm/releases), and put the executable on your PATH. 
+
 ## Workflow
 
 Using gdpm is quite simple.  

@@ -125,18 +125,19 @@ The required arguments are: [name], [version] and [source].
 
 If a dependency with the same name is already registered to the project, it will be updated.
 
-*Note*: added dependencies are not automatically resolved. To install the dependencies, use the `gdpm sync` command.
+Dependencies are automatically installed, unless to pass the `--no-install` argument.  
+If you used `--no-install`, you will have to use the `gdpm sync` command to install.
 
 *Examples:*
 
 ```bash
 gdpm add plugin1 1.0.0 ../plugin1
-# > Dependency plugin1 (v1.0.0) from ../plugin1 added to project MyProject.
+# > Dependency plugin1 (v1.0.0) from ../plugin1 added and installed to project MyProject.
 
 gdpm add scenerunner 1.0.0 git@github.com:Srynetix/godot-plugin-scenerunner
-# > Dependency scenerunner (v1.0.0) from git@github.com:Srynetix/godot-plugin-scenerunner added to project MyProject.
+# > Dependency scenerunner (v1.0.0) from git@github.com:Srynetix/godot-plugin-scenerunner added and installed to project MyProject.
 
-gdpm add plugin1 1.0.0 ../plugin1 --path ./my/project
+gdpm add plugin1 1.0.0 ../plugin1 --path ./my/project --no-install
 # > Dependency plugin1 (v1.0.0) from ../plugin1 added to project MyProject2.
 ```
 
@@ -145,7 +146,8 @@ gdpm add plugin1 1.0.0 ../plugin1 --path ./my/project
 Desynchronize dependencies for the current project.  
 You can pass another folder using the `--path` argument.
 
-Il will remove installed plugins which are not from the project.
+Il will remove installed plugins which are not from the project.  
+You can specify a plugin name to desynchronize only one plugin.
 
 *Examples:*
 
@@ -155,6 +157,9 @@ gdpm desync
 
 gdpm desync --path ./my/project
 # > Dependencies are desynchronized for project MyProject2.
+
+gdpm desync --path ./my/project plugin1
+# > Dependency plugin1 is desynchronized for project MyProject2.
 ```
 
 ### `edit`
@@ -271,7 +276,8 @@ gdpm set-engine --path ./my/project 3.2alpha3
 Synchronize/Install registered dependencies from the current project.  
 You can pass another folder using the `--path` argument.
 
-It will also scan the `addons` folder and register dependencies as `current` if they are not present in the dependency list.
+It will also scan the `addons` folder and register dependencies as `current` if they are not present in the dependency list.  
+You can specify a plugin name to synchronize only one plugin.
 
 *Examples:*
 
@@ -281,6 +287,9 @@ gdpm sync
 
 gdpm sync --path ./my/project
 # > Dependencies are now synchronized for project MyProject2.
+
+gdpm sync --path ./my/project plugin1
+# > Dependency plugin1 is now synchronized for project MyProject2.
 ```
 
 ### `unset-engine`

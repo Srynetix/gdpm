@@ -375,6 +375,7 @@ pub fn add_dependency(
     name: &str,
     version: &str,
     source: &str,
+    no_install: bool,
 ) -> Result<(), Error> {
     let dependency = Dependency {
         name: name.to_string(),
@@ -386,6 +387,10 @@ pub fn add_dependency(
     let mut data = read_project_configuration(project_path)?;
     let slug = slugify!(name);
     data.set_property(DEPS_SECTION, &slug, dependency.to_gdvalue());
+
+    if !no_install {
+        dependency.install(project_path)?;
+    }
 
     write_project_configuration(project_path, data)
 }
@@ -481,6 +486,46 @@ pub fn sync_project_plugins(project_path: &Path) -> Result<(), Error> {
     Ok(())
 }
 
+/// Sync one specific project dependency
+pub fn sync_project_plugin(project_path: &Path, plugin_name: &str) -> Result<(), Error> {
+    // Find and register plugins
+    let plugin_slug = slugify!(plugin_name);
+    let mut conf = read_project_configuration(project_path)?;
+    let plugins = list_plugins_from_project(project_path)?;
+    for plugin in plugins {
+        let slug = slugify!(&plugin.name);
+        if slug == plugin_slug {
+            // Check if plugin is absent
+            if conf.get_property(DEPS_SECTION, &slug).is_none() {
+                let dep = Dependency::from_plugin_info(&plugin);
+                conf.set_property(DEPS_SECTION, &slug, dep.to_gdvalue());
+                println!(
+                    "Plugin {} added as dependency for project {}.",
+                    dep.name.color("green"),
+                    project_path.to_string_lossy().color("green")
+                );
+            }
+        }
+    }
+    write_project_configuration(project_path, conf)?;
+
+    // Install dependencies
+    let deps = list_project_dependencies(project_path)?;
+    for dep in deps {
+        let dep_slug = slugify!(&dep.name);
+        if dep_slug == plugin_slug {
+            dep.install(project_path)?;
+            println!(
+                "Plugin {} installed in project {}.",
+                dep.name.color("green"),
+                project_path.to_string_lossy().color("green")
+            );
+        }
+    }
+
+    Ok(())
+}
+
 /// Desynchronize project dependencies
 ///
 /// Uninstall not-included dependencies.
@@ -489,6 +534,24 @@ pub fn desync_project_plugins(project_path: &Path) -> Result<(), Error> {
     let deps = list_project_dependencies(project_path)?;
     for dep in deps {
         if dep.source != DependencySource::Current && dep.is_installed(project_path) {
+            // Uninstall dependency
+            dep.uninstall(project_path)?;
+        }
+    }
+
+    Ok(())
+}
+
+/// Desynchronize one specific project dependency
+pub fn desync_project_plugin(project_path: &Path, plugin_name: &str) -> Result<(), Error> {
+    let plugin_slug = slugify!(plugin_name);
+    let deps = list_project_dependencies(project_path)?;
+    for dep in deps {
+        let dep_slug = slugify!(&dep.name);
+        if dep_slug == plugin_slug
+            && dep.source != DependencySource::Current
+            && dep.is_installed(project_path)
+        {
             // Uninstall dependency
             dep.uninstall(project_path)?;
         }

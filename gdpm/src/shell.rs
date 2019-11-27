@@ -63,6 +63,9 @@ enum Command {
         version: String,
         /// Dependency source
         source: String,
+        /// No install
+        #[structopt(long)]
+        no_install: bool,
     },
     /// Fork dependency: integrate in code
     Fork {
@@ -91,12 +94,18 @@ enum Command {
         /// Project path
         #[structopt(short, long, parse(from_os_str), default_value = ".")]
         path: PathBuf,
+        /// Name
+        #[structopt(default_value = "")]
+        name: String,
     },
     /// Desync project plugins
     Desync {
         /// Project path
         #[structopt(short, long, parse(from_os_str), default_value = ".")]
         path: PathBuf,
+        /// Name
+        #[structopt(default_value = "")]
+        name: String,
     },
     /// Engine management
     Engine {
@@ -290,27 +299,49 @@ pub fn run_shell() -> Result<(), Error> {
                 dep.show();
             }
         }
-        Command::Sync { path } => {
-            use crate::plugins::sync_project_plugins;
+        Command::Sync { path, name } => {
+            use crate::plugins::{sync_project_plugin, sync_project_plugins};
             use crate::project::get_project_info;
             let project_info = get_project_info(&path)?;
-            sync_project_plugins(&path)?;
 
-            println!(
-                "Dependencies are now synchronized for project {}.",
-                project_info.get_versioned_name().color("green")
-            )
+            if name == "" {
+                sync_project_plugins(&path)?;
+
+                println!(
+                    "Dependencies are now synchronized for project {}.",
+                    project_info.get_versioned_name().color("green")
+                )
+            } else {
+                sync_project_plugin(&path, &name)?;
+
+                println!(
+                    "Dependency {} is now synchronized for project {}.",
+                    project_info.get_versioned_name().color("green"),
+                    name.color("green")
+                )
+            }
         }
-        Command::Desync { path } => {
-            use crate::plugins::desync_project_plugins;
+        Command::Desync { path, name } => {
+            use crate::plugins::{desync_project_plugin, desync_project_plugins};
             use crate::project::get_project_info;
             let project_info = get_project_info(&path)?;
-            desync_project_plugins(&path)?;
 
-            println!(
-                "Dependencies are desynchronized for project {}.",
-                project_info.get_versioned_name().color("green")
-            )
+            if name == "" {
+                desync_project_plugins(&path)?;
+
+                println!(
+                    "Dependencies are desynchronized for project {}.",
+                    project_info.get_versioned_name().color("green")
+                )
+            } else {
+                desync_project_plugin(&path, &name)?;
+
+                println!(
+                    "Dependency {} is desynchronized for project {}.",
+                    project_info.get_versioned_name().color("green"),
+                    name.color("green")
+                )
+            }
         }
         Command::Fork { path, name } => {
             use crate::plugins::fork_dependency;
@@ -329,19 +360,30 @@ pub fn run_shell() -> Result<(), Error> {
             name,
             version,
             source,
+            no_install,
         } => {
             use crate::plugins::add_dependency;
             use crate::project::get_project_info;
             let project_info = get_project_info(&path)?;
-            add_dependency(&path, &name, &version, &source)?;
+            add_dependency(&path, &name, &version, &source, no_install)?;
 
-            println!(
-                "Dependency {} (v{}) from {} added to project {}.",
-                name.color("green"),
-                version.color("green"),
-                source.color("blue"),
-                project_info.get_versioned_name().color("green")
-            );
+            if no_install {
+                println!(
+                    "Dependency {} (v{}) from {} added to project {}.",
+                    name.color("green"),
+                    version.color("green"),
+                    source.color("blue"),
+                    project_info.get_versioned_name().color("green")
+                );
+            } else {
+                println!(
+                    "Dependency {} (v{}) from {} added and installed to project {}.",
+                    name.color("green"),
+                    version.color("green"),
+                    source.color("blue"),
+                    project_info.get_versioned_name().color("green")
+                );
+            }
         }
         Command::Remove { path, name } => {
             use crate::plugins::remove_dependency;

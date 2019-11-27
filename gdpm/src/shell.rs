@@ -316,8 +316,8 @@ pub fn run_shell() -> Result<(), Error> {
 
                 println!(
                     "Dependency {} is now synchronized for project {}.",
-                    project_info.get_versioned_name().color("green"),
-                    name.color("green")
+                    name.color("green"),
+                    project_info.get_versioned_name().color("green")
                 )
             }
         }
@@ -338,8 +338,8 @@ pub fn run_shell() -> Result<(), Error> {
 
                 println!(
                     "Dependency {} is desynchronized for project {}.",
-                    project_info.get_versioned_name().color("green"),
-                    name.color("green")
+                    name.color("green"),
+                    project_info.get_versioned_name().color("green")
                 )
             }
         }

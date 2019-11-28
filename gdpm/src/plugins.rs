@@ -225,6 +225,11 @@ impl Dependency {
                 } else {
                     let project_full_path = full_path.join(ADDONS_FOLDER).join(&self.name);
                     let project_addons = project_path.join(ADDONS_FOLDER);
+                    if !project_addons.exists() {
+                        // Create addons folder
+                        fs::create_dir(&project_addons)?;
+                    }
+
                     // Copy folder to project
                     let options = CopyOptions::new();
                     copy(project_full_path, project_addons, &options)?;
@@ -255,6 +260,11 @@ impl Dependency {
                 } else {
                     let project_full_path = plugin_path.join(ADDONS_FOLDER).join(&self.name);
                     let project_addons = project_path.join(ADDONS_FOLDER);
+                    if !project_addons.exists() {
+                        // Create addons folder
+                        fs::create_dir(&project_addons)?;
+                    }
+
                     // Copy folder to project
                     let options = CopyOptions::new();
                     copy(project_full_path, project_addons, &options)?;

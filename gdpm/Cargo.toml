@@ -1,6 +1,6 @@
 [package]
 name = "gdpm"
-version = "1.0.0"
+version = "1.0.1"
 authors = ["Denis Bourge <denis.bourge@sharingcloud.com>"]
 edition = "2018"
 

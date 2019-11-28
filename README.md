@@ -21,7 +21,7 @@ Toy project (for now) written in Rust.
 The easiest way (you need to have Rust and Cargo):
 
 ```bash
-cargo install --git https://github.com/Srynetix/gdpm gdpm
+cargo install --git https://github.com/Srynetix/gdpm#v1.0.1 gdpm
 ```
 
 You can also get the latest release on the [GitHub release page](https://github.com/Srynetix/gdpm/releases), and put the executable on your PATH. 

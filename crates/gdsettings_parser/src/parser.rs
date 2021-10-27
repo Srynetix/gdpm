@@ -1,6 +1,10 @@
 //! Godot project file parser
 
-use std::{collections::BTreeMap, num::{ParseFloatError, ParseIntError}, str::ParseBoolError};
+use std::{
+    collections::BTreeMap,
+    num::{ParseFloatError, ParseIntError},
+    str::ParseBoolError,
+};
 
 use pest::Parser;
 use pest_derive::Parser;
@@ -25,10 +29,13 @@ pub enum ParserError {
 
     /// Type conversion error
     #[error("type conversion error: {0}")]
-    TypeConversionError(String)
+    TypeConversionError(String),
 }
 
-impl<E> From<pest::error::Error<E>> for ParserError where E: std::fmt::Debug {
+impl<E> From<pest::error::Error<E>> for ParserError
+where
+    E: std::fmt::Debug,
+{
     fn from(error: pest::error::Error<E>) -> Self {
         Self::PestError(format!("{:?}", error))
     }
@@ -132,7 +139,11 @@ impl GdSettings {
     /// * `section` - Section name
     /// * `property` - Property name
     ///
-    pub fn remove_property(&mut self, section: &str, property: &str) -> Result<(), GdSettingsError> {
+    pub fn remove_property(
+        &mut self,
+        section: &str,
+        property: &str,
+    ) -> Result<(), GdSettingsError> {
         let section_entry = self
             .0
             .get_mut(section)
@@ -141,7 +152,7 @@ impl GdSettings {
             })?;
         if section_entry.get(property).is_none() {
             return Err(GdSettingsError::MissingProperty {
-                property: property.to_string()
+                property: property.to_string(),
             });
         }
 

@@ -4,7 +4,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
-use color_eyre::{Report as Error, eyre::eyre};
+use color_eyre::{eyre::eyre, Report as Error};
 use colored::Colorize;
 use fs_extra::dir::{copy, CopyOptions};
 use slugify::slugify;

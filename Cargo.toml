@@ -1,5 +1,5 @@
 [workspace]
 members = [
-    "gdpm",
-    "gdsettings_parser",
+    "crates/gdpm",
+    "crates/gdsettings_parser",
 ]

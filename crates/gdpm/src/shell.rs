@@ -1,8 +1,8 @@
 use std::env;
 use std::path::{Path, PathBuf};
 
-use colored::Colorize;
 use color_eyre::Report as Error;
+use colored::Colorize;
 use question::{Answer, Question};
 use slugify::slugify;
 use structopt::StructOpt;

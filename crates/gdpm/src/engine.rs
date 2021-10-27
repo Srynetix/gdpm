@@ -3,7 +3,7 @@
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
-use color_eyre::{Report as Error, eyre::eyre};
+use color_eyre::{eyre::eyre, Report as Error};
 use colored::Colorize;
 use gdsettings_parser::{GdSettings, GdValue};
 use slugify::slugify;
@@ -253,7 +253,7 @@ pub fn get_engine_version(version: &str) -> Result<EngineInfo, Error> {
         Ok(entry.clone())
     } else {
         Err(ConfigError::EngineNotFound {
-            path: version.to_string()
+            path: version.to_string(),
         })?
     }
 }

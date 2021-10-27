@@ -1,5 +1,5 @@
 [package]
-name = "gdsettings_parser"
+name = "gdsettings-parser"
 version = "0.1.0"
 authors = ["Denis Bourge <denis.bourge@sharingcloud.com>"]
 edition = "2018"

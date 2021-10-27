@@ -7,7 +7,7 @@ edition = "2018"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-gdsettings_parser = { path = "../gdsettings_parser" }
+gdsettings-parser = { path = "../gdsettings-parser" }
 argh = "0.1.6"
 colored = "1.8"
 dirs = "2.0.2"

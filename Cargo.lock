@@ -368,7 +368,7 @@ dependencies = [
  "colored",
  "dirs",
  "fs_extra",
- "gdsettings_parser",
+ "gdsettings-parser",
  "question",
  "slugify",
  "structopt",
@@ -376,7 +376,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "gdsettings_parser"
+name = "gdsettings-parser"
 version = "0.1.0"
 dependencies = [
  "pest",

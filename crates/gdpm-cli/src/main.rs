@@ -1,0 +1,16 @@
+use color_eyre::Result;
+use commands::{Args, parse_args};
+
+mod commands;
+
+fn main() -> Result<()> {
+    color_eyre::install()?;
+
+    // Force env if not present
+    if std::env::var_os("RUST_BACKTRACE").is_none() {
+        std::env::set_var("RUST_BACKTRACE", "full");
+    }
+
+    let args: Args = argh::from_env();
+    parse_args(args)
+}

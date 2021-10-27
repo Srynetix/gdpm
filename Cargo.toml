@@ -1,5 +1,9 @@
 [workspace]
 members = [
-    "crates/gdpm",
+    "crates/gdpm-cli",
+    "crates/gdpm-core",
     "crates/gdsettings-parser",
 ]
+
+[profile.dev.package.backtrace]
+opt-level = 3

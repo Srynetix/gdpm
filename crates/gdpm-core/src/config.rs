@@ -1,17 +1,17 @@
 //! Config module
 
-use std::path::{Path, PathBuf};
+use std::{fs::File, path::{Path, PathBuf}};
 
-use color_eyre::Report as Error;
+use gdsettings_parser::{GdSettings, GdSettingsError, ParserError, parse_gdsettings_file};
+use thiserror::Error;
 
 use crate::fs::{
     read_configuration_file_to_string, read_file_to_string, write_string_to_configuration_file,
     write_string_to_file,
 };
-use gdsettings_parser::{parse_gdsettings_file, GdSettings};
 
 /// Config error
-#[derive(Debug, thiserror::Error)]
+#[derive(Debug, Error)]
 pub enum ConfigError {
     /// Project not found
     #[error("project not found: {}", path)]
@@ -28,6 +28,15 @@ pub enum ConfigError {
         /// Engine path or version
         path: String,
     },
+    /// IO Error
+    #[error(transparent)]
+    IOError(#[from] std::io::Error),
+    /// Parser error
+    #[error(transparent)]
+    ParserError(#[from] ParserError),
+    /// GdSettings error
+    #[error(transparent)]
+    GdSettingsError(#[from] GdSettingsError),
 }
 
 /// Engines section in settings
@@ -36,42 +45,27 @@ pub const ENGINES_SECTION: &str = "engines";
 const CONFIG_PATH: &str = "gdpm.cfg";
 
 /// Get project configuration path
-///
-/// # Arguments
-///
-/// * `path` - Project path
-///
 pub fn get_project_configuration(path: &Path) -> PathBuf {
     path.join("project.godot")
 }
 
 /// Read gdpm configuration
-pub fn read_gdpm_configuration() -> Result<GdSettings, Error> {
+pub fn read_gdpm_configuration() -> Result<GdSettings, ConfigError> {
     let contents = read_configuration_file_to_string(Path::new(CONFIG_PATH))?;
 
     parse_gdsettings_file(&contents).map_err(Into::into)
 }
 
 /// Write gdpm configuration
-///
-/// # Arguments
-///
-/// * `settings` - Settings
-///
-pub fn write_gdpm_configuration(settings: GdSettings) -> Result<(), Error> {
+pub fn write_gdpm_configuration(settings: GdSettings) -> Result<File, ConfigError> {
     let contents = settings.to_string();
 
     println!("Writing gdpm configuration ...");
-    write_string_to_configuration_file(Path::new(CONFIG_PATH), &contents)
+    write_string_to_configuration_file(Path::new(CONFIG_PATH), &contents).map_err(Into::into)
 }
 
 /// Read project configuration
-///
-/// # Arguments
-///
-/// * `path` - Project path
-///
-pub fn read_project_configuration(path: &Path) -> Result<GdSettings, Error> {
+pub fn read_project_configuration(path: &Path) -> Result<GdSettings, ConfigError> {
     // Check for project.godot
     let project = get_project_configuration(path);
     if !project.exists() {
@@ -85,13 +79,7 @@ pub fn read_project_configuration(path: &Path) -> Result<GdSettings, Error> {
 }
 
 /// Write project configuration.
-///
-/// # Arguments
-///
-/// * `path` - Project path
-/// * `settings` - Settings
-///
-pub fn write_project_configuration(path: &Path, settings: GdSettings) -> Result<(), Error> {
+pub fn write_project_configuration(path: &Path, settings: GdSettings) -> Result<File, ConfigError> {
     let contents = settings.to_string();
 
     let project = get_project_configuration(path);
@@ -105,5 +93,5 @@ pub fn write_project_configuration(path: &Path, settings: GdSettings) -> Result<
         "Writing project configuration to path: {}",
         project.to_string_lossy()
     );
-    write_string_to_file(&project, &contents)
+    write_string_to_file(&project, &contents).map_err(Into::into)
 }

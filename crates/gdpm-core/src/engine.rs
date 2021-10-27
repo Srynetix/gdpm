@@ -1,9 +1,9 @@
 //! Engine module
 
+use std::fs::File;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
-use color_eyre::{eyre::eyre, Report as Error};
 use colored::Colorize;
 use gdsettings_parser::{GdSettings, GdValue};
 use slugify::slugify;
@@ -32,19 +32,19 @@ impl EngineInfo {
         path: PathBuf,
         has_mono: bool,
         from_source: bool,
-    ) -> Result<Self, Error> {
+    ) -> Result<Self, ConfigError> {
         if !path.is_file() {
-            eyre!(ConfigError::EngineNotFound {
+            Err(ConfigError::EngineNotFound {
                 path: path.to_string_lossy().to_string()
-            });
+            })
+        } else {
+            Ok(Self {
+                version,
+                path,
+                has_mono,
+                from_source,
+            })
         }
-
-        Ok(Self {
-            version,
-            path,
-            has_mono,
-            from_source,
-        })
     }
 
     /// Extract engine info from settings
@@ -83,6 +83,11 @@ impl EngineInfo {
     /// Get engine info slug
     pub fn get_slug(&self) -> String {
         slugify!(&self.version)
+    }
+
+    /// Compare slug
+    pub fn has_same_slug(&self, name: &str) -> bool {
+        self.get_slug() == slugify!(name)
     }
 
     /// To GdValue
@@ -140,12 +145,12 @@ impl EngineInfo {
     }
 
     /// Show
-    pub fn show(&self) {
-        println!("Godot Engine v{}", self.version.color("green"));
+    pub fn get_name(&self) -> String {
+        format!("Godot Engine v{}", self.version.color("green"))
     }
 
     /// Show verbose
-    pub fn show_verbose(&self) {
+    pub fn get_verbose_name(&self) -> String {
         let mono_str = if self.has_mono {
             "Yes".color("green")
         } else {
@@ -157,18 +162,18 @@ impl EngineInfo {
             "No".color("red")
         };
 
-        println!(
+        format!(
             "Godot Engine v{} ({}) [mono: {} - source: {}]",
             self.version.color("green"),
             self.path.to_string_lossy().color("yellow"),
             mono_str,
             source_str
-        );
+        )
     }
 }
 
 /// List engines info.
-pub fn list_engines_info() -> Result<Vec<EngineInfo>, Error> {
+pub fn list_engines_info() -> Result<Vec<EngineInfo>, ConfigError> {
     let config = read_gdpm_configuration()?;
     Ok(EngineInfo::from_settings(config))
 }
@@ -179,7 +184,7 @@ pub fn list_engines_info() -> Result<Vec<EngineInfo>, Error> {
 ///
 /// * `entries` - Engine info entries
 ///
-pub fn update_engines_info(entries: Vec<EngineInfo>) -> Result<(), Error> {
+pub fn update_engines_info(entries: Vec<EngineInfo>) -> Result<File, ConfigError> {
     let mut configuration = read_gdpm_configuration()?;
     for entry in entries {
         configuration.set_property(ENGINES_SECTION, &entry.get_slug(), entry.to_gdvalue())
@@ -194,7 +199,7 @@ pub fn update_engines_info(entries: Vec<EngineInfo>) -> Result<(), Error> {
 ///
 /// * `entry` - Engine info
 ///
-pub fn register_engine_entry(entry: EngineInfo) -> Result<(), Error> {
+pub fn register_engine_entry(entry: EngineInfo) -> Result<(), ConfigError> {
     let mut engine_list = list_engines_info()?;
     let version = entry.version.clone();
     if let Some(other_entry) = engine_list
@@ -222,7 +227,7 @@ pub fn register_engine_entry(entry: EngineInfo) -> Result<(), Error> {
 ///
 /// * `version` - Version
 ///
-pub fn unregister_engine_entry(version: &str) -> Result<(), Error> {
+pub fn unregister_engine_entry(version: &str) -> Result<(), ConfigError> {
     // Check if engine exists
     get_engine_version(&version)?;
     // Check for default engine
@@ -238,7 +243,9 @@ pub fn unregister_engine_entry(version: &str) -> Result<(), Error> {
     // Remove version
     let mut conf = read_gdpm_configuration()?;
     conf.remove_property(ENGINES_SECTION, &slugify!(&version))?;
-    write_gdpm_configuration(conf)
+    write_gdpm_configuration(conf)?;
+
+    Ok(())
 }
 
 /// Get engine version.
@@ -247,7 +254,7 @@ pub fn unregister_engine_entry(version: &str) -> Result<(), Error> {
 ///
 /// * `version` - Version
 ///
-pub fn get_engine_version(version: &str) -> Result<EngineInfo, Error> {
+pub fn get_engine_version(version: &str) -> Result<EngineInfo, ConfigError> {
     let engine_list = list_engines_info()?;
     if let Some(entry) = engine_list.iter().find(|x| x.version == version) {
         Ok(entry.clone())
@@ -265,7 +272,7 @@ pub fn get_engine_version(version: &str) -> Result<EngineInfo, Error> {
 /// * `version` - Version
 /// * `path` - Path
 ///
-pub fn run_engine_version_for_project(version: &str, path: &Path) -> Result<(), Error> {
+pub fn run_engine_version_for_project(version: &str, path: &Path) -> Result<(), ConfigError> {
     let engine = get_engine_version(version)?;
     Command::new(engine.path)
         .arg("--path")
@@ -288,7 +295,7 @@ pub fn exec_engine_version_command_for_project(
     version: &str,
     args: &[String],
     path: &Path,
-) -> Result<(), Error> {
+) -> Result<(), ConfigError> {
     let engine = get_engine_version(version)?;
     Command::new(engine.path)
         .arg("--path")
@@ -305,25 +312,27 @@ pub fn exec_engine_version_command_for_project(
 ///
 /// * `version` - Version
 ///
-pub fn set_default_engine(version: &str) -> Result<(), Error> {
+pub fn set_default_engine(version: &str) -> Result<(), ConfigError> {
     // Assert the engine exists
     get_engine_version(version)?;
 
     let mut configuration = read_gdpm_configuration()?;
     configuration.set_property("", "default_engine", GdValue::String(version.into()));
 
-    write_gdpm_configuration(configuration)
+    write_gdpm_configuration(configuration)?;
+    Ok(())
 }
 
 /// Unset default engine
-pub fn unset_default_engine() -> Result<(), Error> {
+pub fn unset_default_engine() -> Result<(), ConfigError> {
     let mut configuration = read_gdpm_configuration()?;
     configuration.remove_property("", "default_engine")?;
-    write_gdpm_configuration(configuration)
+    write_gdpm_configuration(configuration)?;
+    Ok(())
 }
 
 /// Get default engine
-pub fn get_default_engine() -> Result<Option<String>, Error> {
+pub fn get_default_engine() -> Result<Option<String>, ConfigError> {
     let default_engine = read_gdpm_configuration().and_then(|x| {
         Ok(x.get_property("", "default_engine")
             .and_then(|x| x.to_str()))

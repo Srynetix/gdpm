@@ -1,5 +1,6 @@
 use argh::FromArgs;
 use color_eyre::Result;
+use colored::Colorize;
 
 mod dependency;
 mod engine;
@@ -52,4 +53,19 @@ pub fn parse_args(args: Args) -> Result<()> {
         Command::Desync(c) => c.execute(),
         Command::Engine(c) => c.execute()
     }
+}
+
+fn print_missing_default_engine_message() {
+    println!(
+        "{}",
+        "No default engine registered. Use `engine default <version>` to register one."
+            .color("yellow")
+    );
+}
+
+fn print_missing_project_engine_message() {
+    println!(
+        "{}",
+        "You have no engine version associated to your project.".color("yellow")
+    );
 }

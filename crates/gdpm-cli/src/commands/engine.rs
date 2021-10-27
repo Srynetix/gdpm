@@ -1,8 +1,10 @@
 use argh::FromArgs;
-use std::path::PathBuf;
+use gdpm_core::engine::{EngineInfo, exec_engine_version_command_for_project, get_default_engine, list_engines_info, register_engine_entry, run_engine_version_for_project, set_default_engine, unregister_engine_entry};
+use std::path::{Path, PathBuf};
 use color_eyre::Result;
+use colored::Colorize;
 
-use super::Execute;
+use super::{Execute, print_missing_default_engine_message};
 
 /// engine management
 #[derive(FromArgs)]
@@ -117,42 +119,111 @@ impl Execute for Command {
 
 impl Execute for List {
     fn execute(self) -> Result<()> {
-        todo!()
+        let entries = list_engines_info()?;
+        let default_entry = get_default_engine()?;
+        for entry in entries {
+            if let Some(default) = &default_entry {
+                if entry.has_same_slug(default) {
+                    print!("{} ", "*".color("green"));
+                } else {
+                    print!("  ");
+                }
+            } else {
+                print!("  ");
+            }
+
+            if self.verbose {
+                println!("{}", entry.get_verbose_name());
+            } else {
+                println!("{}", entry.get_name());
+            }
+        }
+
+        Ok(())
     }
 }
 
 impl Execute for Register {
     fn execute(self) -> Result<()> {
-        todo!()
+        let engine_info = EngineInfo::new(self.version, self.path, self.mono, self.built_from_source)?;
+        let verbose_name = engine_info.get_verbose_name();
+        register_engine_entry(engine_info)?;
+
+        println!("{} is registered.", verbose_name);
+        Ok(())
     }
 }
 
 impl Execute for Unregister {
     fn execute(self) -> Result<()> {
-        todo!()
+        unregister_engine_entry(&self.version)?;
+
+        println!("Godot Engine v{} unregistered.", self.version.color("green"));
+        Ok(())
     }
 }
 
 impl Execute for Start {
     fn execute(self) -> Result<()> {
-        todo!()
+        if let Some(v) = self.version {
+            println!("Running Godot Engine v{} ...", v.color("green"));
+            run_engine_version_for_project(&v, Path::new("."))?;
+        } else {
+            if let Some(e) = get_default_engine()? {
+                println!("Running Godot Engine v{} ...", e.color("green"));
+                run_engine_version_for_project(&e, Path::new("."))?;
+            } else {
+                print_missing_default_engine_message();
+            }
+        }
+
+        Ok(())
     }
 }
 
 impl Execute for Cmd {
     fn execute(self) -> Result<()> {
-        todo!()
+        if let Some(v) = self.version {
+            println!(
+                "Executing command {} Godot Engine v{} ...",
+                self.args.join(" ").color("blue"),
+                v.color("green")
+            );
+            exec_engine_version_command_for_project(&v, &self.args, Path::new("."))?;
+        } else {
+            if let Some(e) = get_default_engine()? {
+                println!(
+                    "Executing command {} on Godot Engine v{} ...",
+                    self.args.join(" ").color("blue"),
+                    e.color("green")
+                );
+                exec_engine_version_command_for_project(&e, &self.args, Path::new("."))?;
+            } else {
+                print_missing_default_engine_message();
+            }
+        }
+
+        Ok(())
     }
 }
 
 impl Execute for SetDefault {
     fn execute(self) -> Result<()> {
-        todo!()
+        set_default_engine(&self.version)?;
+        println!("Godot Engine v{} set as default.", self.version.color("green"));
+
+        Ok(())
     }
 }
 
 impl Execute for GetDefault {
     fn execute(self) -> Result<()> {
-        todo!()
+        if let Some(e) = get_default_engine()? {
+            println!("{} Godot Engine v{}", "*".color("green"), e.color("green"));
+        } else {
+            print_missing_default_engine_message();
+        }
+
+        Ok(())
     }
 }

@@ -1,8 +1,7 @@
 //! Project module
 
-use std::path::Path;
+use std::{fs::File, path::Path};
 
-use color_eyre::Report as Error;
 use gdsettings_parser::{GdSettings, GdValue};
 
 use crate::config::{read_project_configuration, write_project_configuration, ConfigError};
@@ -18,7 +17,7 @@ pub struct GdProjectInfo {
 
 impl GdProjectInfo {
     /// Extract project info from settings
-    pub fn from_settings(settings: &GdSettings) -> Result<Self, Error> {
+    pub fn from_settings(settings: &GdSettings) -> Result<Self, ConfigError> {
         let project_name = settings
             .get_property("application", "config/name")
             .and_then(|x| x.to_str())
@@ -80,7 +79,7 @@ impl GdProjectInfo {
 ///
 /// * `path` - Project path
 ///
-pub fn get_project_info(path: &Path) -> Result<GdProjectInfo, Error> {
+pub fn get_project_info(path: &Path) -> Result<GdProjectInfo, ConfigError> {
     // Get project configuration
     read_project_configuration(path).and_then(|data| GdProjectInfo::from_settings(&data))
 }
@@ -92,11 +91,12 @@ pub fn get_project_info(path: &Path) -> Result<GdProjectInfo, Error> {
 /// * `path` - Project path
 /// * `version` - Version
 ///
-pub fn set_project_engine(path: &Path, version: &str) -> Result<(), Error> {
+pub fn set_project_engine(path: &Path, version: &str) -> Result<(), ConfigError> {
     let mut conf = read_project_configuration(path)?;
     conf.set_property("engine", "version", GdValue::String(version.into()));
 
-    write_project_configuration(path, conf)
+    write_project_configuration(path, conf)?;
+    Ok(())
 }
 
 /// Unset project engine
@@ -105,9 +105,10 @@ pub fn set_project_engine(path: &Path, version: &str) -> Result<(), Error> {
 ///
 /// * `path` - Project path
 ///
-pub fn unset_project_engine(path: &Path) -> Result<(), Error> {
+pub fn unset_project_engine(path: &Path) -> Result<(), ConfigError> {
     let mut conf = read_project_configuration(path)?;
     conf.remove_property("engine", "version")?;
 
-    write_project_configuration(path, conf)
+    write_project_configuration(path, conf)?;
+    Ok(())
 }

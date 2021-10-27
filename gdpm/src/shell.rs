@@ -2,8 +2,7 @@ use std::env;
 use std::path::{Path, PathBuf};
 
 use colored::Colorize;
-use env_logger;
-use failure::Error;
+use color_eyre::Report as Error;
 use question::{Answer, Question};
 use slugify::slugify;
 use structopt::StructOpt;
@@ -186,9 +185,6 @@ pub fn run_shell() -> Result<(), Error> {
         // Enable debug logs
         env::set_var("RUST_LOG", "debug");
     }
-
-    // Initialize logger
-    env_logger::init();
 
     match args.cmd {
         Command::Info { path } => {

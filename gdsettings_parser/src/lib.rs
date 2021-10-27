@@ -1,5 +1,3 @@
-//! gdsettings_parser
-//!
 //! Godot Settings parser
 
 #![deny(missing_docs)]

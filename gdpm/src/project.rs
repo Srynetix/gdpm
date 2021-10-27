@@ -2,7 +2,7 @@
 
 use std::path::Path;
 
-use failure::Error;
+use color_eyre::Report as Error;
 use gdsettings_parser::{GdSettings, GdValue};
 
 use crate::config::{read_project_configuration, write_project_configuration, ConfigError};

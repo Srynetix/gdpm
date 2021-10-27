@@ -1,5 +1,3 @@
-//! gdpm
-//!
 //! Godot Package manager
 
 #![deny(missing_docs)]

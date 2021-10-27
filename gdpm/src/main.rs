@@ -1,18 +1,9 @@
-use colored::Colorize;
-use log::error;
+use color_eyre::Result;
 
 use gdpm::run_shell;
 
-fn main() {
-    if let Err(error) = run_shell() {
-        error!(
-            "{}",
-            format!(
-                "Error during execution: {} {}",
-                error.as_fail(),
-                error.backtrace()
-            )
-            .color("red")
-        );
-    }
+fn main() -> Result<()> {
+    color_eyre::install().unwrap();
+
+    run_shell()
 }

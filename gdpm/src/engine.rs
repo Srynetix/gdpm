@@ -3,8 +3,8 @@
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
+use color_eyre::{Report as Error, eyre::eyre};
 use colored::Colorize;
-use failure::{bail, Error};
 use gdsettings_parser::{GdSettings, GdValue};
 use slugify::slugify;
 
@@ -34,7 +34,7 @@ impl EngineInfo {
         from_source: bool,
     ) -> Result<Self, Error> {
         if !path.is_file() {
-            bail!(ConfigError::EngineNotFound {
+            eyre!(ConfigError::EngineNotFound {
                 path: path.to_string_lossy().to_string()
             });
         }
@@ -53,7 +53,7 @@ impl EngineInfo {
     ///
     /// * `settings` - GdSettings
     ///
-    pub fn from_settings(settings: GdSettings) -> Result<Vec<Self>, Error> {
+    pub fn from_settings(settings: GdSettings) -> Vec<Self> {
         let mut engines = vec![];
         let properties = settings.get_section(ENGINES_SECTION);
         if let Some(props) = properties {
@@ -64,7 +64,7 @@ impl EngineInfo {
             }
         }
 
-        Ok(engines)
+        engines
     }
 
     /// Clone from other engine info
@@ -169,7 +169,8 @@ impl EngineInfo {
 
 /// List engines info.
 pub fn list_engines_info() -> Result<Vec<EngineInfo>, Error> {
-    read_gdpm_configuration().and_then(EngineInfo::from_settings)
+    let config = read_gdpm_configuration()?;
+    Ok(EngineInfo::from_settings(config))
 }
 
 /// Update engines info
@@ -251,9 +252,9 @@ pub fn get_engine_version(version: &str) -> Result<EngineInfo, Error> {
     if let Some(entry) = engine_list.iter().find(|x| x.version == version) {
         Ok(entry.clone())
     } else {
-        bail!(ConfigError::EngineNotFound {
+        Err(ConfigError::EngineNotFound {
             path: version.to_string()
-        });
+        })?
     }
 }
 

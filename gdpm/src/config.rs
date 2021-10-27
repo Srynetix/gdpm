@@ -2,8 +2,7 @@
 
 use std::path::{Path, PathBuf};
 
-use failure::{bail, Error, Fail};
-use log::debug;
+use color_eyre::Report as Error;
 
 use crate::fs::{
     read_configuration_file_to_string, read_file_to_string, write_string_to_configuration_file,
@@ -11,20 +10,20 @@ use crate::fs::{
 };
 use gdsettings_parser::{parse_gdsettings_file, GdSettings};
 
-/// ConfigError
-#[derive(Debug, Fail)]
+/// Config error
+#[derive(Debug, thiserror::Error)]
 pub enum ConfigError {
     /// Project not found
-    #[fail(display = "project not found: {}", path)]
+    #[error("project not found: {}", path)]
     ProjectNotFound {
         /// Project path
         path: String,
     },
     /// Malformed project
-    #[fail(display = "malformed project")]
+    #[error("malformed project")]
     MalformedProject,
     /// Malformed engine configuration
-    #[fail(display = "engine not found: {}", path)]
+    #[error("engine not found: {}", path)]
     EngineNotFound {
         /// Engine path or version
         path: String,
@@ -50,7 +49,7 @@ pub fn get_project_configuration(path: &Path) -> PathBuf {
 pub fn read_gdpm_configuration() -> Result<GdSettings, Error> {
     let contents = read_configuration_file_to_string(Path::new(CONFIG_PATH))?;
 
-    parse_gdsettings_file(&contents)
+    parse_gdsettings_file(&contents).map_err(Into::into)
 }
 
 /// Write gdpm configuration
@@ -62,7 +61,7 @@ pub fn read_gdpm_configuration() -> Result<GdSettings, Error> {
 pub fn write_gdpm_configuration(settings: GdSettings) -> Result<(), Error> {
     let contents = settings.to_string();
 
-    debug!("Writing gdpm configuration ...");
+    println!("Writing gdpm configuration ...");
     write_string_to_configuration_file(Path::new(CONFIG_PATH), &contents)
 }
 
@@ -76,13 +75,13 @@ pub fn read_project_configuration(path: &Path) -> Result<GdSettings, Error> {
     // Check for project.godot
     let project = get_project_configuration(path);
     if !project.exists() {
-        bail!(ConfigError::ProjectNotFound {
+        return Err(ConfigError::ProjectNotFound {
             path: project.to_string_lossy().to_string()
-        });
+        })?;
     }
 
     let contents = read_file_to_string(&project)?;
-    parse_gdsettings_file(&contents)
+    parse_gdsettings_file(&contents).map_err(Into::into)
 }
 
 /// Write project configuration.
@@ -97,12 +96,12 @@ pub fn write_project_configuration(path: &Path, settings: GdSettings) -> Result<
 
     let project = get_project_configuration(path);
     if !project.exists() {
-        bail!(ConfigError::ProjectNotFound {
+        return Err(ConfigError::ProjectNotFound {
             path: project.to_string_lossy().to_string()
-        });
+        })?;
     }
 
-    debug!(
+    println!(
         "Writing project configuration to path: {}",
         project.to_string_lossy()
     );

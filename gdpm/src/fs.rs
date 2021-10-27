@@ -4,8 +4,8 @@ use std::fs::{self, File, OpenOptions};
 use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
 
+use color_eyre::Report as Error;
 use dirs;
-use failure::Error;
 
 const ROOT_CONFIG_FOLDER: &str = "gdpm";
 

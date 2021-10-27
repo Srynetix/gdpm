@@ -4,11 +4,11 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
+use color_eyre::{Report as Error, eyre::eyre};
 use colored::Colorize;
-use failure::{bail, Error, Fail};
 use fs_extra::dir::{copy, CopyOptions};
-use log::info;
 use slugify::slugify;
+use thiserror::Error;
 
 use gdsettings_parser::{parse_gdsettings_file, GdValue};
 
@@ -21,22 +21,22 @@ const ADDONS_FOLDER: &str = "addons";
 const PLUGIN_CFG: &str = "plugin.cfg";
 
 /// Plugin error
-#[derive(Debug, Fail)]
+#[derive(Debug, Error)]
 pub enum PluginError {
     /// Missing property
-    #[fail(display = "missing property: {}", property)]
+    #[error("missing property: {}", property)]
     MissingProperty {
         /// Property
         property: String,
     },
     /// Malformed dependency
-    #[fail(display = "malformed dependency: {}", slug)]
+    #[error("malformed dependency: {}", slug)]
     MalformedDependency {
         /// Slug
         slug: String,
     },
     /// Missing dependency
-    #[fail(display = "missing dependency: {}", slug)]
+    #[error("missing dependency: {}", slug)]
     MissingDependency {
         /// Slug
         slug: String,
@@ -221,7 +221,7 @@ impl Dependency {
                 // Check if already installed
                 let addon_path = project_path.join(ADDONS_FOLDER).join(&self.name);
                 if addon_path.exists() {
-                    info!("Plugin {} already installed.", self.name);
+                    println!("Plugin {} already installed.", self.name);
                 } else {
                     let project_full_path = full_path.join(ADDONS_FOLDER).join(&self.name);
                     let project_addons = project_path.join(ADDONS_FOLDER);
@@ -256,7 +256,7 @@ impl Dependency {
                 // Check if already installed
                 let addon_path = project_path.join(ADDONS_FOLDER).join(&self.name);
                 if addon_path.exists() {
-                    info!("Plugin {} already installed.", self.name);
+                    println!("Plugin {} already installed.", self.name);
                 } else {
                     let project_full_path = plugin_path.join(ADDONS_FOLDER).join(&self.name);
                     let project_addons = project_path.join(ADDONS_FOLDER);
@@ -369,9 +369,9 @@ pub fn get_dependency(project_path: &Path, name: &str) -> Result<Dependency, Err
         }
     }
 
-    bail!(PluginError::MissingDependency {
+    Err(eyre!(PluginError::MissingDependency {
         slug: name.to_string()
-    });
+    }))
 }
 
 /// List plugins from project
@@ -449,11 +449,11 @@ pub fn remove_dependency(project_path: &Path, name: &str) -> Result<(), Error> {
     }
 
     if data.remove_property(DEPS_SECTION, &slug).is_err() {
-        bail!(
+        return Err(eyre!(
             "Dependency {} is missing from project {}.",
             name.color("green"),
             project_info.get_versioned_name().color("green")
-        )
+        ));
     }
 
     write_project_configuration(project_path, data)
@@ -547,7 +547,7 @@ pub fn sync_project_plugin(project_path: &Path, plugin_name: &str) -> Result<(),
 
     let dep = get_dependency(project_path, plugin_name);
     if dep.is_err() {
-        bail!(
+        eyre!(
             "Dependency {} is missing from project {}.",
             plugin_name.color("green"),
             project_info.get_versioned_name().color("green")
@@ -580,7 +580,7 @@ pub fn desync_project_plugin(project_path: &Path, plugin_name: &str) -> Result<(
     let project_info = get_project_info(project_path)?;
     let dep = get_dependency(project_path, plugin_name);
     if dep.is_err() {
-        bail!(
+        eyre!(
             "Dependency {} is missing from project {}.",
             plugin_name.color("green"),
             project_info.get_versioned_name().color("green")
@@ -589,7 +589,7 @@ pub fn desync_project_plugin(project_path: &Path, plugin_name: &str) -> Result<(
 
     let dep = dep.unwrap();
     if dep.source == DependencySource::Current {
-        bail!(
+        eyre!(
             "Dependency {} belong to project {}. It cannot be desync.",
             plugin_name.color("green"),
             project_info.get_versioned_name().color("green")

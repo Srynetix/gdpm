@@ -31,7 +31,13 @@ enum Command {
     Sync(dependency::Sync),
     Desync(dependency::Desync),
     Engine(engine::Engine),
+    Version(Version),
 }
+
+/// show version
+#[derive(FromArgs)]
+#[argh(subcommand, name = "version")]
+struct Version {}
 
 pub fn parse_args(args: Args) -> Result<()> {
     match args.command {
@@ -46,5 +52,15 @@ pub fn parse_args(args: Args) -> Result<()> {
         Command::Sync(c) => c.execute(),
         Command::Desync(c) => c.execute(),
         Command::Engine(c) => c.execute(),
+        Command::Version(_) => {
+            let cmd_name = std::env::current_exe()
+                .unwrap()
+                .file_stem()
+                .unwrap()
+                .to_string_lossy()
+                .to_string();
+            println!("{} {}", cmd_name, env!("CARGO_PKG_VERSION"));
+            Ok(())
+        }
     }
 }

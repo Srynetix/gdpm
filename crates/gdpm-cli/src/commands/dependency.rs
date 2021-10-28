@@ -73,7 +73,7 @@ pub struct Sync {
     #[argh(option, short = 'p', default = "PathBuf::from(\".\")")]
     path: PathBuf,
     /// name
-    #[argh(option)]
+    #[argh(positional)]
     name: Option<String>,
 }
 
@@ -85,7 +85,7 @@ pub struct Desync {
     #[argh(option, short = 'p', default = "PathBuf::from(\".\")")]
     path: PathBuf,
     /// name
-    #[argh(option)]
+    #[argh(positional)]
     name: Option<String>,
 }
 

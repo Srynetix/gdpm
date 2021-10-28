@@ -161,7 +161,7 @@ impl EngineInfo {
         };
 
         format!(
-            "{} ({}) [mono: {} - source: {}]",
+            "{} ({}) [mono: {} - built from source: {}]",
             self.version.color("green"),
             self.path.to_string_lossy().color("yellow"),
             mono_str,

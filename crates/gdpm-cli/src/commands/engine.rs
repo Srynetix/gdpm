@@ -69,7 +69,7 @@ pub struct Unregister {
 #[argh(subcommand, name = "start")]
 pub struct Start {
     /// version
-    #[argh(option)]
+    #[argh(option, short = 'v')]
     version: Option<String>,
 }
 
@@ -78,7 +78,7 @@ pub struct Start {
 #[argh(subcommand, name = "cmd")]
 pub struct Cmd {
     /// version
-    #[argh(option)]
+    #[argh(option, short = 'v')]
     version: Option<String>,
     /// arguments
     #[argh(positional)]

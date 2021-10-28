@@ -352,16 +352,16 @@ The default engine will have a star at start.
 
 ```bash
 gdpm engine list
-# * Godot Engine v3.1.1
-#   Godot Engine v3.1.1-mono
-#   Godot Engine v3.2alpha3
-#   Godot Engine vmaster
+# * v3.1.1
+#   v3.1.1-mono
+#   v3.2alpha3
+#   vmaster
 
 gdpm engine list --verbose
-# * Godot Engine v3.1.1 (./path/to/3.1.1) [mono: false, source: false]
-#   Godot Engine v3.1.1-mono (./path/to/3.1.1-mono) [mono: true, source: false]
-#   Godot Engine v3.2alpha3 (./path/to/3.2alpha3) [mono: false, source: false]
-#   Godot Engine vmaster (./path/to/master) [mono: false, source: true]
+# * v3.1.1 (./path/to/3.1.1) [mono: false, built from source: false]
+#   v3.1.1-mono (./path/to/3.1.1-mono) [mono: true, built from source: false]
+#   v3.2alpha3 (./path/to/3.2alpha3) [mono: false, built from source: false]
+#   vmaster (./path/to/master) [mono: false, built from source: true]
 ```
 
 ### `engine register`

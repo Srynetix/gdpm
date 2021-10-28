@@ -1,10 +1,14 @@
 //! Godot project file parser
 
-use std::collections::BTreeMap;
+use std::{
+    collections::BTreeMap,
+    num::{ParseFloatError, ParseIntError},
+    str::ParseBoolError,
+};
 
-use failure::{bail, Error, Fail};
 use pest::Parser;
 use pest_derive::Parser;
+use thiserror::Error;
 
 use crate::GdValue;
 
@@ -13,24 +17,59 @@ use crate::GdValue;
 struct GdSettingsParser;
 
 /// Parser error
-#[derive(Debug, Fail)]
+#[derive(Debug, Error)]
 pub enum ParserError {
     /// Parse error
-    #[fail(display = "parse error")]
+    #[error("parse error")]
     ParseError,
+
+    /// Pest error
+    #[error("pest error: {0}")]
+    PestError(String),
+
+    /// Type conversion error
+    #[error("type conversion error: {0}")]
+    TypeConversionError(String),
+}
+
+impl<E> From<pest::error::Error<E>> for ParserError
+where
+    E: std::fmt::Debug,
+{
+    fn from(error: pest::error::Error<E>) -> Self {
+        Self::PestError(format!("{:?}", error))
+    }
+}
+
+impl From<ParseIntError> for ParserError {
+    fn from(error: ParseIntError) -> Self {
+        Self::TypeConversionError(format!("{:?}", error))
+    }
+}
+
+impl From<ParseFloatError> for ParserError {
+    fn from(error: ParseFloatError) -> Self {
+        Self::TypeConversionError(format!("{:?}", error))
+    }
+}
+
+impl From<ParseBoolError> for ParserError {
+    fn from(error: ParseBoolError) -> Self {
+        Self::TypeConversionError(format!("{:?}", error))
+    }
 }
 
 /// GdSettings error
-#[derive(Debug, Fail)]
+#[derive(Debug, Error)]
 pub enum GdSettingsError {
     /// Missing section
-    #[fail(display = "missing section: {}", section)]
+    #[error("missing section: {}", section)]
     MissingSection {
         /// Section
         section: String,
     },
     /// Missing property
-    #[fail(display = "missing property: {}", property)]
+    #[error("missing property: {}", property)]
     MissingProperty {
         /// Property
         property: String,
@@ -100,7 +139,11 @@ impl GdSettings {
     /// * `section` - Section name
     /// * `property` - Property name
     ///
-    pub fn remove_property(&mut self, section: &str, property: &str) -> Result<(), Error> {
+    pub fn remove_property(
+        &mut self,
+        section: &str,
+        property: &str,
+    ) -> Result<(), GdSettingsError> {
         let section_entry = self
             .0
             .get_mut(section)
@@ -108,8 +151,8 @@ impl GdSettings {
                 section: section.to_string(),
             })?;
         if section_entry.get(property).is_none() {
-            bail!(GdSettingsError::MissingProperty {
-                property: property.to_string()
+            return Err(GdSettingsError::MissingProperty {
+                property: property.to_string(),
             });
         }
 
@@ -126,7 +169,7 @@ impl GdSettings {
 
 impl ToString for GdSettings {
     fn to_string(&self) -> String {
-        serialize_gdsettings(&self)
+        serialize_gdsettings(self)
     }
 }
 
@@ -141,10 +184,10 @@ pub fn serialize_gdsettings(settings: &GdSettings) -> String {
 
     fn write_props(hmap: &BTreeMap<String, GdValue>, output: &mut String) {
         for (k, v) in hmap.iter() {
-            output.push_str(&k);
+            output.push_str(k);
             output.push_str(" = ");
             output.push_str(&v.to_string());
-            output.push_str("\n");
+            output.push('\n');
         }
     }
 
@@ -154,18 +197,18 @@ pub fn serialize_gdsettings(settings: &GdSettings) -> String {
     let globs = map.get("");
     if let Some(hmap) = globs {
         write_props(hmap, &mut output);
-        output.push_str("\n");
+        output.push('\n');
     }
 
     // Then
     for (k, v) in map.iter() {
-        if k != "" {
-            output.push_str("[");
+        if !k.is_empty() {
+            output.push('[');
             output.push_str(k);
-            output.push_str("]");
-            output.push_str("\n");
+            output.push(']');
+            output.push('\n');
             write_props(v, &mut output);
-            output.push_str("\n");
+            output.push('\n');
         }
     }
 
@@ -178,7 +221,7 @@ pub fn serialize_gdsettings(settings: &GdSettings) -> String {
 ///
 /// * `contents` - File contents
 ///
-pub fn parse_gdsettings_file(contents: &str) -> Result<GdSettings, Error> {
+pub fn parse_gdsettings_file(contents: &str) -> Result<GdSettings, ParserError> {
     use pest::iterators::Pair;
 
     let data = GdSettingsParser::parse(Rule::file, contents)?
@@ -187,7 +230,7 @@ pub fn parse_gdsettings_file(contents: &str) -> Result<GdSettings, Error> {
     let mut properties: GdSettingsType = BTreeMap::new();
     let mut current_section = "";
 
-    fn parse_gdvalue(pair: Pair<Rule>) -> Result<GdValue, Error> {
+    fn parse_gdvalue(pair: Pair<Rule>) -> Result<GdValue, ParserError> {
         let value = match pair.as_rule() {
             Rule::object => GdValue::Object(
                 pair.into_inner()
@@ -202,12 +245,12 @@ pub fn parse_gdsettings_file(contents: &str) -> Result<GdSettings, Error> {
                             parse_gdvalue(inner_rules.next().ok_or(ParserError::ParseError)?)?;
                         Ok((name.to_string(), value))
                     })
-                    .collect::<Result<Vec<(String, GdValue)>, Error>>()?,
+                    .collect::<Result<Vec<(String, GdValue)>, ParserError>>()?,
             ),
             Rule::array => GdValue::Array(
                 pair.into_inner()
                     .map(parse_gdvalue)
-                    .collect::<Result<Vec<GdValue>, Error>>()?,
+                    .collect::<Result<Vec<GdValue>, ParserError>>()?,
             ),
             Rule::string => GdValue::String(pair.as_str().trim_matches('"').to_string()),
             Rule::class_name => GdValue::ClassName(pair.as_str().to_string()),
@@ -279,10 +322,9 @@ pub fn parse_gdsettings_file(contents: &str) -> Result<GdSettings, Error> {
 
 #[cfg(test)]
 mod tests {
+    use std::{fs::File, io::Read, path::Path};
+
     use super::*;
-    use std::fs::File;
-    use std::io::Read;
-    use std::path::Path;
 
     #[test]
     fn full_serializer_test() {
@@ -351,7 +393,7 @@ mod tests {
 ;   [section] ; section goes between []
 ;   param=value ; assign values to parameters";
 
-        GdSettingsParser::parse(Rule::file, &content).expect("failed to parse");
+        GdSettingsParser::parse(Rule::file, content).expect("failed to parse");
     }
 
     #[test]
@@ -371,6 +413,6 @@ config/icon="res://icon.png"
 
 environment/default_environment="res://default_env.tres""###;
 
-        GdSettingsParser::parse(Rule::file, &content).expect("failed to parse");
+        GdSettingsParser::parse(Rule::file, content).expect("failed to parse");
     }
 }

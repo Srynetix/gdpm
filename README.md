@@ -1,7 +1,10 @@
 # gdpm - Godot Project Manager
 
-A command line utility to manage a Godot 3.x project.  
-Toy project (for now) written in Rust.
+[![Coverage Status](https://coveralls.io/repos/github/Srynetix/gdpm/badge.svg?branch=restructuration)](https://coveralls.io/github/Srynetix/gdpm?branch=restructuration)
+
+A command line utility to manage a Godot 3.x project.
+
+[CHANGELOG](./CHANGELOG.md)
 
 ## Roadmap
 
@@ -349,16 +352,16 @@ The default engine will have a star at start.
 
 ```bash
 gdpm engine list
-# * Godot Engine v3.1.1
-#   Godot Engine v3.1.1-mono
-#   Godot Engine v3.2alpha3
-#   Godot Engine vmaster
+# * v3.1.1
+#   v3.1.1-mono
+#   v3.2alpha3
+#   vmaster
 
 gdpm engine list --verbose
-# * Godot Engine v3.1.1 (./path/to/3.1.1) [mono: false, source: false]
-#   Godot Engine v3.1.1-mono (./path/to/3.1.1-mono) [mono: true, source: false]
-#   Godot Engine v3.2alpha3 (./path/to/3.2alpha3) [mono: false, source: false]
-#   Godot Engine vmaster (./path/to/master) [mono: false, source: true]
+# * v3.1.1 (./path/to/3.1.1) [mono: false, built from source: false]
+#   v3.1.1-mono (./path/to/3.1.1-mono) [mono: true, built from source: false]
+#   v3.2alpha3 (./path/to/3.2alpha3) [mono: false, built from source: false]
+#   vmaster (./path/to/master) [mono: false, built from source: true]
 ```
 
 ### `engine register`

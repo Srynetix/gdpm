@@ -1,7 +1,6 @@
 //! GDValue
 
-use std::collections::BTreeMap;
-use std::string::ToString;
+use std::{collections::BTreeMap, string::ToString};
 
 /// Godot value
 #[derive(PartialEq, Debug, Clone)]
@@ -89,7 +88,7 @@ impl GdValue {
 
 impl ToString for GdValue {
     fn to_string(&self) -> String {
-        serialize_gdvalue(&self)
+        serialize_gdvalue(self)
     }
 }
 

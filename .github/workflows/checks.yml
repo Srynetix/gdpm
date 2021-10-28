@@ -7,36 +7,14 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v2
-    - name: Cache toolchain
-      uses: actions/cache@v2
-      with:
-        path: |
-          ~/.rustup/toolchains
-          ~/.rustup/update-hashes
-          ~/.rustup/settings.toml
-        key: toolchain-${{ hashFiles('rust-toolchain.toml') }}
-    - run: rustup show
-    - uses: extractions/setup-just@v1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    - uses: ./.github/actions/prepare
     - run: just fmt-check
 
   lint:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v2
-    - name: Cache toolchain
-      uses: actions/cache@v2
-      with:
-        path: |
-          ~/.rustup/toolchains
-          ~/.rustup/update-hashes
-          ~/.rustup/settings.toml
-        key: toolchain-${{ hashFiles('rust-toolchain.toml') }}
-    - run: rustup show
-    - uses: extractions/setup-just@v1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    - uses: ./.github/actions/prepare
     - uses: actions/cache@v2
       with:
         path: |
@@ -50,15 +28,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v2
-    - name: Cache toolchain
-      uses: actions/cache@v2
-      with:
-        path: |
-          ~/.rustup/toolchains
-          ~/.rustup/update-hashes
-          ~/.rustup/settings.toml
-        key: toolchain-${{ hashFiles('rust-toolchain.toml') }}
-    - run: rustup show
+    - uses: ./.github/actions/prepare
     - uses: actions/cache@v2
       with:
         path: |
@@ -79,18 +49,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v2
-    - name: Cache toolchain
-      uses: actions/cache@v2
-      with:
-        path: |
-          ~/.rustup/toolchains
-          ~/.rustup/update-hashes
-          ~/.rustup/settings.toml
-        key: toolchain-${{ hashFiles('rust-toolchain.toml') }}
-    - run: rustup show
-    - uses: extractions/setup-just@v1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    - uses: ./.github/actions/prepare
     - uses: actions/cache@v2
       with:
         path: |

@@ -74,24 +74,13 @@ impl GdProjectInfo {
 
 /// Get project info.
 ///
-/// Read the project.godot file from a Godot project
-///
-/// # Arguments
-///
-/// * `path` - Project path
-///
+/// Read the project.godot file from a Godot project.
 pub fn get_project_info(path: &Path) -> Result<GdProjectInfo, ConfigError> {
     // Get project configuration
     read_project_configuration(path).and_then(|data| GdProjectInfo::from_settings(&data))
 }
 
 /// Set project engine
-///
-/// # Arguments
-///
-/// * `path` - Project path
-/// * `version` - Version
-///
 pub fn set_project_engine(path: &Path, version: &str) -> Result<(), ConfigError> {
     let mut conf = read_project_configuration(path)?;
     conf.set_property("engine", "version", GdValue::String(version.into()));
@@ -101,11 +90,6 @@ pub fn set_project_engine(path: &Path, version: &str) -> Result<(), ConfigError>
 }
 
 /// Unset project engine
-///
-/// # Arguments
-///
-/// * `path` - Project path
-///
 pub fn unset_project_engine(path: &Path) -> Result<(), ConfigError> {
     let mut conf = read_project_configuration(path)?;
     conf.remove_property("engine", "version")?;

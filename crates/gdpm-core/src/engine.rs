@@ -50,11 +50,6 @@ impl EngineInfo {
     }
 
     /// Extract engine info from settings
-    ///
-    /// # Arguments
-    ///
-    /// * `settings` - GdSettings
-    ///
     pub fn from_settings(settings: GdSettings) -> Vec<Self> {
         let mut engines = vec![];
         let properties = settings.get_section(ENGINES_SECTION);
@@ -70,11 +65,6 @@ impl EngineInfo {
     }
 
     /// Clone from other engine info
-    ///
-    /// # Arguments
-    ///
-    /// * `other` - Other engine info
-    ///
     pub fn clone(&mut self, other: Self) {
         self.path = other.path;
         self.version = other.version;
@@ -106,11 +96,6 @@ impl EngineInfo {
     }
 
     /// From gdvalue.
-    ///
-    /// # Arguments
-    ///
-    /// * `value`- GdValue
-    ///
     pub fn from_gdvalue(value: GdValue) -> Option<Self> {
         if let Some(map) = value.to_object() {
             let path = PathBuf::from(
@@ -177,11 +162,6 @@ pub fn list_engines_info() -> Result<Vec<EngineInfo>, ConfigError> {
 }
 
 /// Update engines info
-///
-/// # Arguments
-///
-/// * `entries` - Engine info entries
-///
 pub fn update_engines_info(entries: Vec<EngineInfo>) -> Result<File, ConfigError> {
     let mut configuration = read_gdpm_configuration()?;
     for entry in entries {
@@ -192,11 +172,6 @@ pub fn update_engines_info(entries: Vec<EngineInfo>) -> Result<File, ConfigError
 }
 
 /// Register engine entry.
-///
-/// # Arguments
-///
-/// * `entry` - Engine info
-///
 pub fn register_engine_entry(entry: EngineInfo) -> Result<(), ConfigError> {
     let mut engine_list = list_engines_info()?;
     let version = entry.version.clone();
@@ -220,11 +195,6 @@ pub fn register_engine_entry(entry: EngineInfo) -> Result<(), ConfigError> {
 }
 
 /// Unregister engine entry.
-///
-/// # Arguments
-///
-/// * `version` - Version
-///
 pub fn unregister_engine_entry(version: &str) -> Result<(), ConfigError> {
     // Check if engine exists
     get_engine_version(version)?;
@@ -247,11 +217,6 @@ pub fn unregister_engine_entry(version: &str) -> Result<(), ConfigError> {
 }
 
 /// Get engine version.
-///
-/// # Arguments
-///
-/// * `version` - Version
-///
 pub fn get_engine_version(version: &str) -> Result<EngineInfo, ConfigError> {
     let engine_list = list_engines_info()?;
     if let Some(entry) = engine_list.iter().find(|x| x.version == version) {
@@ -264,12 +229,6 @@ pub fn get_engine_version(version: &str) -> Result<EngineInfo, ConfigError> {
 }
 
 /// Run engine version for project.
-///
-/// # Arguments
-///
-/// * `version` - Version
-/// * `path` - Path
-///
 pub fn run_engine_version_for_project(version: &str, path: &Path) -> Result<(), ConfigError> {
     let engine = get_engine_version(version)?;
     Command::new(engine.path)
@@ -282,13 +241,6 @@ pub fn run_engine_version_for_project(version: &str, path: &Path) -> Result<(), 
 }
 
 /// Execute engine version command for project.
-///
-/// # Arguments
-///
-/// * `version` - Version
-/// * `args` - Arguments
-/// * `path` - Path
-///
 pub fn exec_engine_version_command_for_project(
     version: &str,
     args: &[String],
@@ -305,11 +257,6 @@ pub fn exec_engine_version_command_for_project(
 }
 
 /// Set engine as default
-///
-/// # Arguments
-///
-/// * `version` - Version
-///
 pub fn set_default_engine(version: &str) -> Result<(), ConfigError> {
     // Assert the engine exists
     get_engine_version(version)?;

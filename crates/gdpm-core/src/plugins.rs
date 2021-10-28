@@ -575,7 +575,6 @@ pub fn sync_project_plugin(project_path: &Path, plugin_name: &str) -> Result<(),
 /// Desynchronize project dependencies
 ///
 /// Uninstall not-included dependencies.
-///
 pub fn desync_project_plugins(project_path: &Path) -> Result<(), PluginError> {
     let deps = list_project_dependencies(project_path)?;
     for dep in deps {

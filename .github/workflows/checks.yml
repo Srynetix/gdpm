@@ -28,10 +28,13 @@ jobs:
     steps:
     - uses: actions/checkout@v2
     - run: rustup show
-    - uses: extractions/setup-just@v1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-    - run: just test-cov
+    - uses: actions-rs/tarpaulin@v0.1
+      with:
+        args: '-- --test-threads 1'
+        out-type: Lcov
+    - uses: coverallsapp/github-action@master
+      with:
+        github-token: ${{ secrets.GITHUB_TOKEN }}
 
   build:
     runs-on: ubuntu-latest

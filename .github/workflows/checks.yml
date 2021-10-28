@@ -6,37 +6,13 @@ jobs:
   format:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v2
-    - name: Cache toolchain
-      uses: actions/cache@v2
-      with:
-        path: |
-          ~/.rustup/toolchains
-          ~/.rustup/update-hashes
-          ~/.rustup/settings.toml
-        key: toolchain-${{ hashFiles('rust-toolchain.toml') }}
-    - run: rustup show
-    - uses: extractions/setup-just@v1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    - uses: ./.github/actions/prepare.yml
     - run: just fmt-check
 
   lint:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v2
-    - name: Cache toolchain
-      uses: actions/cache@v2
-      with:
-        path: |
-          ~/.rustup/toolchains
-          ~/.rustup/update-hashes
-          ~/.rustup/settings.toml
-        key: toolchain-${{ hashFiles('rust-toolchain.toml') }}
-    - run: rustup show
-    - uses: extractions/setup-just@v1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    - uses: ./.github/actions/prepare.yml
     - uses: actions/cache@v2
       with:
         path: |
@@ -49,16 +25,7 @@ jobs:
   test:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v2
-    - name: Cache toolchain
-      uses: actions/cache@v2
-      with:
-        path: |
-          ~/.rustup/toolchains
-          ~/.rustup/update-hashes
-          ~/.rustup/settings.toml
-        key: toolchain-${{ hashFiles('rust-toolchain.toml') }}
-    - run: rustup show
+    - uses: ./.github/actions/prepare.yml
     - uses: actions/cache@v2
       with:
         path: |
@@ -78,19 +45,7 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v2
-    - name: Cache toolchain
-      uses: actions/cache@v2
-      with:
-        path: |
-          ~/.rustup/toolchains
-          ~/.rustup/update-hashes
-          ~/.rustup/settings.toml
-        key: toolchain-${{ hashFiles('rust-toolchain.toml') }}
-    - run: rustup show
-    - uses: extractions/setup-just@v1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    - uses: ./.github/actions/prepare.yml
     - uses: actions/cache@v2
       with:
         path: |

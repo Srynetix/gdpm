@@ -3,22 +3,20 @@ use std::path::PathBuf;
 use argh::FromArgs;
 use color_eyre::Result;
 use colored::Colorize;
-use gdpm_core::{
-    plugins::{
-        add_dependency, desync_project_plugin, desync_project_plugins, fork_dependency,
-        list_project_dependencies, remove_dependency, sync_project_plugin, sync_project_plugins,
-    },
-    project::get_project_info,
+use gdpm_core::plugins::{
+    add_dependency, desync_project_plugin, desync_project_plugins, fork_dependency,
+    list_project_dependencies, remove_dependency, sync_project_plugin, sync_project_plugins,
 };
 
 use super::Execute;
+use crate::common::get_project_info_or_exit;
 
 /// add dependency
 #[derive(FromArgs)]
 #[argh(subcommand, name = "add")]
 pub struct Add {
     /// project path
-    #[argh(option, default = "PathBuf::from(\".\")")]
+    #[argh(option, short = 'p', default = "PathBuf::from(\".\")")]
     path: PathBuf,
     /// name
     #[argh(positional)]
@@ -39,7 +37,7 @@ pub struct Add {
 #[argh(subcommand, name = "fork")]
 pub struct Fork {
     /// project path
-    #[argh(option, default = "PathBuf::from(\".\")")]
+    #[argh(option, short = 'p', default = "PathBuf::from(\".\")")]
     path: PathBuf,
     /// name
     #[argh(positional)]
@@ -51,7 +49,7 @@ pub struct Fork {
 #[argh(subcommand, name = "remove")]
 pub struct Remove {
     /// project path
-    #[argh(option, default = "PathBuf::from(\".\")")]
+    #[argh(option, short = 'p', default = "PathBuf::from(\".\")")]
     path: PathBuf,
     /// name
     #[argh(positional)]
@@ -63,7 +61,7 @@ pub struct Remove {
 #[argh(subcommand, name = "list")]
 pub struct List {
     /// project path
-    #[argh(option, default = "PathBuf::from(\".\")")]
+    #[argh(option, short = 'p', default = "PathBuf::from(\".\")")]
     path: PathBuf,
 }
 
@@ -72,7 +70,7 @@ pub struct List {
 #[argh(subcommand, name = "sync")]
 pub struct Sync {
     /// project path
-    #[argh(option, default = "PathBuf::from(\".\")")]
+    #[argh(option, short = 'p', default = "PathBuf::from(\".\")")]
     path: PathBuf,
     /// name
     #[argh(option)]
@@ -84,7 +82,7 @@ pub struct Sync {
 #[argh(subcommand, name = "desync")]
 pub struct Desync {
     /// project path
-    #[argh(option, default = "PathBuf::from(\".\")")]
+    #[argh(option, short = 'p', default = "PathBuf::from(\".\")")]
     path: PathBuf,
     /// name
     #[argh(option)]
@@ -93,7 +91,7 @@ pub struct Desync {
 
 impl Execute for Add {
     fn execute(self) -> Result<()> {
-        let info = get_project_info(&self.path)?;
+        let info = get_project_info_or_exit(&self.path);
         add_dependency(
             &self.path,
             &self.name,
@@ -126,7 +124,7 @@ impl Execute for Add {
 
 impl Execute for Fork {
     fn execute(self) -> Result<()> {
-        let info = get_project_info(&self.path)?;
+        let info = get_project_info_or_exit(&self.path);
         fork_dependency(&self.path, &self.name)?;
 
         println!(
@@ -141,7 +139,7 @@ impl Execute for Fork {
 
 impl Execute for Remove {
     fn execute(self) -> Result<()> {
-        let info = get_project_info(&self.path)?;
+        let info = get_project_info_or_exit(&self.path);
         remove_dependency(&self.path, &self.name)?;
 
         println!(
@@ -156,7 +154,7 @@ impl Execute for Remove {
 
 impl Execute for List {
     fn execute(self) -> Result<()> {
-        let info = get_project_info(&self.path)?;
+        let info = get_project_info_or_exit(&self.path);
         let dependencies = list_project_dependencies(&self.path)?;
         println!(
             "Dependencies from project {}:",
@@ -173,7 +171,7 @@ impl Execute for List {
 
 impl Execute for Sync {
     fn execute(self) -> Result<()> {
-        let info = get_project_info(&self.path)?;
+        let info = get_project_info_or_exit(&self.path);
 
         if let Some(n) = self.name {
             sync_project_plugin(&self.path, &n)?;
@@ -198,7 +196,7 @@ impl Execute for Sync {
 
 impl Execute for Desync {
     fn execute(self) -> Result<()> {
-        let info = get_project_info(&self.path)?;
+        let info = get_project_info_or_exit(&self.path);
 
         if let Some(n) = self.name {
             desync_project_plugin(&self.path, &n)?;

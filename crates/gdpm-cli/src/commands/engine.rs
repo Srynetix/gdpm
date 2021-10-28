@@ -9,7 +9,8 @@ use gdpm_core::engine::{
     unregister_engine_entry, EngineInfo,
 };
 
-use super::{print_missing_default_engine_message, Execute};
+use super::Execute;
+use crate::common::{print_missing_default_engine_message, validate_engine_version_or_exit};
 
 /// engine management
 #[derive(FromArgs)]
@@ -34,11 +35,7 @@ pub enum Command {
 /// list engines
 #[derive(FromArgs)]
 #[argh(subcommand, name = "list")]
-pub struct List {
-    /// project path
-    #[argh(switch, short = 'p')]
-    verbose: bool,
-}
+pub struct List {}
 
 /// register engine
 #[derive(FromArgs)]
@@ -55,7 +52,7 @@ pub struct Register {
     mono: bool,
     /// built from source?
     #[argh(switch)]
-    built_from_source: bool,
+    source: bool,
 }
 
 /// unregister engine
@@ -84,7 +81,7 @@ pub struct Cmd {
     #[argh(option)]
     version: Option<String>,
     /// arguments
-    #[argh(option)]
+    #[argh(positional)]
     args: Vec<String>,
 }
 
@@ -126,21 +123,26 @@ impl Execute for List {
     fn execute(self) -> Result<()> {
         let entries = list_engines_info()?;
         let default_entry = get_default_engine()?;
-        for entry in entries {
-            if let Some(default) = &default_entry {
-                if entry.has_same_slug(default) {
-                    print!("{} ", "*".color("green"));
+
+        if entries.is_empty() {
+            println!(
+                "{}",
+                "No engine registered. Use `engine register` to register an engine."
+                    .color("yellow")
+            );
+        } else {
+            for entry in entries {
+                if let Some(default) = &default_entry {
+                    if entry.has_same_slug(default) {
+                        print!("{} ", "*".color("green"));
+                    } else {
+                        print!("  ");
+                    }
                 } else {
                     print!("  ");
                 }
-            } else {
-                print!("  ");
-            }
 
-            if self.verbose {
                 println!("{}", entry.get_verbose_name());
-            } else {
-                println!("{}", entry.get_name());
             }
         }
 
@@ -150,8 +152,7 @@ impl Execute for List {
 
 impl Execute for Register {
     fn execute(self) -> Result<()> {
-        let engine_info =
-            EngineInfo::new(self.version, self.path, self.mono, self.built_from_source)?;
+        let engine_info = EngineInfo::new(self.version, self.path, self.mono, self.source)?;
         let verbose_name = engine_info.get_verbose_name();
         register_engine_entry(engine_info)?;
 
@@ -162,6 +163,7 @@ impl Execute for Register {
 
 impl Execute for Unregister {
     fn execute(self) -> Result<()> {
+        validate_engine_version_or_exit(&self.version)?;
         unregister_engine_entry(&self.version)?;
 
         println!(
@@ -175,6 +177,7 @@ impl Execute for Unregister {
 impl Execute for Start {
     fn execute(self) -> Result<()> {
         if let Some(v) = self.version {
+            validate_engine_version_or_exit(&v)?;
             println!("Running Godot Engine v{} ...", v.color("green"));
             run_engine_version_for_project(&v, Path::new("."))?;
         } else if let Some(e) = get_default_engine()? {
@@ -190,7 +193,10 @@ impl Execute for Start {
 
 impl Execute for Cmd {
     fn execute(self) -> Result<()> {
-        if let Some(v) = self.version {
+        if self.args.is_empty() {
+            println!("{}", "You need to pass arguments. If you only want to start the engine, use `engine start`.".color("yellow"));
+        } else if let Some(v) = self.version {
+            validate_engine_version_or_exit(&v)?;
             println!(
                 "Executing command {} Godot Engine v{} ...",
                 self.args.join(" ").color("blue"),
@@ -214,6 +220,7 @@ impl Execute for Cmd {
 
 impl Execute for SetDefault {
     fn execute(self) -> Result<()> {
+        validate_engine_version_or_exit(&self.version)?;
         set_default_engine(&self.version)?;
         println!(
             "Godot Engine v{} set as default.",
@@ -227,7 +234,7 @@ impl Execute for SetDefault {
 impl Execute for GetDefault {
     fn execute(self) -> Result<()> {
         if let Some(e) = get_default_engine()? {
-            println!("{} Godot Engine v{}", "*".color("green"), e.color("green"));
+            println!("{} {}", "*".color("green"), e.color("green"));
         } else {
             print_missing_default_engine_message();
         }

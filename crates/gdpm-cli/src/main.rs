@@ -2,6 +2,7 @@ use color_eyre::Result;
 use commands::{parse_args, Args};
 
 mod commands;
+mod common;
 
 fn main() -> Result<()> {
     color_eyre::install()?;

@@ -144,7 +144,7 @@ impl EngineInfo {
 
     /// Show
     pub fn get_name(&self) -> String {
-        format!("Godot Engine v{}", self.version.color("green"))
+        self.version.color("green").to_string()
     }
 
     /// Show verbose
@@ -161,7 +161,7 @@ impl EngineInfo {
         };
 
         format!(
-            "Godot Engine v{} ({}) [mono: {} - source: {}]",
+            "{} ({}) [mono: {} - source: {}]",
             self.version.color("green"),
             self.path.to_string_lossy().color("yellow"),
             mono_str,

@@ -63,7 +63,6 @@ pub fn read_gdpm_configuration() -> Result<GdSettings, ConfigError> {
 pub fn write_gdpm_configuration(settings: GdSettings) -> Result<File, ConfigError> {
     let contents = settings.to_string();
 
-    println!("Writing gdpm configuration ...");
     write_string_to_configuration_file(Path::new(CONFIG_PATH), &contents).map_err(Into::into)
 }
 

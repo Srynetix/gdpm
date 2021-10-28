@@ -38,3 +38,7 @@ set-version v:
 # Show version
 show-version:
 	@echo {{ version }}
+
+# Install in path
+install:
+	cargo install --path ./crates/gdpm-cli

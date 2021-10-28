@@ -2,6 +2,7 @@
 
 use std::path::Path;
 
+use colored::Colorize;
 use gdsettings_parser::{GdSettings, GdValue};
 
 use crate::config::{read_project_configuration, write_project_configuration, ConfigError};
@@ -56,17 +57,17 @@ impl GdProjectInfo {
 
     /// Show project info
     pub fn show(&self) {
-        println!("Project: {}", self.project_name);
+        println!("Project: {}", self.project_name.color("green"));
         if let Some(v) = &self.version {
-            println!("- Version: {}", v);
+            println!("- Version: {}", v.color("green"));
         }
 
         if let Some(v) = &self.engine_version {
-            println!("- Engine version: v{}", v);
+            println!("- Engine version: v{}", v.color("green"));
         }
 
         if let Some(s) = &self.main_scene {
-            println!("- Main scene: {}", s);
+            println!("- Main scene: {}", s.color("green"));
         }
     }
 }

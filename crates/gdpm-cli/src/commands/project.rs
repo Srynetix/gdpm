@@ -4,12 +4,16 @@ use argh::FromArgs;
 use color_eyre::Result;
 use colored::Colorize;
 use gdpm_core::{
-    engine::{get_default_engine, get_engine_version, run_engine_version_for_project},
-    project::{get_project_info, set_project_engine, unset_project_engine},
+    engine::{get_default_engine, run_engine_version_for_project},
+    project::{set_project_engine, unset_project_engine},
 };
 use question::{Answer, Question};
 
-use super::{print_missing_default_engine_message, print_missing_project_engine_message, Execute};
+use super::Execute;
+use crate::common::{
+    get_project_info_or_exit, print_missing_default_engine_message,
+    print_missing_project_engine_message, validate_engine_version_or_exit,
+};
 
 /// get project info
 #[derive(FromArgs)]
@@ -25,7 +29,7 @@ pub struct Info {
 #[argh(subcommand, name = "edit")]
 pub struct Edit {
     /// project path
-    #[argh(option, default = "PathBuf::from(\".\")")]
+    #[argh(option, short = 'p', default = "PathBuf::from(\".\")")]
     path: PathBuf,
 
     /// version
@@ -38,7 +42,7 @@ pub struct Edit {
 #[argh(subcommand, name = "set-engine")]
 pub struct SetEngine {
     /// project path
-    #[argh(option, default = "PathBuf::from(\".\")")]
+    #[argh(option, short = 'p', default = "PathBuf::from(\".\")")]
     path: PathBuf,
 
     /// version
@@ -51,13 +55,13 @@ pub struct SetEngine {
 #[argh(subcommand, name = "unset-engine")]
 pub struct UnsetEngine {
     /// project path
-    #[argh(option, default = "PathBuf::from(\".\")")]
+    #[argh(option, short = 'p', default = "PathBuf::from(\".\")")]
     path: PathBuf,
 }
 
 impl Execute for Info {
     fn execute(self) -> Result<()> {
-        let info = get_project_info(&self.path)?;
+        let info = get_project_info_or_exit(&self.path);
         info.show();
 
         Ok(())
@@ -66,10 +70,10 @@ impl Execute for Info {
 
 impl Execute for Edit {
     fn execute(self) -> Result<()> {
-        let info = get_project_info(&self.path)?;
+        let info = get_project_info_or_exit(&self.path);
 
         if let Some(v) = self.version {
-            // Use specific version (override)
+            validate_engine_version_or_exit(&v)?;
             println!(
                 "Running Godot Engine v{} for project {} ...",
                 v.color("green"),
@@ -114,9 +118,9 @@ impl Execute for Edit {
 
 impl Execute for SetEngine {
     fn execute(self) -> Result<()> {
-        let info = get_project_info(&self.path)?;
+        let info = get_project_info_or_exit(&self.path);
         if let Some(v) = self.version {
-            get_engine_version(&v)?;
+            validate_engine_version_or_exit(&v)?;
             set_project_engine(&self.path, &v)?;
             println!(
                 "Godot Engine v{} set for project {}.",
@@ -141,7 +145,7 @@ impl Execute for SetEngine {
 impl Execute for UnsetEngine {
     fn execute(self) -> Result<()> {
         unset_project_engine(&self.path)?;
-        let info = get_project_info(&self.path)?;
+        let info = get_project_info_or_exit(&self.path);
 
         println!(
             "Engine deassociated from project {}.",

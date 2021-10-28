@@ -4,7 +4,6 @@ description: "Prepare Rust environment"
 runs:
   using: "composite"
   steps:
-    - uses: actions/checkout@v2
     - name: Cache toolchain
       uses: actions/cache@v2
       with:

@@ -74,6 +74,13 @@ jobs:
       with:
         path-to-lcov: lcov.info
         github-token: ${{ secrets.GITHUB_TOKEN }}
+    - run: |
+        wget https://raw.github.com/eriwen/lcov-to-cobertura-xml/master/lcov_cobertura/lcov_cobertura.py
+        python lcov_cobertura.py lcov.info -o coverage.xml
+    - name: Publish Unit Test Results
+      uses: EnricoMi/publish-unit-test-result-action@v1
+      with:
+        files: coverage.xml
 
   build:
     runs-on: ubuntu-latest

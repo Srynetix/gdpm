@@ -88,7 +88,7 @@ impl GdValue {
 
 impl ToString for GdValue {
     fn to_string(&self) -> String {
-        serialize_gdvalue(&self)
+        serialize_gdvalue(self)
     }
 }
 

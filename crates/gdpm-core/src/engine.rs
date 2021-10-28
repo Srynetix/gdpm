@@ -94,19 +94,15 @@ impl EngineInfo {
 
     /// To GdValue
     pub fn to_gdvalue(&self) -> GdValue {
-        let mut props: Vec<(String, GdValue)> = Vec::new();
-
-        props.push((
-            "path".to_string(),
-            GdValue::String(self.path.to_string_lossy().to_string()),
-        ));
-        props.push(("version".to_string(), GdValue::String(self.version.clone())));
-        props.push(("has_mono".to_string(), GdValue::Boolean(self.has_mono)));
-        props.push((
-            "from_source".to_string(),
-            GdValue::Boolean(self.from_source),
-        ));
-        GdValue::Object(props)
+        GdValue::Object(vec![
+            (
+                "path".into(),
+                GdValue::String(self.path.to_string_lossy().to_string()),
+            ),
+            ("version".into(), GdValue::String(self.version.clone())),
+            ("has_mono".into(), GdValue::Boolean(self.has_mono)),
+            ("from_source".into(), GdValue::Boolean(self.from_source)),
+        ])
     }
 
     /// From gdvalue.
@@ -231,20 +227,20 @@ pub fn register_engine_entry(entry: EngineInfo) -> Result<(), ConfigError> {
 ///
 pub fn unregister_engine_entry(version: &str) -> Result<(), ConfigError> {
     // Check if engine exists
-    get_engine_version(&version)?;
+    get_engine_version(version)?;
     // Check for default engine
     let default_engine = get_default_engine()?;
 
     // Unset default if same version
     if let Some(e) = default_engine {
-        if slugify!(&e) == slugify!(&version) {
+        if slugify!(&e) == slugify!(version) {
             unset_default_engine()?;
         }
     }
 
     // Remove version
     let mut conf = read_gdpm_configuration()?;
-    conf.remove_property(ENGINES_SECTION, &slugify!(&version))?;
+    conf.remove_property(ENGINES_SECTION, &slugify!(version))?;
     write_gdpm_configuration(conf)?;
 
     Ok(())
@@ -263,7 +259,7 @@ pub fn get_engine_version(version: &str) -> Result<EngineInfo, ConfigError> {
     } else {
         Err(ConfigError::EngineNotFound {
             path: version.to_string(),
-        })?
+        })
     }
 }
 
@@ -335,13 +331,13 @@ pub fn unset_default_engine() -> Result<(), ConfigError> {
 
 /// Get default engine
 pub fn get_default_engine() -> Result<Option<String>, ConfigError> {
-    let default_engine = read_gdpm_configuration().and_then(|x| {
-        Ok(x.get_property("", "default_engine")
-            .and_then(|x| x.to_str()))
+    let default_engine = read_gdpm_configuration().map(|x| {
+        x.get_property("", "default_engine")
+            .and_then(|x| x.to_str())
     })?;
     if let Some(e) = &default_engine {
         // Assert the version exist
-        get_engine_version(&e)?;
+        get_engine_version(e)?;
     }
 
     Ok(default_engine)

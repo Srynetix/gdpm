@@ -51,7 +51,7 @@ impl GdProjectInfo {
 
     /// Get engine version
     pub fn get_engine_version(&self) -> Option<&str> {
-        self.engine_version.as_ref().map(|x| &**x)
+        self.engine_version.as_deref()
     }
 
     /// Show project info

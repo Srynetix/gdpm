@@ -169,7 +169,7 @@ impl GdSettings {
 
 impl ToString for GdSettings {
     fn to_string(&self) -> String {
-        serialize_gdsettings(&self)
+        serialize_gdsettings(self)
     }
 }
 
@@ -184,10 +184,10 @@ pub fn serialize_gdsettings(settings: &GdSettings) -> String {
 
     fn write_props(hmap: &BTreeMap<String, GdValue>, output: &mut String) {
         for (k, v) in hmap.iter() {
-            output.push_str(&k);
+            output.push_str(k);
             output.push_str(" = ");
             output.push_str(&v.to_string());
-            output.push_str("\n");
+            output.push('\n');
         }
     }
 
@@ -197,18 +197,18 @@ pub fn serialize_gdsettings(settings: &GdSettings) -> String {
     let globs = map.get("");
     if let Some(hmap) = globs {
         write_props(hmap, &mut output);
-        output.push_str("\n");
+        output.push('\n');
     }
 
     // Then
     for (k, v) in map.iter() {
-        if k != "" {
-            output.push_str("[");
+        if !k.is_empty() {
+            output.push('[');
             output.push_str(k);
-            output.push_str("]");
-            output.push_str("\n");
+            output.push(']');
+            output.push('\n');
             write_props(v, &mut output);
-            output.push_str("\n");
+            output.push('\n');
         }
     }
 
@@ -393,7 +393,7 @@ mod tests {
 ;   [section] ; section goes between []
 ;   param=value ; assign values to parameters";
 
-        GdSettingsParser::parse(Rule::file, &content).expect("failed to parse");
+        GdSettingsParser::parse(Rule::file, content).expect("failed to parse");
     }
 
     #[test]
@@ -413,6 +413,6 @@ config/icon="res://icon.png"
 
 environment/default_environment="res://default_env.tres""###;
 
-        GdSettingsParser::parse(Rule::file, &content).expect("failed to parse");
+        GdSettingsParser::parse(Rule::file, content).expect("failed to parse");
     }
 }

@@ -177,13 +177,11 @@ impl Execute for Start {
         if let Some(v) = self.version {
             println!("Running Godot Engine v{} ...", v.color("green"));
             run_engine_version_for_project(&v, Path::new("."))?;
+        } else if let Some(e) = get_default_engine()? {
+            println!("Running Godot Engine v{} ...", e.color("green"));
+            run_engine_version_for_project(&e, Path::new("."))?;
         } else {
-            if let Some(e) = get_default_engine()? {
-                println!("Running Godot Engine v{} ...", e.color("green"));
-                run_engine_version_for_project(&e, Path::new("."))?;
-            } else {
-                print_missing_default_engine_message();
-            }
+            print_missing_default_engine_message();
         }
 
         Ok(())
@@ -199,17 +197,15 @@ impl Execute for Cmd {
                 v.color("green")
             );
             exec_engine_version_command_for_project(&v, &self.args, Path::new("."))?;
+        } else if let Some(e) = get_default_engine()? {
+            println!(
+                "Executing command {} on Godot Engine v{} ...",
+                self.args.join(" ").color("blue"),
+                e.color("green")
+            );
+            exec_engine_version_command_for_project(&e, &self.args, Path::new("."))?;
         } else {
-            if let Some(e) = get_default_engine()? {
-                println!(
-                    "Executing command {} on Godot Engine v{} ...",
-                    self.args.join(" ").color("blue"),
-                    e.color("green")
-                );
-                exec_engine_version_command_for_project(&e, &self.args, Path::new("."))?;
-            } else {
-                print_missing_default_engine_message();
-            }
+            print_missing_default_engine_message();
         }
 
         Ok(())

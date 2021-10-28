@@ -74,7 +74,7 @@ pub fn read_project_configuration(path: &Path) -> Result<GdSettings, ConfigError
     if !project.exists() {
         return Err(ConfigError::ProjectNotFound {
             path: project.to_string_lossy().to_string(),
-        })?;
+        });
     }
 
     let contents = read_file_to_string(&project)?;
@@ -89,7 +89,7 @@ pub fn write_project_configuration(path: &Path, settings: GdSettings) -> Result<
     if !project.exists() {
         return Err(ConfigError::ProjectNotFound {
             path: project.to_string_lossy().to_string(),
-        })?;
+        });
     }
 
     println!(

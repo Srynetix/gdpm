@@ -166,7 +166,7 @@ impl Dependency {
         )?;
 
         Ok(Dependency {
-            name: name.to_string(),
+            name,
             checksum: "".to_string(),
             source: DependencySource::from_value(&source),
             version,
@@ -185,15 +185,11 @@ impl Dependency {
 
     /// To GdValue
     pub fn to_gdvalue(&self) -> GdValue {
-        let mut map = vec![];
-        map.push(("name".to_string(), GdValue::String(self.name.clone())));
-        map.push(("version".to_string(), GdValue::String(self.version.clone())));
-        map.push((
-            "source".to_string(),
-            GdValue::String(self.source.path().clone()),
-        ));
-
-        GdValue::Object(map)
+        GdValue::Object(vec![
+            ("name".into(), GdValue::String(self.name.clone())),
+            ("version".into(), GdValue::String(self.version.clone())),
+            ("source".into(), GdValue::String(self.source.path())),
+        ])
     }
 
     /// Get verbose name
@@ -231,7 +227,7 @@ impl Dependency {
             DependencySource::Path(p) => {
                 // Another project
                 let full_path = if p.is_relative() {
-                    project_path.join(p).to_path_buf()
+                    project_path.join(p)
                 } else {
                     p.to_path_buf()
                 };

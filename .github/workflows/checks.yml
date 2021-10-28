@@ -7,6 +7,14 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v2
+    - name: Cache toolchain
+      uses: actions/cache@v2
+      with:
+        path: |
+          ~/.rustup/toolchains
+          ~/.rustup/update-hashes
+          ~/.rustup/settings.toml
+        key: toolchain-${{ hashFiles('rust-toolchain.toml') }}
     - run: rustup show
     - uses: extractions/setup-just@v1
       env:
@@ -17,6 +25,14 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v2
+    - name: Cache toolchain
+      uses: actions/cache@v2
+      with:
+        path: |
+          ~/.rustup/toolchains
+          ~/.rustup/update-hashes
+          ~/.rustup/settings.toml
+        key: toolchain-${{ hashFiles('rust-toolchain.toml') }}
     - run: rustup show
     - uses: extractions/setup-just@v1
       env:
@@ -27,6 +43,14 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v2
+    - name: Cache toolchain
+      uses: actions/cache@v2
+      with:
+        path: |
+          ~/.rustup/toolchains
+          ~/.rustup/update-hashes
+          ~/.rustup/settings.toml
+        key: toolchain-${{ hashFiles('rust-toolchain.toml') }}
     - run: rustup show
     - uses: actions-rs/tarpaulin@v0.1
       with:
@@ -42,6 +66,14 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v2
+    - name: Cache toolchain
+      uses: actions/cache@v2
+      with:
+        path: |
+          ~/.rustup/toolchains
+          ~/.rustup/update-hashes
+          ~/.rustup/settings.toml
+        key: toolchain-${{ hashFiles('rust-toolchain.toml') }}
     - run: rustup show
     - uses: extractions/setup-just@v1
       env:

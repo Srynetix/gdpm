@@ -35,7 +35,6 @@ test:
 set-version v:
 	ls -d crates/gdpm-*/Cargo.toml | xargs sed -i "s/^version = \"\(.*\)\"/version = \"{{ v }}\"/"
 
-
 # Show version
 show-version:
 	@echo {{ version }}

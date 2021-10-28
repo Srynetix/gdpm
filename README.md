@@ -1,6 +1,8 @@
 # gdpm - Godot Project Manager
 
-A command line utility to manage a Godot 3.x project.  
+[![Coverage Status](https://coveralls.io/repos/github/Srynetix/gdpm/badge.svg?branch=restructuration)](https://coveralls.io/github/Srynetix/gdpm?branch=restructuration)
+
+A command line utility to manage a Godot 3.x project.
 
 [CHANGELOG](./CHANGELOG.md)
 

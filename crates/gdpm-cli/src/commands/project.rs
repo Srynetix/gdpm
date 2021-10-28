@@ -1,11 +1,15 @@
-use argh::FromArgs;
-use gdpm_core::{engine::{get_default_engine, get_engine_version, run_engine_version_for_project}, project::{get_project_info, set_project_engine, unset_project_engine}};
-use question::{Answer, Question};
 use std::path::PathBuf;
+
+use argh::FromArgs;
 use color_eyre::Result;
 use colored::Colorize;
+use gdpm_core::{
+    engine::{get_default_engine, get_engine_version, run_engine_version_for_project},
+    project::{get_project_info, set_project_engine, unset_project_engine},
+};
+use question::{Answer, Question};
 
-use super::{Execute, print_missing_default_engine_message, print_missing_project_engine_message};
+use super::{print_missing_default_engine_message, print_missing_project_engine_message, Execute};
 
 /// get project info
 #[derive(FromArgs)]
@@ -13,7 +17,7 @@ use super::{Execute, print_missing_default_engine_message, print_missing_project
 pub struct Info {
     /// project path
     #[argh(option, short = 'p', default = "PathBuf::from(\".\")")]
-    path: PathBuf
+    path: PathBuf,
 }
 
 /// edit project
@@ -26,7 +30,7 @@ pub struct Edit {
 
     /// version
     #[argh(option)]
-    version: Option<String>
+    version: Option<String>,
 }
 
 /// set project engine
@@ -39,7 +43,7 @@ pub struct SetEngine {
 
     /// version
     #[argh(option)]
-    version: Option<String>
+    version: Option<String>,
 }
 
 /// unset project engine

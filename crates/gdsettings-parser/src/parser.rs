@@ -322,10 +322,9 @@ pub fn parse_gdsettings_file(contents: &str) -> Result<GdSettings, ParserError> 
 
 #[cfg(test)]
 mod tests {
+    use std::{fs::File, io::Read, path::Path};
+
     use super::*;
-    use std::fs::File;
-    use std::io::Read;
-    use std::path::Path;
 
     #[test]
     fn full_serializer_test() {

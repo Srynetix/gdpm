@@ -9,11 +9,8 @@ mod project;
 /// manage Godot versions and project dependencies
 #[derive(FromArgs)]
 pub struct Args {
-    /// verbose mode
-    #[argh(switch)]
-    verbose: bool,
     #[argh(subcommand)]
-    command: Command
+    command: Command,
 }
 
 trait Execute {
@@ -34,12 +31,10 @@ enum Command {
     List(dependency::List),
     Sync(dependency::Sync),
     Desync(dependency::Desync),
-    Engine(engine::Engine)
+    Engine(engine::Engine),
 }
 
 pub fn parse_args(args: Args) -> Result<()> {
-    let verbose = args.verbose;
-
     match args.command {
         Command::Info(c) => c.execute(),
         Command::Edit(c) => c.execute(),
@@ -51,7 +46,7 @@ pub fn parse_args(args: Args) -> Result<()> {
         Command::List(c) => c.execute(),
         Command::Sync(c) => c.execute(),
         Command::Desync(c) => c.execute(),
-        Command::Engine(c) => c.execute()
+        Command::Engine(c) => c.execute(),
     }
 }
 

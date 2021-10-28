@@ -1,20 +1,23 @@
 //! Plugins module
 
-use std::fs;
-use std::path::{Path, PathBuf};
-use std::process::Command;
+use std::{
+    fs,
+    path::{Path, PathBuf},
+    process::Command,
+};
 
-use color_eyre::{eyre::eyre, Report as Error};
 use colored::Colorize;
 use fs_extra::dir::{copy, CopyOptions};
+use gdsettings_parser::{parse_gdsettings_file, GdValue, ParserError};
 use slugify::slugify;
 use thiserror::Error;
 
-use gdsettings_parser::{parse_gdsettings_file, GdValue};
-
-use super::config::{read_project_configuration, write_project_configuration};
-use super::fs::read_file_to_string;
-use super::project::get_project_info;
+use super::{
+    config::{read_project_configuration, write_project_configuration},
+    fs::read_file_to_string,
+    project::get_project_info,
+};
+use crate::config::ConfigError;
 
 const DEPS_SECTION: &str = "dependencies";
 const ADDONS_FOLDER: &str = "addons";
@@ -41,6 +44,21 @@ pub enum PluginError {
         /// Slug
         slug: String,
     },
+    /// Cannot desync
+    #[error("cannot desync: {}", slug)]
+    CannotDesync { slug: String },
+    /// IO error
+    #[error(transparent)]
+    IOError(#[from] std::io::Error),
+    /// FS extra error
+    #[error(transparent)]
+    FSExtraError(#[from] fs_extra::error::Error),
+    /// Parser error
+    #[error(transparent)]
+    ParserError(#[from] ParserError),
+    /// Config error
+    #[error(transparent)]
+    ConfigError(#[from] ConfigError),
 }
 
 /// Dependency source
@@ -58,15 +76,15 @@ pub enum DependencySource {
 
 impl DependencySource {
     /// Create from string
-    pub fn from_value(source: &str) -> Result<Self, Error> {
+    pub fn from_value(source: &str) -> Self {
         if source == "." {
-            Ok(Self::Current)
+            Self::Current
         } else if source.starts_with("http") {
-            Ok(Self::GitHttp(source.to_string()))
+            Self::GitHttp(source.to_string())
         } else if source.starts_with("git@") {
-            Ok(Self::GitSsh(source.to_string()))
+            Self::GitSsh(source.to_string())
         } else {
-            Ok(Self::Path(Path::new(source).to_path_buf()))
+            Self::Path(Path::new(source).to_path_buf())
         }
     }
 
@@ -124,7 +142,7 @@ pub struct Dependency {
 
 impl Dependency {
     /// From GdValue
-    pub fn from_gdvalue(name: &str, value: &GdValue) -> Result<Self, Error> {
+    pub fn from_gdvalue(name: &str, value: &GdValue) -> Result<Self, PluginError> {
         let value = value.to_object().ok_or(PluginError::MalformedDependency {
             slug: name.to_string(),
         })?;
@@ -150,7 +168,7 @@ impl Dependency {
         Ok(Dependency {
             name: name.to_string(),
             checksum: "".to_string(),
-            source: DependencySource::from_value(&source)?,
+            source: DependencySource::from_value(&source),
             version,
         })
     }
@@ -178,14 +196,14 @@ impl Dependency {
         GdValue::Object(map)
     }
 
-    /// Show
-    pub fn show(&self) {
-        println!(
-            "- {} (v{}) (source: {})",
+    /// Get verbose name
+    pub fn get_verbose_name(&self) -> String {
+        format!(
+            "{} (v{}) (source: {})",
             self.name.color("green"),
             self.version.color("green"),
             self.source.to_string().color("blue")
-        );
+        )
     }
 
     /// Check if the dependency is installed
@@ -195,7 +213,7 @@ impl Dependency {
     }
 
     /// Uninstall dependency
-    pub fn uninstall(&self, project_path: &Path) -> Result<(), Error> {
+    pub fn uninstall(&self, project_path: &Path) -> Result<(), PluginError> {
         if self.is_installed(project_path) {
             fs::remove_dir_all(project_path.join(ADDONS_FOLDER).join(&self.name))?;
         }
@@ -204,7 +222,7 @@ impl Dependency {
     }
 
     /// Install dependency
-    pub fn install(&self, project_path: &Path) -> Result<PluginInfo, Error> {
+    pub fn install(&self, project_path: &Path) -> Result<PluginInfo, PluginError> {
         match &self.source {
             DependencySource::Current => {
                 // Current project
@@ -279,7 +297,10 @@ impl Dependency {
 
 impl PluginInfo {
     /// Load plugin info from project addon
-    pub fn from_project_addon(project_path: &Path, addon_folder: &str) -> Result<Self, Error> {
+    pub fn from_project_addon(
+        project_path: &Path,
+        addon_folder: &str,
+    ) -> Result<Self, PluginError> {
         let addon_path = project_path
             .join(ADDONS_FOLDER)
             .join(addon_folder)
@@ -346,7 +367,7 @@ impl PluginInfo {
 }
 
 /// List project dependencies
-pub fn list_project_dependencies(path: &Path) -> Result<Vec<Dependency>, Error> {
+pub fn list_project_dependencies(path: &Path) -> Result<Vec<Dependency>, PluginError> {
     let conf = read_project_configuration(path)?;
     let mut deps = vec![];
     if let Some(dependencies) = conf.get_section(DEPS_SECTION) {
@@ -359,7 +380,7 @@ pub fn list_project_dependencies(path: &Path) -> Result<Vec<Dependency>, Error> 
 }
 
 /// Get dependency
-pub fn get_dependency(project_path: &Path, name: &str) -> Result<Dependency, Error> {
+pub fn get_dependency(project_path: &Path, name: &str) -> Result<Dependency, PluginError> {
     let deps = list_project_dependencies(project_path)?;
     let slug = slugify!(name);
     for dep in deps {
@@ -369,13 +390,13 @@ pub fn get_dependency(project_path: &Path, name: &str) -> Result<Dependency, Err
         }
     }
 
-    Err(eyre!(PluginError::MissingDependency {
-        slug: name.to_string()
-    }))
+    Err(PluginError::MissingDependency {
+        slug: name.to_string(),
+    })
 }
 
 /// List plugins from project
-pub fn list_plugins_from_project(project_path: &Path) -> Result<Vec<PluginInfo>, Error> {
+pub fn list_plugins_from_project(project_path: &Path) -> Result<Vec<PluginInfo>, PluginError> {
     let addons_path = project_path.join(ADDONS_FOLDER);
     let mut addons = vec![];
 
@@ -409,12 +430,12 @@ pub fn add_dependency(
     version: &str,
     source: &str,
     no_install: bool,
-) -> Result<(), Error> {
+) -> Result<(), PluginError> {
     let dependency = Dependency {
         name: name.to_string(),
         checksum: "".to_string(),
         version: version.to_string(),
-        source: DependencySource::from_value(source)?,
+        source: DependencySource::from_value(source),
     };
 
     let mut data = read_project_configuration(project_path)?;
@@ -425,11 +446,12 @@ pub fn add_dependency(
         dependency.install(project_path)?;
     }
 
-    write_project_configuration(project_path, data)
+    write_project_configuration(project_path, data)?;
+    Ok(())
 }
 
 /// Remove dependency from project
-pub fn remove_dependency(project_path: &Path, name: &str) -> Result<(), Error> {
+pub fn remove_dependency(project_path: &Path, name: &str) -> Result<(), PluginError> {
     let project_info = get_project_info(project_path)?;
     let mut data = read_project_configuration(project_path)?;
     let slug = slugify!(name);
@@ -449,18 +471,15 @@ pub fn remove_dependency(project_path: &Path, name: &str) -> Result<(), Error> {
     }
 
     if data.remove_property(DEPS_SECTION, &slug).is_err() {
-        return Err(eyre!(
-            "Dependency {} is missing from project {}.",
-            name.color("green"),
-            project_info.get_versioned_name().color("green")
-        ));
+        return Err(PluginError::MissingDependency { slug });
     }
 
-    write_project_configuration(project_path, data)
+    write_project_configuration(project_path, data)?;
+    Ok(())
 }
 
 /// Fork dependency: integrate plugin inside of project
-pub fn fork_dependency(project_path: &Path, name: &str) -> Result<(), Error> {
+pub fn fork_dependency(project_path: &Path, name: &str) -> Result<(), PluginError> {
     let mut data = read_project_configuration(project_path)?;
     let slug = slugify!(name);
 
@@ -487,7 +506,7 @@ pub fn fork_dependency(project_path: &Path, name: &str) -> Result<(), Error> {
 /// * Find and register new dependencies in project
 /// * Install up-to-date dependencies in project
 ///
-pub fn sync_project_plugins(project_path: &Path) -> Result<(), Error> {
+pub fn sync_project_plugins(project_path: &Path) -> Result<(), PluginError> {
     // Find and register plugins
     let project_info = get_project_info(project_path)?;
     let mut conf = read_project_configuration(project_path)?;
@@ -522,7 +541,7 @@ pub fn sync_project_plugins(project_path: &Path) -> Result<(), Error> {
 }
 
 /// Sync one specific project dependency
-pub fn sync_project_plugin(project_path: &Path, plugin_name: &str) -> Result<(), Error> {
+pub fn sync_project_plugin(project_path: &Path, plugin_name: &str) -> Result<(), PluginError> {
     // Find and register plugins
     let project_info = get_project_info(project_path)?;
     let plugin_slug = slugify!(plugin_name);
@@ -547,11 +566,9 @@ pub fn sync_project_plugin(project_path: &Path, plugin_name: &str) -> Result<(),
 
     let dep = get_dependency(project_path, plugin_name);
     if dep.is_err() {
-        eyre!(
-            "Dependency {} is missing from project {}.",
-            plugin_name.color("green"),
-            project_info.get_versioned_name().color("green")
-        );
+        return Err(PluginError::MissingDependency {
+            slug: plugin_name.to_owned(),
+        });
     }
 
     let dep = dep.unwrap();
@@ -563,7 +580,7 @@ pub fn sync_project_plugin(project_path: &Path, plugin_name: &str) -> Result<(),
 ///
 /// Uninstall not-included dependencies.
 ///
-pub fn desync_project_plugins(project_path: &Path) -> Result<(), Error> {
+pub fn desync_project_plugins(project_path: &Path) -> Result<(), PluginError> {
     let deps = list_project_dependencies(project_path)?;
     for dep in deps {
         if dep.source != DependencySource::Current && dep.is_installed(project_path) {
@@ -576,24 +593,19 @@ pub fn desync_project_plugins(project_path: &Path) -> Result<(), Error> {
 }
 
 /// Desynchronize one specific project dependency
-pub fn desync_project_plugin(project_path: &Path, plugin_name: &str) -> Result<(), Error> {
-    let project_info = get_project_info(project_path)?;
+pub fn desync_project_plugin(project_path: &Path, plugin_name: &str) -> Result<(), PluginError> {
     let dep = get_dependency(project_path, plugin_name);
     if dep.is_err() {
-        eyre!(
-            "Dependency {} is missing from project {}.",
-            plugin_name.color("green"),
-            project_info.get_versioned_name().color("green")
-        );
+        return Err(PluginError::MissingDependency {
+            slug: plugin_name.to_owned(),
+        });
     }
 
     let dep = dep.unwrap();
     if dep.source == DependencySource::Current {
-        eyre!(
-            "Dependency {} belong to project {}. It cannot be desync.",
-            plugin_name.color("green"),
-            project_info.get_versioned_name().color("green")
-        );
+        return Err(PluginError::CannotDesync {
+            slug: plugin_name.to_owned(),
+        });
     }
 
     dep.uninstall(project_path)?;

@@ -1,5 +1,5 @@
 use color_eyre::Result;
-use commands::{Args, parse_args};
+use commands::{parse_args, Args};
 
 mod commands;
 

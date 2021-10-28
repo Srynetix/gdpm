@@ -1,7 +1,4 @@
-use std::env;
-use std::fs;
-use std::io::Read;
-use std::path::Path;
+use std::{env, fs, io::Read, path::Path};
 
 use gdsettings_parser::{parse_gdsettings_file, serialize_gdsettings};
 

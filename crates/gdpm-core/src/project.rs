@@ -1,6 +1,6 @@
 //! Project module
 
-use std::{fs::File, path::Path};
+use std::path::Path;
 
 use gdsettings_parser::{GdSettings, GdValue};
 

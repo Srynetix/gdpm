@@ -1,8 +1,10 @@
 //! fs module
 
-use std::fs::{self, File, OpenOptions};
-use std::io::{Read, Write};
-use std::path::{Path, PathBuf};
+use std::{
+    fs::{self, File, OpenOptions},
+    io::{Read, Write},
+    path::{Path, PathBuf},
+};
 
 use dirs;
 
@@ -56,7 +58,10 @@ pub fn read_file_to_string(path: &Path) -> Result<String, std::io::Error> {
 }
 
 /// Write string to configuration file.
-pub fn write_string_to_configuration_file(path: &Path, contents: &str) -> Result<File, std::io::Error> {
+pub fn write_string_to_configuration_file(
+    path: &Path,
+    contents: &str,
+) -> Result<File, std::io::Error> {
     let config_file = get_configuration_file(path);
     write_string_to_file(&config_file, contents)
 }

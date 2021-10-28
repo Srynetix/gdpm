@@ -1,7 +1,6 @@
 //! GDValue
 
-use std::collections::BTreeMap;
-use std::string::ToString;
+use std::{collections::BTreeMap, string::ToString};
 
 /// Godot value
 #[derive(PartialEq, Debug, Clone)]

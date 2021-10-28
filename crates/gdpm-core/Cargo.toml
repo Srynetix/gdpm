@@ -1,6 +1,6 @@
 [package]
 name = "gdpm-core"
-version = "0.1.0"
+version = "1.0.1"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
@@ -8,6 +8,7 @@ edition = "2021"
 [dependencies]
 colored = "2.0.0"
 dirs = "4.0.0"
+fs_extra = "1.2.0"
 gdsettings-parser = { path = "../gdsettings-parser" }
 slugify = "0.1.0"
 thiserror = "1.0.30"

@@ -1,8 +1,10 @@
 //! Engine module
 
-use std::fs::File;
-use std::path::{Path, PathBuf};
-use std::process::Command;
+use std::{
+    fs::File,
+    path::{Path, PathBuf},
+    process::Command,
+};
 
 use colored::Colorize;
 use gdsettings_parser::{GdSettings, GdValue};
@@ -35,7 +37,7 @@ impl EngineInfo {
     ) -> Result<Self, ConfigError> {
         if !path.is_file() {
             Err(ConfigError::EngineNotFound {
-                path: path.to_string_lossy().to_string()
+                path: path.to_string_lossy().to_string(),
             })
         } else {
             Ok(Self {

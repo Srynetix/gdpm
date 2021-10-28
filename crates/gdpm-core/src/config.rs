@@ -1,8 +1,11 @@
 //! Config module
 
-use std::{fs::File, path::{Path, PathBuf}};
+use std::{
+    fs::File,
+    path::{Path, PathBuf},
+};
 
-use gdsettings_parser::{GdSettings, GdSettingsError, ParserError, parse_gdsettings_file};
+use gdsettings_parser::{parse_gdsettings_file, GdSettings, GdSettingsError, ParserError};
 use thiserror::Error;
 
 use crate::fs::{

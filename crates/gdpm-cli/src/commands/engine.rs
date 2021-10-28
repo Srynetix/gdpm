@@ -1,17 +1,22 @@
-use argh::FromArgs;
-use gdpm_core::engine::{EngineInfo, exec_engine_version_command_for_project, get_default_engine, list_engines_info, register_engine_entry, run_engine_version_for_project, set_default_engine, unregister_engine_entry};
 use std::path::{Path, PathBuf};
+
+use argh::FromArgs;
 use color_eyre::Result;
 use colored::Colorize;
+use gdpm_core::engine::{
+    exec_engine_version_command_for_project, get_default_engine, list_engines_info,
+    register_engine_entry, run_engine_version_for_project, set_default_engine,
+    unregister_engine_entry, EngineInfo,
+};
 
-use super::{Execute, print_missing_default_engine_message};
+use super::{print_missing_default_engine_message, Execute};
 
 /// engine management
 #[derive(FromArgs)]
 #[argh(subcommand, name = "engine")]
 pub struct Engine {
     #[argh(subcommand)]
-    cmd: Command
+    cmd: Command,
 }
 
 #[derive(FromArgs)]
@@ -23,7 +28,7 @@ pub enum Command {
     Start(Start),
     Cmd(Cmd),
     SetDefault(SetDefault),
-    GetDefault(GetDefault)
+    GetDefault(GetDefault),
 }
 
 /// list engines
@@ -32,7 +37,7 @@ pub enum Command {
 pub struct List {
     /// project path
     #[argh(switch, short = 'p')]
-    verbose: bool
+    verbose: bool,
 }
 
 /// register engine
@@ -50,7 +55,7 @@ pub struct Register {
     mono: bool,
     /// built from source?
     #[argh(switch)]
-    built_from_source: bool
+    built_from_source: bool,
 }
 
 /// unregister engine
@@ -59,7 +64,7 @@ pub struct Register {
 pub struct Unregister {
     /// version
     #[argh(positional)]
-    version: String
+    version: String,
 }
 
 /// start engine
@@ -68,7 +73,7 @@ pub struct Unregister {
 pub struct Start {
     /// version
     #[argh(option)]
-    version: Option<String>
+    version: Option<String>,
 }
 
 /// execute command on engine
@@ -80,7 +85,7 @@ pub struct Cmd {
     version: Option<String>,
     /// arguments
     #[argh(option)]
-    args: Vec<String>
+    args: Vec<String>,
 }
 
 /// set engine as default
@@ -89,7 +94,7 @@ pub struct Cmd {
 pub struct SetDefault {
     /// version
     #[argh(positional)]
-    version: String
+    version: String,
 }
 
 /// get default engine
@@ -145,7 +150,8 @@ impl Execute for List {
 
 impl Execute for Register {
     fn execute(self) -> Result<()> {
-        let engine_info = EngineInfo::new(self.version, self.path, self.mono, self.built_from_source)?;
+        let engine_info =
+            EngineInfo::new(self.version, self.path, self.mono, self.built_from_source)?;
         let verbose_name = engine_info.get_verbose_name();
         register_engine_entry(engine_info)?;
 
@@ -158,7 +164,10 @@ impl Execute for Unregister {
     fn execute(self) -> Result<()> {
         unregister_engine_entry(&self.version)?;
 
-        println!("Godot Engine v{} unregistered.", self.version.color("green"));
+        println!(
+            "Godot Engine v{} unregistered.",
+            self.version.color("green")
+        );
         Ok(())
     }
 }
@@ -210,7 +219,10 @@ impl Execute for Cmd {
 impl Execute for SetDefault {
     fn execute(self) -> Result<()> {
         set_default_engine(&self.version)?;
-        println!("Godot Engine v{} set as default.", self.version.color("green"));
+        println!(
+            "Godot Engine v{} set as default.",
+            self.version.color("green")
+        );
 
         Ok(())
     }

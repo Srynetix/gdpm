@@ -37,6 +37,13 @@ jobs:
     - uses: extractions/setup-just@v1
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    - uses: actions/cache@v2
+      with:
+        path: |
+          ~/.cargo/registry
+          ~/.cargo/git
+          target
+        key: lint-cargo-${{ hashFiles('**/Cargo.lock') }}
     - run: just lint-err
 
   test:
@@ -52,11 +59,17 @@ jobs:
           ~/.rustup/settings.toml
         key: toolchain-${{ hashFiles('rust-toolchain.toml') }}
     - run: rustup show
+    - uses: actions/cache@v2
+      with:
+        path: |
+          ~/.cargo/registry
+          ~/.cargo/git
+          target
+        key: test-cargo-${{ hashFiles('**/Cargo.lock') }}
     - uses: actions-rs/tarpaulin@v0.1
       with:
         args: '-- --test-threads 1'
         out-type: Lcov
-    - run: ls -la
     - uses: coverallsapp/github-action@master
       with:
         path-to-lcov: lcov.info
@@ -78,4 +91,11 @@ jobs:
     - uses: extractions/setup-just@v1
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    - uses: actions/cache@v2
+      with:
+        path: |
+          ~/.cargo/registry
+          ~/.cargo/git
+          target
+        key: build-cargo-${{ hashFiles('**/Cargo.lock') }}
     - run: just build

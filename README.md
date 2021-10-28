@@ -1,7 +1,8 @@
 # gdpm - Godot Project Manager
 
 A command line utility to manage a Godot 3.x project.  
-Toy project (for now) written in Rust.
+
+[CHANGELOG](./CHANGELOG.md)
 
 ## Roadmap
 

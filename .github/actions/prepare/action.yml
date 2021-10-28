@@ -13,6 +13,7 @@ runs:
           ~/.rustup/settings.toml
         key: toolchain-${{ hashFiles('rust-toolchain.toml') }}
     - run: rustup show
+      shell: bash
     - uses: extractions/setup-just@v1
       env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        GITHUB_TOKEN: ${{ github.token }}

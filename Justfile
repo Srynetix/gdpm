@@ -41,4 +41,4 @@ show-version:
 
 # Install in path
 install:
-	cargo install --path ./crates/gdpm-cli
+	cargo install --debug --path ./crates/gdpm-cli

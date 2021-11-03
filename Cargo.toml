@@ -2,6 +2,8 @@
 members = [
     "crates/gdpm-cli",
     "crates/gdpm-core",
+    "crates/gdpm-io",
+    "crates/gdpm-downloader",
     "crates/gdsettings-parser",
 ]
 

@@ -1,99 +1,127 @@
-//! Config module
+//! User .gdpm config module.
 
 use std::{
     fs::File,
     path::{Path, PathBuf},
 };
 
-use gdsettings_parser::{parse_gdsettings_file, GdSettings, GdSettingsError, ParserError};
-use thiserror::Error;
-
-use crate::fs::{
-    read_configuration_file_to_string, read_file_to_string, write_string_to_configuration_file,
+use gdpm_io::{
+    create_dir, error::IoError, get_user_configuration_directory, read_file_to_string,
     write_string_to_file,
 };
+use gdsettings_parser::{parse_gdsettings_file, GdSettings};
 
-/// Config error
-#[derive(Debug, Error)]
-pub enum ConfigError {
-    /// Project not found
-    #[error("project not found: {}", path)]
-    ProjectNotFound {
-        /// Project path
-        path: String,
-    },
-    /// Malformed project
-    #[error("malformed project")]
-    MalformedProject,
-    /// Malformed engine configuration
-    #[error("engine not found: {}", path)]
-    EngineNotFound {
-        /// Engine path or version
-        path: String,
-    },
-    /// IO Error
-    #[error(transparent)]
-    IOError(#[from] std::io::Error),
-    /// Parser error
-    #[error(transparent)]
-    ParserError(#[from] ParserError),
-    /// GdSettings error
-    #[error(transparent)]
-    GdSettingsError(#[from] GdSettingsError),
-}
+use crate::error::{ConfigError, ProjectError};
 
-/// Engines section in settings
+/// Root config folder name.
+pub const ROOT_CONFIG_FOLDER_NAME: &str = "gdpm";
+/// Global config filename.
+pub const GLOBAL_CONFIG_FILENAME: &str = "gdpm.cfg";
+/// Engines section name.
 pub const ENGINES_SECTION: &str = "engines";
+/// Project config filename.
+pub const PROJECT_CONFIG_FILENAME: &str = "project.godot";
 
-const CONFIG_PATH: &str = "gdpm.cfg";
+/// User directory handler.
+pub struct UserDir;
 
-/// Get project configuration path
-pub fn get_project_configuration(path: &Path) -> PathBuf {
-    path.join("project.godot")
-}
+impl UserDir {
+    /// Get or create global directory.
+    pub fn get_or_create_global_directory() -> Result<PathBuf, IoError> {
+        let config_directory = get_user_configuration_directory()?.join(ROOT_CONFIG_FOLDER_NAME);
+        if !config_directory.exists() {
+            create_dir(&config_directory)?;
+        }
 
-/// Read gdpm configuration
-pub fn read_gdpm_configuration() -> Result<GdSettings, ConfigError> {
-    let contents = read_configuration_file_to_string(Path::new(CONFIG_PATH))?;
-
-    parse_gdsettings_file(&contents).map_err(Into::into)
-}
-
-/// Write gdpm configuration
-pub fn write_gdpm_configuration(settings: GdSettings) -> Result<File, ConfigError> {
-    let contents = settings.to_string();
-
-    write_string_to_configuration_file(Path::new(CONFIG_PATH), &contents).map_err(Into::into)
-}
-
-/// Read project configuration
-pub fn read_project_configuration(path: &Path) -> Result<GdSettings, ConfigError> {
-    // Check for project.godot
-    let project = get_project_configuration(path);
-    if !project.exists() {
-        return Err(ConfigError::ProjectNotFound {
-            path: project.to_string_lossy().to_string(),
-        });
+        Ok(config_directory)
     }
 
-    let contents = read_file_to_string(&project)?;
-    parse_gdsettings_file(&contents).map_err(Into::into)
-}
+    /// Get or create directory in global directory.
+    pub fn get_or_create_directory(path: &Path) -> Result<PathBuf, IoError> {
+        let path = Self::get_or_create_global_directory()?.join(path);
+        if !path.exists() {
+            create_dir(&path)?;
+        }
 
-/// Write project configuration.
-pub fn write_project_configuration(path: &Path, settings: GdSettings) -> Result<File, ConfigError> {
-    let contents = settings.to_string();
-
-    let project = get_project_configuration(path);
-    if !project.exists() {
-        return Err(ConfigError::ProjectNotFound {
-            path: project.to_string_lossy().to_string(),
-        });
+        Ok(path)
     }
 
-    println!(
-        "Writing project configuration to path: {}",
-        project.to_string_lossy()
-    );
-    write_string_to_file(&project, &contents).map_err(Into::into)
+    /// Get file in global directory.
+    pub fn get_file(path: &Path) -> Result<PathBuf, IoError> {
+        Ok(Self::get_or_create_global_directory()?.join(path))
+    }
+
+    /// Create file in global directory.
+    pub fn create_file(path: &Path) -> Result<File, IoError> {
+        File::create(Self::get_file(path)?).map_err(|e| IoError::CreateFileError(path.into(), e))
+    }
+
+    /// Read file to string from global directory.
+    pub fn read_file_to_string(path: &Path) -> Result<String, IoError> {
+        read_file_to_string(&Self::get_file(path)?)
+    }
+
+    /// Write string tp file in global directory.
+    pub fn write_string_to_file(path: &Path, contents: &str) -> Result<(), IoError> {
+        write_string_to_file(&Self::get_file(path)?, contents).map(|_| ())
+    }
+}
+
+/// Global configuration handler.
+pub struct GlobalConfig;
+
+impl GlobalConfig {
+    /// Get global configuration path.
+    pub fn get_global_config_path() -> &'static Path {
+        Path::new(GLOBAL_CONFIG_FILENAME)
+    }
+
+    /// Load global configuration.
+    pub fn load() -> Result<GdSettings, ConfigError> {
+        let contents = UserDir::read_file_to_string(Self::get_global_config_path())?;
+        parse_gdsettings_file(&contents).map_err(Into::into)
+    }
+
+    /// Save global configuration.
+    pub fn save(settings: GdSettings) -> Result<(), ConfigError> {
+        UserDir::write_string_to_file(Self::get_global_config_path(), &settings.to_string())
+            .map_err(Into::into)
+    }
+}
+
+/// Project configuration handler.
+pub struct ProjectConfig;
+
+impl ProjectConfig {
+    /// Get project configuration path.
+    pub fn get_project_config_path(path: &Path) -> PathBuf {
+        path.join(PROJECT_CONFIG_FILENAME)
+    }
+
+    /// Ensure a project exists.
+    pub fn ensure_project_exists(path: &Path) -> Result<PathBuf, ProjectError> {
+        let project = Self::get_project_config_path(path);
+        if !project.exists() {
+            return Err(ProjectError::ProjectNotFound(
+                project.to_string_lossy().to_string(),
+            ));
+        }
+
+        Ok(project)
+    }
+
+    /// Load project configuration.
+    pub fn load(path: &Path) -> Result<GdSettings, ProjectError> {
+        let project = Self::ensure_project_exists(path)?;
+        let contents = read_file_to_string(&project)?;
+        parse_gdsettings_file(&contents).map_err(ProjectError::MalformedProject)
+    }
+
+    /// Save project configuration.
+    pub fn save(path: &Path, settings: GdSettings) -> Result<(), ProjectError> {
+        let project = Self::ensure_project_exists(path)?;
+        write_string_to_file(&project, &settings.to_string())
+            .map(|_| ())
+            .map_err(Into::into)
+    }
 }

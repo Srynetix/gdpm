@@ -3,11 +3,16 @@ use std::path::{Path, PathBuf};
 use argh::FromArgs;
 use color_eyre::Result;
 use colored::Colorize;
-use gdpm_core::engine::{
-    exec_engine_version_command_for_project, get_default_engine, list_engines_info,
-    register_engine_entry, run_engine_version_for_project, set_default_engine,
-    unregister_engine_entry, EngineInfo,
+use gdpm_core::{
+    downloader::{
+        download::Downloader,
+        error::DownloadError,
+        version::{GodotVersion, GodotVersionKind, SystemVersion},
+    },
+    engine::{EngineHandler, EngineInfo},
+    error::EngineError,
 };
+use tracing::info;
 
 use super::Execute;
 use crate::common::{print_missing_default_engine_message, validate_engine_version_or_exit};
@@ -30,6 +35,8 @@ pub enum Command {
     Cmd(Cmd),
     SetDefault(SetDefault),
     GetDefault(GetDefault),
+    Install(Install),
+    Uninstall(Uninstall),
 }
 
 /// list engines
@@ -99,6 +106,60 @@ pub struct SetDefault {
 #[argh(subcommand, name = "get-default")]
 pub struct GetDefault {}
 
+/// download and install engine from official mirror or specific URL
+#[derive(FromArgs)]
+#[argh(subcommand, name = "install")]
+pub struct Install {
+    /// version
+    #[argh(positional)]
+    version: String,
+    /// release candidate?
+    #[argh(option)]
+    rc: Option<u16>,
+    /// beta?
+    #[argh(option)]
+    beta: Option<u16>,
+    /// headless?
+    #[argh(switch)]
+    headless: bool,
+    /// server?
+    #[argh(switch)]
+    server: bool,
+    /// mono?
+    #[argh(switch)]
+    mono: bool,
+    /// target URL
+    #[argh(option)]
+    target_url: Option<String>,
+    /// allow overwrite
+    #[argh(switch)]
+    overwrite: bool,
+}
+
+/// uninstall engine
+#[derive(FromArgs)]
+#[argh(subcommand, name = "uninstall")]
+pub struct Uninstall {
+    /// version
+    #[argh(positional)]
+    version: String,
+    /// release candidate?
+    #[argh(option)]
+    rc: Option<u16>,
+    /// beta?
+    #[argh(option)]
+    beta: Option<u16>,
+    /// headless?
+    #[argh(switch)]
+    headless: bool,
+    /// server?
+    #[argh(switch)]
+    server: bool,
+    /// mono?
+    #[argh(switch)]
+    mono: bool,
+}
+
 impl Execute for Engine {
     fn execute(self) -> Result<()> {
         self.cmd.execute()
@@ -115,14 +176,16 @@ impl Execute for Command {
             Self::Cmd(c) => c.execute(),
             Self::SetDefault(c) => c.execute(),
             Self::GetDefault(c) => c.execute(),
+            Self::Install(c) => c.execute(),
+            Self::Uninstall(c) => c.execute(),
         }
     }
 }
 
 impl Execute for List {
     fn execute(self) -> Result<()> {
-        let entries = list_engines_info()?;
-        let default_entry = get_default_engine()?;
+        let entries = EngineHandler::list()?;
+        let default_entry = EngineHandler::get_default()?;
 
         if entries.is_empty() {
             println!(
@@ -154,7 +217,7 @@ impl Execute for Register {
     fn execute(self) -> Result<()> {
         let engine_info = EngineInfo::new(self.version, self.path, self.mono, self.source)?;
         let verbose_name = engine_info.get_verbose_name();
-        register_engine_entry(engine_info)?;
+        EngineHandler::register(engine_info)?;
 
         println!("{} is registered.", verbose_name);
         Ok(())
@@ -164,7 +227,7 @@ impl Execute for Register {
 impl Execute for Unregister {
     fn execute(self) -> Result<()> {
         validate_engine_version_or_exit(&self.version)?;
-        unregister_engine_entry(&self.version)?;
+        EngineHandler::unregister(&self.version)?;
 
         println!(
             "Godot Engine v{} unregistered.",
@@ -179,10 +242,10 @@ impl Execute for Start {
         if let Some(v) = self.version {
             validate_engine_version_or_exit(&v)?;
             println!("Running Godot Engine v{} ...", v.color("green"));
-            run_engine_version_for_project(&v, Path::new("."))?;
-        } else if let Some(e) = get_default_engine()? {
+            EngineHandler::run_version_for_project(&v, Path::new("."))?;
+        } else if let Some(e) = EngineHandler::get_default()? {
             println!("Running Godot Engine v{} ...", e.color("green"));
-            run_engine_version_for_project(&e, Path::new("."))?;
+            EngineHandler::run_version_for_project(&e, Path::new("."))?;
         } else {
             print_missing_default_engine_message();
         }
@@ -202,14 +265,14 @@ impl Execute for Cmd {
                 self.args.join(" ").color("blue"),
                 v.color("green")
             );
-            exec_engine_version_command_for_project(&v, &self.args, Path::new("."))?;
-        } else if let Some(e) = get_default_engine()? {
+            EngineHandler::exec_version_for_project(&v, &self.args, Path::new("."))?;
+        } else if let Some(e) = EngineHandler::get_default()? {
             println!(
                 "Executing command {} on Godot Engine v{} ...",
                 self.args.join(" ").color("blue"),
                 e.color("green")
             );
-            exec_engine_version_command_for_project(&e, &self.args, Path::new("."))?;
+            EngineHandler::exec_version_for_project(&e, &self.args, Path::new("."))?;
         } else {
             print_missing_default_engine_message();
         }
@@ -221,7 +284,7 @@ impl Execute for Cmd {
 impl Execute for SetDefault {
     fn execute(self) -> Result<()> {
         validate_engine_version_or_exit(&self.version)?;
-        set_default_engine(&self.version)?;
+        EngineHandler::set_as_default(&self.version)?;
         println!(
             "Godot Engine v{} set as default.",
             self.version.color("green")
@@ -233,12 +296,173 @@ impl Execute for SetDefault {
 
 impl Execute for GetDefault {
     fn execute(self) -> Result<()> {
-        if let Some(e) = get_default_engine()? {
+        if let Some(e) = EngineHandler::get_default()? {
             println!("{} {}", "*".color("green"), e.color("green"));
         } else {
             print_missing_default_engine_message();
         }
 
         Ok(())
+    }
+}
+
+impl Execute for Install {
+    fn execute(self) -> Result<()> {
+        const MIRROR_URL: &str = "https://downloads.tuxfamily.org/godotengine/";
+
+        let (version, system) = parse_godot_version_args(
+            &self.version,
+            self.rc,
+            self.beta,
+            self.headless,
+            self.server,
+            self.mono,
+        );
+
+        let version_name = format!("{}", version);
+        let existing_version = EngineHandler::has_version(&version_name)?;
+        if existing_version.is_some() {
+            if !self.overwrite {
+                println!("{}",
+                    format!("Engine version '{}' is already installed. Use '--overwrite' to force installation.", version_name).color("yellow")
+                );
+                std::process::exit(1);
+            } else {
+                info!(
+                    "Will overwrite existing engine version '{}'.",
+                    version_name.color("green")
+                );
+            }
+        }
+
+        let url = self.target_url.unwrap_or_else(|| {
+            Downloader::get_official_url_for_version(version.clone(), system.clone(), MIRROR_URL)
+        });
+
+        match Downloader::download_file_at_url(&url) {
+            Ok(c) => {
+                let path =
+                    EngineHandler::install_from_official_zip(c, version.clone(), system.clone())?;
+                println!(
+                    "{}",
+                    format!(
+                        "Version '{}' installed for system '{}' at path '{}'",
+                        version,
+                        system,
+                        path.display()
+                    )
+                    .color("green")
+                );
+            }
+            Err(DownloadError::NotFound(u)) => {
+                println!(
+                    "{}",
+                    format!(
+                        "Version '{}' does not exist for system '{}' (or wrong url: {})",
+                        version, system, u
+                    )
+                    .color("red")
+                );
+            }
+            Err(e) => {
+                println!(
+                    "{}",
+                    format!(
+                        "Unexpected error while trying to download file at url '{}'\n    | {}",
+                        url.as_str(),
+                        e
+                    )
+                    .color("red")
+                )
+            }
+        }
+
+        Ok(())
+    }
+}
+
+impl Execute for Uninstall {
+    fn execute(self) -> Result<()> {
+        let (version, _system) = parse_godot_version_args(
+            &self.version,
+            self.rc,
+            self.beta,
+            self.headless,
+            self.server,
+            self.mono,
+        );
+
+        let version_name = format!("{}", version);
+        match EngineHandler::uninstall(version) {
+            Ok(()) => println!(
+                "{}",
+                format!(
+                    "Engine version '{}' was successfully uninstalled.",
+                    version_name
+                )
+                .color("green")
+            ),
+            Err(e) => match e {
+                EngineError::EngineNotFound(_) => {
+                    println!(
+                        "{}",
+                        format!("Unknown engine version '{}'.", version_name).color("red")
+                    );
+                    std::process::exit(1);
+                }
+                EngineError::EngineNotInstalled(_) => {
+                    println!("{}", format!("Engine version '{0}' was not downloaded through gdpm. Use 'unregister {0}' instead.", version_name).color("yellow"));
+                    std::process::exit(1);
+                }
+                e => return Err(e.into()),
+            },
+        }
+
+        Ok(())
+    }
+}
+
+pub fn parse_godot_version_args(
+    version: &str,
+    rc: Option<u16>,
+    beta: Option<u16>,
+    headless: bool,
+    server: bool,
+    mono: bool,
+) -> (GodotVersion, SystemVersion) {
+    let system = SystemVersion::determine_system_kind();
+
+    if !system.is_linux() && headless {
+        println!(
+            "{}",
+            "You can not install an headless version of Godot Engine on a non-Linux platform."
+                .color("red")
+        );
+        std::process::exit(1);
+    } else if !system.is_linux() && server {
+        println!(
+            "{}",
+            "You can not install an server version of Godot Engine on a non-Linux platform."
+                .color("red")
+        );
+        std::process::exit(1);
+    } else if beta.is_some() && rc.is_some() {
+        println!(
+            "{}",
+            "You can not use the flags --beta and --rc at the same time.".color("red")
+        );
+        std::process::exit(1);
+    } else {
+        let kind = {
+            if let Some(rc) = rc {
+                GodotVersionKind::ReleaseCandidate(rc)
+            } else if let Some(b) = beta {
+                GodotVersionKind::Beta(b)
+            } else {
+                GodotVersionKind::Stable
+            }
+        };
+
+        (GodotVersion::new(version, kind, mono), system)
     }
 }

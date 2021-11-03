@@ -15,3 +15,5 @@ color-eyre = "0.5.11"
 colored = "2.0.0"
 gdpm-core = { path = "../gdpm-core" }
 question = "0.2.2"
+tracing = "0.1.29"
+tracing-subscriber = { version = "0.3.1", features = ["env-filter"] }

@@ -6,6 +6,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- You can now download and install versions from official Godot mirrors.
+
 ### Changed
 
 - Project reorganization in multiple crates

@@ -1,18 +1,27 @@
-//! Engine module
+//! Engine module.
 
 use std::{
-    fs::File,
     path::{Path, PathBuf},
     process::Command,
 };
 
 use colored::Colorize;
+use gdpm_downloader::version::{GodotVersion, SystemVersion};
+use gdpm_io::{
+    copy_dir, copy_file, error::IoError, open_and_extract_zip, remove_dir_all, remove_file,
+    write_bytes_to_file,
+};
 use gdsettings_parser::{GdSettings, GdValue};
 use slugify::slugify;
+use tracing::{debug, info};
 
-use crate::config::{
-    read_gdpm_configuration, write_gdpm_configuration, ConfigError, ENGINES_SECTION,
+use crate::{
+    config::{GlobalConfig, UserDir, ENGINES_SECTION},
+    error::EngineError,
 };
+
+const ENGINE_DIR: &str = "engines";
+const GODOT_EXECUTABLE_NAME: &str = "godot";
 
 /// Engine info
 #[derive(Debug, PartialEq, Clone)]
@@ -34,11 +43,11 @@ impl EngineInfo {
         path: PathBuf,
         has_mono: bool,
         from_source: bool,
-    ) -> Result<Self, ConfigError> {
+    ) -> Result<Self, EngineError> {
         if !path.is_file() {
-            Err(ConfigError::EngineNotFound {
-                path: path.to_string_lossy().to_string(),
-            })
+            Err(EngineError::EngineNotFound(
+                path.to_string_lossy().to_string(),
+            ))
         } else {
             Ok(Self {
                 version,
@@ -155,137 +164,231 @@ impl EngineInfo {
     }
 }
 
-/// List engines info.
-pub fn list_engines_info() -> Result<Vec<EngineInfo>, ConfigError> {
-    let config = read_gdpm_configuration()?;
-    Ok(EngineInfo::from_settings(config))
-}
+/// Engine handler.
+pub struct EngineHandler;
 
-/// Update engines info
-pub fn update_engines_info(entries: Vec<EngineInfo>) -> Result<File, ConfigError> {
-    let mut configuration = read_gdpm_configuration()?;
-    for entry in entries {
-        configuration.set_property(ENGINES_SECTION, &entry.get_slug(), entry.to_gdvalue())
+impl EngineHandler {
+    /// List engines info.
+    pub fn list() -> Result<Vec<EngineInfo>, EngineError> {
+        let config = GlobalConfig::load()?;
+        Ok(EngineInfo::from_settings(config))
     }
 
-    write_gdpm_configuration(configuration)
-}
+    /// Update multiple engines info.
+    pub fn update_all(entries: Vec<EngineInfo>) -> Result<(), EngineError> {
+        let mut configuration = GlobalConfig::load()?;
+        for entry in entries {
+            configuration.set_property(ENGINES_SECTION, &entry.get_slug(), entry.to_gdvalue())
+        }
 
-/// Register engine entry.
-pub fn register_engine_entry(entry: EngineInfo) -> Result<(), ConfigError> {
-    let mut engine_list = list_engines_info()?;
-    let version = entry.version.clone();
-    if let Some(other_entry) = engine_list
-        .iter_mut()
-        .find(|x| x.get_slug() == entry.get_slug())
-    {
-        other_entry.clone(entry);
-    } else {
-        engine_list.push(entry);
+        GlobalConfig::save(configuration).map_err(Into::into)
     }
 
-    update_engines_info(engine_list)?;
+    /// Register engine entry.
+    pub fn register(entry: EngineInfo) -> Result<(), EngineError> {
+        let mut engine_list = Self::list()?;
+        let version = entry.version.clone();
+        if let Some(other_entry) = engine_list
+            .iter_mut()
+            .find(|x| x.get_slug() == entry.get_slug())
+        {
+            other_entry.clone(entry);
+        } else {
+            engine_list.push(entry);
+        }
 
-    // Check if default engine is not defined
-    if get_default_engine()?.is_none() {
-        set_default_engine(&version)?;
+        debug!(
+            "Registering entry for version '{}' ...",
+            version.color("green")
+        );
+        Self::update_all(engine_list)?;
+
+        // Check if default engine is not defined
+        if Self::get_default()?.is_none() {
+            Self::set_as_default(&version)?;
+        }
+
+        Ok(())
     }
 
-    Ok(())
-}
+    /// Unregister engine entry.
+    pub fn unregister(version: &str) -> Result<(), EngineError> {
+        // Check if engine exists
+        Self::get_version(version)?;
+        // Check for default engine
+        let default_engine = Self::get_default()?;
 
-/// Unregister engine entry.
-pub fn unregister_engine_entry(version: &str) -> Result<(), ConfigError> {
-    // Check if engine exists
-    get_engine_version(version)?;
-    // Check for default engine
-    let default_engine = get_default_engine()?;
+        // Unset default if same version
+        if let Some(e) = default_engine {
+            if slugify!(&e) == slugify!(version) {
+                Self::unset_default()?;
+            }
+        }
 
-    // Unset default if same version
-    if let Some(e) = default_engine {
-        if slugify!(&e) == slugify!(version) {
-            unset_default_engine()?;
+        // Remove version
+        debug!("Unregistering entry {} ...", version.color("green"));
+        let mut conf = GlobalConfig::load()?;
+        conf.remove_property(ENGINES_SECTION, &slugify!(version))?;
+        GlobalConfig::save(conf).map_err(Into::into)
+    }
+
+    /// Get engine version.
+    pub fn get_version(version: &str) -> Result<EngineInfo, EngineError> {
+        let engine_list = Self::list()?;
+        if let Some(entry) = engine_list.iter().find(|x| x.version == version) {
+            Ok(entry.clone())
+        } else {
+            Err(EngineError::EngineNotFound(version.to_string()))
         }
     }
 
-    // Remove version
-    let mut conf = read_gdpm_configuration()?;
-    conf.remove_property(ENGINES_SECTION, &slugify!(version))?;
-    write_gdpm_configuration(conf)?;
-
-    Ok(())
-}
-
-/// Get engine version.
-pub fn get_engine_version(version: &str) -> Result<EngineInfo, ConfigError> {
-    let engine_list = list_engines_info()?;
-    if let Some(entry) = engine_list.iter().find(|x| x.version == version) {
-        Ok(entry.clone())
-    } else {
-        Err(ConfigError::EngineNotFound {
-            path: version.to_string(),
-        })
-    }
-}
-
-/// Run engine version for project.
-pub fn run_engine_version_for_project(version: &str, path: &Path) -> Result<(), ConfigError> {
-    let engine = get_engine_version(version)?;
-    Command::new(engine.path)
-        .arg("--path")
-        .arg(path)
-        .arg("-e")
-        .status()?;
-
-    Ok(())
-}
-
-/// Execute engine version command for project.
-pub fn exec_engine_version_command_for_project(
-    version: &str,
-    args: &[String],
-    path: &Path,
-) -> Result<(), ConfigError> {
-    let engine = get_engine_version(version)?;
-    Command::new(engine.path)
-        .arg("--path")
-        .arg(path)
-        .args(args)
-        .status()?;
-
-    Ok(())
-}
-
-/// Set engine as default
-pub fn set_default_engine(version: &str) -> Result<(), ConfigError> {
-    // Assert the engine exists
-    get_engine_version(version)?;
-
-    let mut configuration = read_gdpm_configuration()?;
-    configuration.set_property("", "default_engine", GdValue::String(version.into()));
-
-    write_gdpm_configuration(configuration)?;
-    Ok(())
-}
-
-/// Unset default engine
-pub fn unset_default_engine() -> Result<(), ConfigError> {
-    let mut configuration = read_gdpm_configuration()?;
-    configuration.remove_property("", "default_engine")?;
-    write_gdpm_configuration(configuration)?;
-    Ok(())
-}
-
-/// Get default engine
-pub fn get_default_engine() -> Result<Option<String>, ConfigError> {
-    let default_engine = read_gdpm_configuration().map(|x| {
-        x.get_property("", "default_engine")
-            .and_then(|x| x.to_str())
-    })?;
-    if let Some(e) = &default_engine {
-        // Assert the version exist
-        get_engine_version(e)?;
+    /// Has version.
+    pub fn has_version(version: &str) -> Result<Option<EngineInfo>, EngineError> {
+        match Self::get_version(version) {
+            Ok(v) => Ok(Some(v)),
+            Err(e) => match e {
+                EngineError::EngineNotFound(_) => Ok(None),
+                e => Err(e),
+            },
+        }
     }
 
-    Ok(default_engine)
+    /// Run engine version for project.
+    pub fn run_version_for_project(version: &str, path: &Path) -> Result<(), EngineError> {
+        let engine = Self::get_version(version)?;
+        Command::new(engine.path)
+            .arg("--path")
+            .arg(path)
+            .arg("-e")
+            .status()
+            .map_err(IoError::CommandExecutionError)?;
+
+        Ok(())
+    }
+
+    /// Execute engine version command for project.
+    pub fn exec_version_for_project(
+        version: &str,
+        args: &[String],
+        path: &Path,
+    ) -> Result<(), EngineError> {
+        let engine = Self::get_version(version)?;
+        Command::new(engine.path)
+            .arg("--path")
+            .arg(path)
+            .args(args)
+            .status()
+            .map_err(IoError::CommandExecutionError)?;
+
+        Ok(())
+    }
+
+    /// Set engine as default.
+    pub fn set_as_default(version: &str) -> Result<(), EngineError> {
+        // Assert the engine exists
+        Self::get_version(version)?;
+
+        debug!(
+            "Setting version '{}' as default ...",
+            version.color("green")
+        );
+        let mut configuration = GlobalConfig::load()?;
+        configuration.set_property("", "default_engine", GdValue::String(version.into()));
+        GlobalConfig::save(configuration).map_err(Into::into)
+    }
+
+    /// Unset default engine.
+    pub fn unset_default() -> Result<(), EngineError> {
+        let mut configuration = GlobalConfig::load()?;
+        configuration.remove_property("", "default_engine")?;
+        GlobalConfig::save(configuration).map_err(Into::into)
+    }
+
+    /// Get default engine.
+    pub fn get_default() -> Result<Option<String>, EngineError> {
+        let default_engine = GlobalConfig::load().map(|x| {
+            x.get_property("", "default_engine")
+                .and_then(|x| x.to_str())
+        })?;
+        if let Some(e) = &default_engine {
+            // Assert the version exist
+            Self::get_version(e)?;
+        }
+
+        Ok(default_engine)
+    }
+
+    /// Install engine version from official zip.
+    pub fn install_from_official_zip(
+        zip_data: Vec<u8>,
+        version: GodotVersion,
+        system: SystemVersion,
+    ) -> Result<PathBuf, EngineError> {
+        let engine_path = UserDir::get_or_create_directory(Path::new(ENGINE_DIR))?;
+        let version_name = format!("{}", version);
+        let version_path = UserDir::get_or_create_directory(&engine_path.join(&version_name))?;
+        let zip_path = version_path.join("download").with_extension("zip");
+        write_bytes_to_file(&zip_path, &zip_data)?;
+
+        // Unzip
+        open_and_extract_zip(&zip_path, &version_path)?;
+
+        // Folder name
+        let zip_folder_name = format!(
+            "Godot_v{}-{}_{}",
+            version.version(),
+            version.kind(),
+            system.get_archive_basename(version.mono())
+        );
+        let zip_folder_path = version_path.join(&zip_folder_name);
+        let zip_exec_name = format!("{}.{}", &zip_folder_name, system.get_extension());
+        let zip_exec_path = version_path.join(&zip_folder_name).join(&zip_exec_name);
+        let zip_exec_target = Path::new(&version_path)
+            .join(&GODOT_EXECUTABLE_NAME)
+            .with_extension(system.get_extension());
+
+        // Copy to current dir
+        copy_file(&zip_exec_path, &zip_exec_target)?;
+        if version.mono() {
+            let mono_folder_src = zip_folder_path.join("GodotSharp");
+            let mono_folder_dst = &version_path;
+            copy_dir(&mono_folder_src, mono_folder_dst)?;
+        }
+
+        // Cleaning
+        remove_dir_all(&zip_folder_path)?;
+        remove_file(&zip_path)?;
+
+        // Register
+        Self::register(EngineInfo::new(
+            version_name,
+            zip_exec_target.clone(),
+            version.mono(),
+            false,
+        )?)?;
+
+        Ok(zip_exec_target)
+    }
+
+    /// Uninstall version.
+    pub fn uninstall(version: GodotVersion) -> Result<(), EngineError> {
+        let engine_path = UserDir::get_or_create_directory(Path::new(ENGINE_DIR))?;
+        let version_name = format!("{}", version);
+        let version_path = engine_path.join(&version_name);
+        Self::get_version(&version_name)?;
+
+        if version_path.exists() {
+            Self::unregister(&version_name)?;
+
+            info!(
+                "Removing {} ...",
+                version_path.display().to_string().color("green")
+            );
+            remove_dir_all(&version_path)?;
+        } else {
+            return Err(EngineError::EngineNotInstalled(version_name));
+        }
+
+        Ok(())
+    }
 }

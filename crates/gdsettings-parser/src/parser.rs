@@ -1,80 +1,15 @@
 //! Godot project file parser
 
-use std::{
-    collections::BTreeMap,
-    num::{ParseFloatError, ParseIntError},
-    str::ParseBoolError,
-};
+use std::collections::BTreeMap;
 
 use pest::Parser;
 use pest_derive::Parser;
-use thiserror::Error;
 
-use crate::GdValue;
+use crate::{GdSettingsError, GdValue, ParserError};
 
 #[derive(Parser)]
 #[grammar = "gdsettings.pest"]
 struct GdSettingsParser;
-
-/// Parser error
-#[derive(Debug, Error)]
-pub enum ParserError {
-    /// Parse error
-    #[error("parse error")]
-    ParseError,
-
-    /// Pest error
-    #[error("pest error: {0}")]
-    PestError(String),
-
-    /// Type conversion error
-    #[error("type conversion error: {0}")]
-    TypeConversionError(String),
-}
-
-impl<E> From<pest::error::Error<E>> for ParserError
-where
-    E: std::fmt::Debug,
-{
-    fn from(error: pest::error::Error<E>) -> Self {
-        Self::PestError(format!("{:?}", error))
-    }
-}
-
-impl From<ParseIntError> for ParserError {
-    fn from(error: ParseIntError) -> Self {
-        Self::TypeConversionError(format!("{:?}", error))
-    }
-}
-
-impl From<ParseFloatError> for ParserError {
-    fn from(error: ParseFloatError) -> Self {
-        Self::TypeConversionError(format!("{:?}", error))
-    }
-}
-
-impl From<ParseBoolError> for ParserError {
-    fn from(error: ParseBoolError) -> Self {
-        Self::TypeConversionError(format!("{:?}", error))
-    }
-}
-
-/// GdSettings error
-#[derive(Debug, Error)]
-pub enum GdSettingsError {
-    /// Missing section
-    #[error("missing section: {}", section)]
-    MissingSection {
-        /// Section
-        section: String,
-    },
-    /// Missing property
-    #[error("missing property: {}", property)]
-    MissingProperty {
-        /// Property
-        property: String,
-    },
-}
 
 /// Godot settings map
 pub type GdSettingsMap = BTreeMap<String, GdValue>;
@@ -147,13 +82,9 @@ impl GdSettings {
         let section_entry = self
             .0
             .get_mut(section)
-            .ok_or(GdSettingsError::MissingSection {
-                section: section.to_string(),
-            })?;
+            .ok_or_else(|| GdSettingsError::MissingSection(section.to_string()))?;
         if section_entry.get(property).is_none() {
-            return Err(GdSettingsError::MissingProperty {
-                property: property.to_string(),
-            });
+            return Err(GdSettingsError::MissingProperty(property.to_string()));
         }
 
         section_entry.remove(property);

@@ -1,65 +1,24 @@
-//! Plugins module
+//! Plugins module.
 
 use std::{
-    fs,
     path::{Path, PathBuf},
     process::Command,
 };
 
 use colored::Colorize;
-use fs_extra::dir::{copy, CopyOptions};
-use gdsettings_parser::{parse_gdsettings_file, GdValue, ParserError};
-use slugify::slugify;
-use thiserror::Error;
-
-use super::{
-    config::{read_project_configuration, write_project_configuration},
-    fs::read_file_to_string,
-    project::get_project_info,
+use gdpm_io::{
+    copy_dir, create_dir, error::IoError, read_dir, read_file_to_string, remove_dir_all,
 };
-use crate::config::ConfigError;
+use gdsettings_parser::{parse_gdsettings_file, GdValue};
+use slugify::slugify;
+use tracing::{info, warn};
+
+use super::{config::ProjectConfig, project::ProjectHandler};
+use crate::error::{PluginError, ProjectError};
 
 const DEPS_SECTION: &str = "dependencies";
 const ADDONS_FOLDER: &str = "addons";
 const PLUGIN_CFG: &str = "plugin.cfg";
-
-/// Plugin error
-#[derive(Debug, Error)]
-pub enum PluginError {
-    /// Missing property
-    #[error("missing property: {}", property)]
-    MissingProperty {
-        /// Property
-        property: String,
-    },
-    /// Malformed dependency
-    #[error("malformed dependency: {}", slug)]
-    MalformedDependency {
-        /// Slug
-        slug: String,
-    },
-    /// Missing dependency
-    #[error("missing dependency: {}", slug)]
-    MissingDependency {
-        /// Slug
-        slug: String,
-    },
-    /// Cannot desync
-    #[error("cannot desync: {}", slug)]
-    CannotDesync { slug: String },
-    /// IO error
-    #[error(transparent)]
-    IOError(#[from] std::io::Error),
-    /// FS extra error
-    #[error(transparent)]
-    FSExtraError(#[from] fs_extra::error::Error),
-    /// Parser error
-    #[error(transparent)]
-    ParserError(#[from] ParserError),
-    /// Config error
-    #[error(transparent)]
-    ConfigError(#[from] ConfigError),
-}
 
 /// Dependency source
 #[derive(Debug, PartialEq)]
@@ -143,27 +102,22 @@ pub struct Dependency {
 impl Dependency {
     /// From GdValue
     pub fn from_gdvalue(name: &str, value: &GdValue) -> Result<Self, PluginError> {
-        let value = value.to_object().ok_or(PluginError::MalformedDependency {
-            slug: name.to_string(),
-        })?;
+        let value = value
+            .to_object()
+            .ok_or_else(|| PluginError::MalformedDependency(name.to_string()))?;
 
-        let name =
-            value
-                .get("name")
-                .and_then(|x| x.to_str())
-                .ok_or(PluginError::MalformedDependency {
-                    slug: name.to_string(),
-                })?;
-        let version = value.get("version").and_then(|x| x.to_str()).ok_or(
-            PluginError::MalformedDependency {
-                slug: name.to_string(),
-            },
-        )?;
-        let source = value.get("source").and_then(|x| x.to_str()).ok_or(
-            PluginError::MalformedDependency {
-                slug: name.to_string(),
-            },
-        )?;
+        let name = value
+            .get("name")
+            .and_then(|x| x.to_str())
+            .ok_or_else(|| PluginError::MalformedDependency(name.to_string()))?;
+        let version = value
+            .get("version")
+            .and_then(|x| x.to_str())
+            .ok_or_else(|| PluginError::MalformedDependency(name.to_string()))?;
+        let source = value
+            .get("source")
+            .and_then(|x| x.to_str())
+            .ok_or_else(|| PluginError::MalformedDependency(name.to_string()))?;
 
         Ok(Dependency {
             name,
@@ -211,7 +165,7 @@ impl Dependency {
     /// Uninstall dependency
     pub fn uninstall(&self, project_path: &Path) -> Result<(), PluginError> {
         if self.is_installed(project_path) {
-            fs::remove_dir_all(project_path.join(ADDONS_FOLDER).join(&self.name))?;
+            remove_dir_all(&project_path.join(ADDONS_FOLDER).join(&self.name))?;
         }
 
         Ok(())
@@ -219,6 +173,11 @@ impl Dependency {
 
     /// Install dependency
     pub fn install(&self, project_path: &Path) -> Result<PluginInfo, PluginError> {
+        let addon_path = project_path.join(ADDONS_FOLDER).join(&self.name);
+        if addon_path.exists() {
+            return Err(PluginError::AlreadyInstalled(self.name.clone()));
+        }
+
         match &self.source {
             DependencySource::Current => {
                 // Current project
@@ -232,22 +191,13 @@ impl Dependency {
                     p.to_path_buf()
                 };
 
-                // Check if already installed
-                let addon_path = project_path.join(ADDONS_FOLDER).join(&self.name);
-                if addon_path.exists() {
-                    println!("Plugin {} already installed.", self.name);
-                } else {
-                    let project_full_path = full_path.join(ADDONS_FOLDER).join(&self.name);
-                    let project_addons = project_path.join(ADDONS_FOLDER);
-                    if !project_addons.exists() {
-                        // Create addons folder
-                        fs::create_dir(&project_addons)?;
-                    }
-
-                    // Copy folder to project
-                    let options = CopyOptions::new();
-                    copy(project_full_path, project_addons, &options)?;
+                let project_addons = project_path.join(ADDONS_FOLDER);
+                if !project_addons.exists() {
+                    create_dir(&project_addons)?;
                 }
+
+                // Copy folder to project
+                copy_dir(&full_path, &project_addons)?;
 
                 PluginInfo::from_project_addon(&full_path, &self.name)
             }
@@ -255,34 +205,34 @@ impl Dependency {
                 // Clone in the project .gdpm folder
                 let gdpm_path = project_path.join(".gdpm");
                 if !gdpm_path.exists() {
-                    fs::create_dir(&gdpm_path)?;
+                    create_dir(&gdpm_path)?;
                 }
                 let plugin_path = gdpm_path.join(&self.name);
                 if !plugin_path.exists() {
+                    info!(
+                        "Cloning plugin in '{}' from repository '{}' ...",
+                        plugin_path.display(),
+                        p
+                    );
                     Command::new("git")
                         .arg("clone")
                         .arg(p)
                         .arg(&self.name)
                         .current_dir(&gdpm_path)
-                        .status()?;
+                        .output()
+                        .map_err(IoError::CommandExecutionError)?;
                 }
 
-                // Check if already installed
-                let addon_path = project_path.join(ADDONS_FOLDER).join(&self.name);
-                if addon_path.exists() {
-                    println!("Plugin {} already installed.", self.name);
-                } else {
-                    let project_full_path = plugin_path.join(ADDONS_FOLDER).join(&self.name);
-                    let project_addons = project_path.join(ADDONS_FOLDER);
-                    if !project_addons.exists() {
-                        // Create addons folder
-                        fs::create_dir(&project_addons)?;
-                    }
-
-                    // Copy folder to project
-                    let options = CopyOptions::new();
-                    copy(project_full_path, project_addons, &options)?;
+                let project_addons = project_path.join(ADDONS_FOLDER);
+                if !project_addons.exists() {
+                    create_dir(&project_addons)?;
                 }
+
+                // Copy folder to project
+                copy_dir(&plugin_path, &project_addons)?;
+
+                // Remove .gdpm
+                remove_dir_all(&gdpm_path)?;
 
                 PluginInfo::from_project_addon(&plugin_path, &self.name)
             }
@@ -297,52 +247,55 @@ impl PluginInfo {
         project_path: &Path,
         addon_folder: &str,
     ) -> Result<Self, PluginError> {
-        let addon_path = project_path
-            .join(ADDONS_FOLDER)
-            .join(addon_folder)
-            .join(PLUGIN_CFG);
-        let cfg_contents = read_file_to_string(&addon_path)?;
-        let addon_cfg = parse_gdsettings_file(&cfg_contents)?;
+        let addon_path = project_path.join(PLUGIN_CFG);
+        if let Ok(cfg_contents) = read_file_to_string(&addon_path) {
+            let addon_cfg =
+                parse_gdsettings_file(&cfg_contents).map_err(ProjectError::MalformedProject)?;
 
-        let name = addon_cfg
-            .get_property("plugin", "name")
-            .and_then(|x| x.to_str())
-            .ok_or(PluginError::MissingProperty {
-                property: "name".to_string(),
-            })?;
-        let description = addon_cfg
-            .get_property("plugin", "description")
-            .and_then(|x| x.to_str())
-            .ok_or(PluginError::MissingProperty {
-                property: "description".to_string(),
-            })?;
-        let author = addon_cfg
-            .get_property("plugin", "author")
-            .and_then(|x| x.to_str())
-            .ok_or(PluginError::MissingProperty {
-                property: "author".to_string(),
-            })?;
-        let version = addon_cfg
-            .get_property("plugin", "version")
-            .and_then(|x| x.to_str())
-            .ok_or(PluginError::MissingProperty {
-                property: "version".to_string(),
-            })?;
-        let script = addon_cfg
-            .get_property("plugin", "script")
-            .and_then(|x| x.to_str())
-            .ok_or(PluginError::MissingProperty {
-                property: "script".to_string(),
-            })?;
+            let name = addon_cfg
+                .get_property("plugin", "name")
+                .and_then(|x| x.to_str())
+                .ok_or_else(|| PluginError::MissingProperty("name".to_string()))?;
+            let description = addon_cfg
+                .get_property("plugin", "description")
+                .and_then(|x| x.to_str())
+                .ok_or_else(|| PluginError::MissingProperty("description".to_string()))?;
+            let author = addon_cfg
+                .get_property("plugin", "author")
+                .and_then(|x| x.to_str())
+                .ok_or_else(|| PluginError::MissingProperty("author".to_string()))?;
+            let version = addon_cfg
+                .get_property("plugin", "version")
+                .and_then(|x| x.to_str())
+                .ok_or_else(|| PluginError::MissingProperty("version".to_string()))?;
+            let script = addon_cfg
+                .get_property("plugin", "script")
+                .and_then(|x| x.to_str())
+                .ok_or_else(|| PluginError::MissingProperty("script".to_string()))?;
 
-        Ok(Self {
-            name,
-            description,
-            author,
-            version,
-            script,
-            folder_name: addon_folder.to_string(),
-        })
+            Ok(Self {
+                name,
+                description,
+                author,
+                version,
+                script,
+                folder_name: addon_folder.to_string(),
+            })
+        } else {
+            warn!(
+                "No 'plugin.cfg' found in addon '{}'.",
+                addon_folder.color("green")
+            );
+
+            Ok(Self {
+                name: addon_folder.into(),
+                description: String::new(),
+                author: String::new(),
+                version: String::new(),
+                script: String::new(),
+                folder_name: addon_folder.into(),
+            })
+        }
     }
 
     /// Show
@@ -362,190 +315,154 @@ impl PluginInfo {
     }
 }
 
-/// List project dependencies
-pub fn list_project_dependencies(path: &Path) -> Result<Vec<Dependency>, PluginError> {
-    let conf = read_project_configuration(path)?;
-    let mut deps = vec![];
-    if let Some(dependencies) = conf.get_section(DEPS_SECTION) {
-        for (name, value) in dependencies {
-            deps.push(Dependency::from_gdvalue(&name, &value)?);
+/// Dependency handler.
+pub struct DependencyHandler;
+
+impl DependencyHandler {
+    /// List project dependencies
+    pub fn list_project_dependencies(path: &Path) -> Result<Vec<Dependency>, PluginError> {
+        let conf = ProjectConfig::load(path)?;
+        let mut deps = vec![];
+        if let Some(dependencies) = conf.get_section(DEPS_SECTION) {
+            for (name, value) in dependencies {
+                deps.push(Dependency::from_gdvalue(&name, &value)?);
+            }
         }
+
+        Ok(deps)
     }
 
-    Ok(deps)
-}
-
-/// Get dependency
-pub fn get_dependency(project_path: &Path, name: &str) -> Result<Dependency, PluginError> {
-    let deps = list_project_dependencies(project_path)?;
-    let slug = slugify!(name);
-    for dep in deps {
-        let dep_slug = slugify!(&dep.name);
-        if dep_slug == slug {
-            return Ok(dep);
+    /// Get dependency
+    pub fn get_dependency(project_path: &Path, name: &str) -> Result<Dependency, PluginError> {
+        let deps = Self::list_project_dependencies(project_path)?;
+        let slug = slugify!(name);
+        for dep in deps {
+            let dep_slug = slugify!(&dep.name);
+            if dep_slug == slug {
+                return Ok(dep);
+            }
         }
+
+        Err(PluginError::MissingDependency(name.to_string()))
     }
 
-    Err(PluginError::MissingDependency {
-        slug: name.to_string(),
-    })
-}
+    /// List plugins from project
+    pub fn list_plugins_from_project(project_path: &Path) -> Result<Vec<PluginInfo>, PluginError> {
+        let addons_path = project_path.join(ADDONS_FOLDER);
+        let mut addons = vec![];
 
-/// List plugins from project
-pub fn list_plugins_from_project(project_path: &Path) -> Result<Vec<PluginInfo>, PluginError> {
-    let addons_path = project_path.join(ADDONS_FOLDER);
-    let mut addons = vec![];
+        if addons_path.exists() {
+            for entry in read_dir(&addons_path)? {
+                let entry =
+                    entry.map_err(|e| IoError::ReadDirEntryError(addons_path.to_owned(), e))?;
+                let path = entry.path();
 
-    if addons_path.exists() {
-        for entry in fs::read_dir(addons_path)? {
-            let entry = entry?;
-            let path = entry.path();
+                // Check for plugin.cfg
+                let plugin_path = path.join(PLUGIN_CFG);
+                if !plugin_path.exists() {
+                    // Ignore plugin
+                    continue;
+                }
 
-            // Check for plugin.cfg
-            let plugin_path = path.join(PLUGIN_CFG);
-            if !plugin_path.exists() {
-                // Ignore plugin
-                continue;
+                // Read configuration
+                addons.push(PluginInfo::from_project_addon(
+                    project_path,
+                    entry.file_name().to_str().unwrap(),
+                )?);
+            }
+        }
+
+        Ok(addons)
+    }
+
+    /// Add dependency to project
+    pub fn add_dependency(
+        project_path: &Path,
+        name: &str,
+        version: &str,
+        source: &str,
+        no_install: bool,
+    ) -> Result<(), PluginError> {
+        let dependency = Dependency {
+            name: name.to_string(),
+            checksum: "".to_string(),
+            version: version.to_string(),
+            source: DependencySource::from_value(source),
+        };
+
+        let mut data = ProjectConfig::load(project_path)?;
+        let slug = slugify!(name);
+        data.set_property(DEPS_SECTION, &slug, dependency.to_gdvalue());
+
+        if !no_install {
+            dependency.install(project_path)?;
+        }
+
+        ProjectConfig::save(project_path, data).map_err(Into::into)
+    }
+
+    /// Remove dependency from project
+    pub fn remove_dependency(project_path: &Path, name: &str) -> Result<(), PluginError> {
+        let project_info = ProjectHandler::get_project_info(project_path)?;
+        let mut data = ProjectConfig::load(project_path)?;
+        let slug = slugify!(name);
+
+        // Check if dependency is present in project
+        if let Some(value) = data.get_property(DEPS_SECTION, &slug) {
+            let dep = Dependency::from_gdvalue(&slug, &value)?;
+            // Check if dependency is installed
+            if dep.is_installed(project_path) {
+                dep.uninstall(project_path)?;
+                println!(
+                    "Addon folder {} removed from project {}.",
+                    dep.name.color("green"),
+                    project_info.get_versioned_name().color("green")
+                );
+            }
+        }
+
+        if data.remove_property(DEPS_SECTION, &slug).is_err() {
+            return Err(PluginError::MissingDependency(slug));
+        }
+
+        ProjectConfig::save(project_path, data).map_err(Into::into)
+    }
+
+    /// Fork dependency: integrate plugin inside of project
+    pub fn fork_dependency(project_path: &Path, name: &str) -> Result<(), PluginError> {
+        let mut data = ProjectConfig::load(project_path)?;
+        let slug = slugify!(name);
+
+        // Check if dependency is present in project
+        if let Some(value) = data.get_property(DEPS_SECTION, &slug) {
+            let mut dep = Dependency::from_gdvalue(&slug, &value)?;
+            // Check if dependency is not installed
+            if !dep.is_installed(project_path) {
+                // Force installl
+                dep.install(project_path)?;
             }
 
-            // Read configuration
-            addons.push(PluginInfo::from_project_addon(
-                project_path,
-                entry.file_name().to_str().unwrap(),
-            )?);
-        }
-    }
-
-    Ok(addons)
-}
-
-/// Add dependency to project
-pub fn add_dependency(
-    project_path: &Path,
-    name: &str,
-    version: &str,
-    source: &str,
-    no_install: bool,
-) -> Result<(), PluginError> {
-    let dependency = Dependency {
-        name: name.to_string(),
-        checksum: "".to_string(),
-        version: version.to_string(),
-        source: DependencySource::from_value(source),
-    };
-
-    let mut data = read_project_configuration(project_path)?;
-    let slug = slugify!(name);
-    data.set_property(DEPS_SECTION, &slug, dependency.to_gdvalue());
-
-    if !no_install {
-        dependency.install(project_path)?;
-    }
-
-    write_project_configuration(project_path, data)?;
-    Ok(())
-}
-
-/// Remove dependency from project
-pub fn remove_dependency(project_path: &Path, name: &str) -> Result<(), PluginError> {
-    let project_info = get_project_info(project_path)?;
-    let mut data = read_project_configuration(project_path)?;
-    let slug = slugify!(name);
-
-    // Check if dependency is present in project
-    if let Some(value) = data.get_property(DEPS_SECTION, &slug) {
-        let dep = Dependency::from_gdvalue(&slug, &value)?;
-        // Check if dependency is installed
-        if dep.is_installed(project_path) {
-            dep.uninstall(project_path)?;
-            println!(
-                "Addon folder {} removed from project {}.",
-                dep.name.color("green"),
-                project_info.get_versioned_name().color("green")
-            );
-        }
-    }
-
-    if data.remove_property(DEPS_SECTION, &slug).is_err() {
-        return Err(PluginError::MissingDependency { slug });
-    }
-
-    write_project_configuration(project_path, data)?;
-    Ok(())
-}
-
-/// Fork dependency: integrate plugin inside of project
-pub fn fork_dependency(project_path: &Path, name: &str) -> Result<(), PluginError> {
-    let mut data = read_project_configuration(project_path)?;
-    let slug = slugify!(name);
-
-    // Check if dependency is present in project
-    if let Some(value) = data.get_property(DEPS_SECTION, &slug) {
-        let mut dep = Dependency::from_gdvalue(&slug, &value)?;
-        // Check if dependency is not installed
-        if !dep.is_installed(project_path) {
-            // Force installl
-            dep.install(project_path)?;
+            // Set source to current
+            dep.source = DependencySource::Current;
+            data.set_property(DEPS_SECTION, &slug, dep.to_gdvalue());
+            ProjectConfig::save(project_path, data)?;
         }
 
-        // Set source to current
-        dep.source = DependencySource::Current;
-        data.set_property(DEPS_SECTION, &slug, dep.to_gdvalue());
-        write_project_configuration(project_path, data)?;
+        Ok(())
     }
 
-    Ok(())
-}
-
-/// Sync project dependencies
-///
-/// * Find and register new dependencies in project
-/// * Install up-to-date dependencies in project
-///
-pub fn sync_project_plugins(project_path: &Path) -> Result<(), PluginError> {
-    // Find and register plugins
-    let project_info = get_project_info(project_path)?;
-    let mut conf = read_project_configuration(project_path)?;
-    let plugins = list_plugins_from_project(project_path)?;
-    for plugin in plugins {
-        let slug = slugify!(&plugin.name);
-        // Check if plugin is absent
-        if conf.get_property(DEPS_SECTION, &slug).is_none() {
-            let dep = Dependency::from_plugin_info(&plugin);
-            conf.set_property(DEPS_SECTION, &slug, dep.to_gdvalue());
-            println!(
-                "Plugin {} added as dependency for project {}.",
-                dep.name.color("green"),
-                project_info.get_versioned_name().color("green")
-            );
-        }
-    }
-    write_project_configuration(project_path, conf)?;
-
-    // Install dependencies
-    let deps = list_project_dependencies(project_path)?;
-    for dep in deps {
-        dep.install(project_path)?;
-        println!(
-            "Plugin {} installed in project {}.",
-            dep.name.color("green"),
-            project_info.get_versioned_name().color("green")
-        );
-    }
-
-    Ok(())
-}
-
-/// Sync one specific project dependency
-pub fn sync_project_plugin(project_path: &Path, plugin_name: &str) -> Result<(), PluginError> {
-    // Find and register plugins
-    let project_info = get_project_info(project_path)?;
-    let plugin_slug = slugify!(plugin_name);
-    let mut conf = read_project_configuration(project_path)?;
-    let plugins = list_plugins_from_project(project_path)?;
-    for plugin in plugins {
-        let slug = slugify!(&plugin.name);
-        if slug == plugin_slug {
+    /// Sync project dependencies
+    ///
+    /// * Find and register new dependencies in project
+    /// * Install up-to-date dependencies in project
+    ///
+    pub fn sync_project_plugins(project_path: &Path) -> Result<(), PluginError> {
+        // Find and register plugins
+        let project_info = ProjectHandler::get_project_info(project_path)?;
+        let mut conf = ProjectConfig::load(project_path)?;
+        let plugins = Self::list_plugins_from_project(project_path)?;
+        for plugin in plugins {
+            let slug = slugify!(&plugin.name);
             // Check if plugin is absent
             if conf.get_property(DEPS_SECTION, &slug).is_none() {
                 let dep = Dependency::from_plugin_info(&plugin);
@@ -557,52 +474,96 @@ pub fn sync_project_plugin(project_path: &Path, plugin_name: &str) -> Result<(),
                 );
             }
         }
+        ProjectConfig::save(project_path, conf)?;
+
+        // Install dependencies
+        let deps = Self::list_project_dependencies(project_path)?;
+        for dep in deps {
+            match dep.install(project_path) {
+                Err(PluginError::AlreadyInstalled(_)) | Ok(_) => Ok(()),
+                Err(e) => Err(e),
+            }?;
+
+            println!(
+                "Plugin {} installed in project {}.",
+                dep.name.color("green"),
+                project_info.get_versioned_name().color("green")
+            );
+        }
+
+        Ok(())
     }
-    write_project_configuration(project_path, conf)?;
 
-    let dep = get_dependency(project_path, plugin_name);
-    if dep.is_err() {
-        return Err(PluginError::MissingDependency {
-            slug: plugin_name.to_owned(),
-        });
-    }
+    /// Sync one specific project dependency
+    pub fn sync_project_plugin(project_path: &Path, plugin_name: &str) -> Result<(), PluginError> {
+        // Find and register plugins
+        let project_info = ProjectHandler::get_project_info(project_path)?;
+        let plugin_slug = slugify!(plugin_name);
+        let mut conf = ProjectConfig::load(project_path)?;
+        let plugins = Self::list_plugins_from_project(project_path)?;
+        for plugin in plugins {
+            let slug = slugify!(&plugin.name);
+            if slug == plugin_slug {
+                // Check if plugin is absent
+                if conf.get_property(DEPS_SECTION, &slug).is_none() {
+                    let dep = Dependency::from_plugin_info(&plugin);
+                    conf.set_property(DEPS_SECTION, &slug, dep.to_gdvalue());
+                    println!(
+                        "Plugin {} added as dependency for project {}.",
+                        dep.name.color("green"),
+                        project_info.get_versioned_name().color("green")
+                    );
+                }
+            }
+        }
+        ProjectConfig::save(project_path, conf)?;
 
-    let dep = dep.unwrap();
-    dep.install(project_path)?;
-    Ok(())
-}
+        let dep = Self::get_dependency(project_path, plugin_name);
+        if dep.is_err() {
+            return Err(PluginError::MissingDependency(plugin_name.to_owned()));
+        }
 
-/// Desynchronize project dependencies
-///
-/// Uninstall not-included dependencies.
-pub fn desync_project_plugins(project_path: &Path) -> Result<(), PluginError> {
-    let deps = list_project_dependencies(project_path)?;
-    for dep in deps {
-        if dep.source != DependencySource::Current && dep.is_installed(project_path) {
-            // Uninstall dependency
-            dep.uninstall(project_path)?;
+        let dep = dep?;
+        match dep.install(project_path) {
+            Ok(_) => Ok(()),
+            Err(e) => match e {
+                PluginError::AlreadyInstalled(_) => Ok(()),
+                e => Err(e),
+            },
         }
     }
 
-    Ok(())
-}
+    /// Desynchronize project dependencies
+    ///
+    /// Uninstall not-included dependencies.
+    pub fn desync_project_plugins(project_path: &Path) -> Result<(), PluginError> {
+        let deps = Self::list_project_dependencies(project_path)?;
+        for dep in deps {
+            if dep.source != DependencySource::Current && dep.is_installed(project_path) {
+                // Uninstall dependency
+                dep.uninstall(project_path)?;
+            }
+        }
 
-/// Desynchronize one specific project dependency
-pub fn desync_project_plugin(project_path: &Path, plugin_name: &str) -> Result<(), PluginError> {
-    let dep = get_dependency(project_path, plugin_name);
-    if dep.is_err() {
-        return Err(PluginError::MissingDependency {
-            slug: plugin_name.to_owned(),
-        });
+        Ok(())
     }
 
-    let dep = dep.unwrap();
-    if dep.source == DependencySource::Current {
-        return Err(PluginError::CannotDesync {
-            slug: plugin_name.to_owned(),
-        });
-    }
+    /// Desynchronize one specific project dependency
+    pub fn desync_project_plugin(
+        project_path: &Path,
+        plugin_name: &str,
+    ) -> Result<(), PluginError> {
+        let dep = Self::get_dependency(project_path, plugin_name);
+        if dep.is_err() {
+            return Err(PluginError::MissingDependency(plugin_name.to_owned()));
+        }
 
-    dep.uninstall(project_path)?;
-    Ok(())
+        let dep = dep.unwrap();
+        if dep.source == DependencySource::Current {
+            return Err(PluginError::CannotDesync(plugin_name.to_owned()));
+        }
+
+        dep.uninstall(project_path)?;
+        Ok(())
+    }
 }

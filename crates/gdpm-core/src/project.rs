@@ -1,11 +1,11 @@
-//! Project module
+//! Project module.
 
 use std::path::Path;
 
 use colored::Colorize;
 use gdsettings_parser::{GdSettings, GdValue};
 
-use crate::config::{read_project_configuration, write_project_configuration, ConfigError};
+use crate::{config::ProjectConfig, error::ProjectError};
 
 /// Godot project info
 #[derive(Debug)]
@@ -14,15 +14,16 @@ pub struct GdProjectInfo {
     version: Option<String>,
     main_scene: Option<String>,
     engine_version: Option<String>,
+    settings: GdSettings,
 }
 
 impl GdProjectInfo {
     /// Extract project info from settings
-    pub fn from_settings(settings: &GdSettings) -> Result<Self, ConfigError> {
+    pub fn from_settings(settings: GdSettings) -> Result<Self, ProjectError> {
         let project_name = settings
             .get_property("application", "config/name")
             .and_then(|x| x.to_str())
-            .ok_or(ConfigError::MalformedProject)?;
+            .ok_or_else(|| ProjectError::MissingProperty("application -> config/name".into()))?;
         let version = settings
             .get_property("application", "config/version")
             .and_then(|x| x.to_str());
@@ -38,6 +39,7 @@ impl GdProjectInfo {
             version,
             main_scene,
             engine_version,
+            settings,
         })
     }
 
@@ -72,28 +74,31 @@ impl GdProjectInfo {
     }
 }
 
-/// Get project info.
-///
-/// Read the project.godot file from a Godot project.
-pub fn get_project_info(path: &Path) -> Result<GdProjectInfo, ConfigError> {
-    // Get project configuration
-    read_project_configuration(path).and_then(|data| GdProjectInfo::from_settings(&data))
-}
+/// Project handler.
+pub struct ProjectHandler;
 
-/// Set project engine
-pub fn set_project_engine(path: &Path, version: &str) -> Result<(), ConfigError> {
-    let mut conf = read_project_configuration(path)?;
-    conf.set_property("engine", "version", GdValue::String(version.into()));
+impl ProjectHandler {
+    /// Get project info.
+    ///
+    /// Read the project.godot file from a Godot project.
+    pub fn get_project_info(path: &Path) -> Result<GdProjectInfo, ProjectError> {
+        // Get project configuration
+        ProjectConfig::load(path).and_then(GdProjectInfo::from_settings)
+    }
 
-    write_project_configuration(path, conf)?;
-    Ok(())
-}
+    /// Set project engine
+    pub fn set_project_engine(path: &Path, version: &str) -> Result<(), ProjectError> {
+        let mut conf = ProjectConfig::load(path)?;
+        conf.set_property("engine", "version", GdValue::String(version.into()));
 
-/// Unset project engine
-pub fn unset_project_engine(path: &Path) -> Result<(), ConfigError> {
-    let mut conf = read_project_configuration(path)?;
-    conf.remove_property("engine", "version")?;
+        ProjectConfig::save(path, conf)
+    }
 
-    write_project_configuration(path, conf)?;
-    Ok(())
+    /// Unset project engine
+    pub fn unset_project_engine(path: &Path) -> Result<(), ProjectError> {
+        let mut conf = ProjectConfig::load(path)?;
+        conf.remove_property("engine", "version")?;
+
+        ProjectConfig::save(path, conf)
+    }
 }

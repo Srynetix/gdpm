@@ -3,8 +3,8 @@ use std::path::Path;
 use color_eyre::Result;
 use colored::Colorize;
 use gdpm_core::{
-    engine::{get_engine_version, list_engines_info, EngineInfo},
-    project::{get_project_info, GdProjectInfo},
+    engine::{EngineHandler, EngineInfo},
+    project::{GdProjectInfo, ProjectHandler},
 };
 
 pub(crate) fn print_missing_default_engine_message() {
@@ -23,31 +23,37 @@ pub(crate) fn print_missing_project_engine_message() {
 }
 
 pub(crate) fn get_project_info_or_exit(p: &Path) -> GdProjectInfo {
-    match get_project_info(p) {
+    match ProjectHandler::get_project_info(p) {
         Ok(info) => info,
         Err(_) => {
-            println!(
-                "{} `{}`.",
-                "Godot project not found at path".color("yellow"),
-                p.display(),
-            );
+            if p.to_str() == Some(".") {
+                println!(
+                    "{}",
+                    "Godot project not found at current path.".color("yellow"),
+                );
+            } else {
+                println!(
+                    "{} `{}`.",
+                    "Godot project not found at path".color("yellow"),
+                    p.display(),
+                );
+            }
             std::process::exit(1);
         }
     }
 }
 
 pub(crate) fn validate_engine_version_or_exit(version: &str) -> Result<EngineInfo> {
-    match get_engine_version(version) {
+    match EngineHandler::get_version(version) {
         Ok(v) => Ok(v),
         Err(_) => {
-            let available_engines = list_engines_info()?;
+            let available_engines = EngineHandler::list()?;
             let available_engine_names: Vec<String> = available_engines
                 .into_iter()
                 .map(|x| format!("- {}", x.get_verbose_name().color("green")))
                 .collect();
 
-            let msg = format!("Unknown engine with version `{}`. You need to `engine register` this version before using it.", version.color("green")).color("yellow");
-            println!("{}", msg);
+            println!("{}", format!("Unknown engine with version `{}`. You need to `engine register` this version before using it.", version.color("green")).color("yellow"));
 
             if available_engine_names.is_empty() {
                 println!("{}", "No engine registered.".color("yellow"));

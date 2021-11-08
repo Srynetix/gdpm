@@ -1,5 +1,6 @@
 use argh::FromArgs;
 use color_eyre::Result;
+use tracing_subscriber::EnvFilter;
 
 mod dependency;
 mod engine;
@@ -8,6 +9,10 @@ mod project;
 /// manage Godot versions and project dependencies
 #[derive(FromArgs)]
 pub struct Args {
+    /// verbose mode
+    #[argh(switch, short = 'v')]
+    verbose: bool,
+
     #[argh(subcommand)]
     command: Command,
 }
@@ -20,16 +25,8 @@ trait Execute {
 #[derive(FromArgs)]
 #[argh(subcommand)]
 enum Command {
-    Info(project::Info),
-    Edit(project::Edit),
-    SetEngine(project::SetEngine),
-    UnsetEngine(project::UnsetEngine),
-    Add(dependency::Add),
-    Fork(dependency::Fork),
-    Remove(dependency::Remove),
-    List(dependency::List),
-    Sync(dependency::Sync),
-    Desync(dependency::Desync),
+    Project(project::Project),
+    Dependencies(dependency::Dependencies),
     Engine(engine::Engine),
     Version(Version),
 }
@@ -40,17 +37,26 @@ enum Command {
 struct Version {}
 
 pub fn parse_args(args: Args) -> Result<()> {
+    // Set RUST_LOG depending on "verbose" arg
+    if std::env::var("RUST_LOG").unwrap_or_default().is_empty() {
+        if args.verbose {
+            std::env::set_var("RUST_LOG", "warn,gdpm=debug");
+        } else {
+            std::env::set_var("RUST_LOG", "warn,gdpm=info");
+        }
+    }
+
+    // Initialize tracing
+    tracing_subscriber::fmt()
+        .with_env_filter(EnvFilter::from_default_env())
+        .without_time()
+        .with_target(false)
+        .compact()
+        .init();
+
     match args.command {
-        Command::Info(c) => c.execute(),
-        Command::Edit(c) => c.execute(),
-        Command::SetEngine(c) => c.execute(),
-        Command::UnsetEngine(c) => c.execute(),
-        Command::Add(c) => c.execute(),
-        Command::Fork(c) => c.execute(),
-        Command::Remove(c) => c.execute(),
-        Command::List(c) => c.execute(),
-        Command::Sync(c) => c.execute(),
-        Command::Desync(c) => c.execute(),
+        Command::Project(c) => c.execute(),
+        Command::Dependencies(c) => c.execute(),
         Command::Engine(c) => c.execute(),
         Command::Version(_) => {
             let cmd_name = std::env::current_exe()

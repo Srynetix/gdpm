@@ -3,10 +3,7 @@ use std::path::PathBuf;
 use argh::FromArgs;
 use color_eyre::Result;
 use colored::Colorize;
-use gdpm_core::{
-    engine::{get_default_engine, run_engine_version_for_project},
-    project::{set_project_engine, unset_project_engine},
-};
+use gdpm_core::{engine::EngineHandler, project::ProjectHandler};
 use question::{Answer, Question};
 
 use super::Execute;
@@ -14,6 +11,23 @@ use crate::common::{
     get_project_info_or_exit, print_missing_default_engine_message,
     print_missing_project_engine_message, validate_engine_version_or_exit,
 };
+
+/// project management
+#[derive(FromArgs)]
+#[argh(subcommand, name = "project")]
+pub struct Project {
+    #[argh(subcommand)]
+    cmd: Command,
+}
+
+#[derive(FromArgs)]
+#[argh(subcommand)]
+pub enum Command {
+    Info(Info),
+    Edit(Edit),
+    SetEngine(SetEngine),
+    UnsetEngine(UnsetEngine),
+}
 
 /// get project info
 #[derive(FromArgs)]
@@ -33,7 +47,7 @@ pub struct Edit {
     path: PathBuf,
 
     /// version
-    #[argh(option)]
+    #[argh(option, short = 'v')]
     version: Option<String>,
 }
 
@@ -46,8 +60,8 @@ pub struct SetEngine {
     path: PathBuf,
 
     /// version
-    #[argh(option)]
-    version: Option<String>,
+    #[argh(positional)]
+    version: String,
 }
 
 /// unset project engine
@@ -57,6 +71,23 @@ pub struct UnsetEngine {
     /// project path
     #[argh(option, short = 'p', default = "PathBuf::from(\".\")")]
     path: PathBuf,
+}
+
+impl Execute for Project {
+    fn execute(self) -> Result<()> {
+        self.cmd.execute()
+    }
+}
+
+impl Execute for Command {
+    fn execute(self) -> Result<()> {
+        match self {
+            Self::Info(c) => c.execute(),
+            Self::Edit(c) => c.execute(),
+            Self::SetEngine(c) => c.execute(),
+            Self::UnsetEngine(c) => c.execute(),
+        }
+    }
 }
 
 impl Execute for Info {
@@ -79,15 +110,15 @@ impl Execute for Edit {
                 v.color("green"),
                 info.get_versioned_name().color("green")
             );
-            run_engine_version_for_project(&v, &self.path)?;
+            EngineHandler::run_version_for_project(&v, &self.path)?;
         } else if let Some(e) = info.get_engine_version() {
             println!(
                 "Running Godot Engine v{} for project {} ...",
                 e.color("green"),
                 info.get_versioned_name().color("green")
             );
-            run_engine_version_for_project(e, &self.path)?;
-        } else if let Some(e) = get_default_engine()? {
+            EngineHandler::run_version_for_project(e, &self.path)?;
+        } else if let Some(e) = EngineHandler::get_default()? {
             print_missing_project_engine_message();
             match Question::new(&format!(
                 "Do you want to associate the default engine (v{}) to project {} (y/n)?",
@@ -96,7 +127,7 @@ impl Execute for Edit {
             ))
             .confirm()
             {
-                Answer::YES => set_project_engine(&self.path, &e)?,
+                Answer::YES => ProjectHandler::set_project_engine(&self.path, &e)?,
                 Answer::NO => println!("Okay. You will be asked again next time."),
                 _ => unreachable!(),
             }
@@ -106,7 +137,7 @@ impl Execute for Edit {
                 e.color("green"),
                 info.get_versioned_name().color("green")
             );
-            run_engine_version_for_project(&e, &self.path)?;
+            EngineHandler::run_version_for_project(&e, &self.path)?;
         } else {
             print_missing_project_engine_message();
             print_missing_default_engine_message();
@@ -119,24 +150,13 @@ impl Execute for Edit {
 impl Execute for SetEngine {
     fn execute(self) -> Result<()> {
         let info = get_project_info_or_exit(&self.path);
-        if let Some(v) = self.version {
-            validate_engine_version_or_exit(&v)?;
-            set_project_engine(&self.path, &v)?;
-            println!(
-                "Godot Engine v{} set for project {}.",
-                v.color("green"),
-                info.get_versioned_name().color("green")
-            );
-        } else if let Some(e) = get_default_engine()? {
-            set_project_engine(&self.path, &e)?;
-            println!(
-                "Godot Engine v{} set for project {}.",
-                e.color("green"),
-                info.get_versioned_name().color("green")
-            );
-        } else {
-            print_missing_default_engine_message();
-        }
+        validate_engine_version_or_exit(&self.version)?;
+        ProjectHandler::set_project_engine(&self.path, &self.version)?;
+        println!(
+            "Godot Engine v{} set for project {}.",
+            self.version.color("green"),
+            info.get_versioned_name().color("green")
+        );
 
         Ok(())
     }
@@ -144,7 +164,7 @@ impl Execute for SetEngine {
 
 impl Execute for UnsetEngine {
     fn execute(self) -> Result<()> {
-        unset_project_engine(&self.path)?;
+        ProjectHandler::unset_project_engine(&self.path)?;
         let info = get_project_info_or_exit(&self.path);
 
         println!(

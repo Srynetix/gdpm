@@ -1,6 +1,6 @@
 use std::path::{Path, PathBuf};
 
-use argh::FromArgs;
+use clap::{Parser, Subcommand};
 use color_eyre::Result;
 use colored::Colorize;
 use gdpm_core::{
@@ -18,15 +18,14 @@ use super::Execute;
 use crate::common::{print_missing_default_engine_message, validate_engine_version_or_exit};
 
 /// engine management
-#[derive(FromArgs)]
-#[argh(subcommand, name = "engine")]
+#[derive(Parser)]
+#[clap(name = "engine")]
 pub struct Engine {
-    #[argh(subcommand)]
+    #[clap(subcommand)]
     cmd: Command,
 }
 
-#[derive(FromArgs)]
-#[argh(subcommand)]
+#[derive(Subcommand)]
 pub enum Command {
     List(List),
     Register(Register),
@@ -40,123 +39,122 @@ pub enum Command {
 }
 
 /// list engines
-#[derive(FromArgs)]
-#[argh(subcommand, name = "list")]
-pub struct List {}
+#[derive(Parser)]
+#[clap(name = "list")]
+pub struct List;
 
 /// register engine
-#[derive(FromArgs)]
-#[argh(subcommand, name = "register")]
+#[derive(Parser)]
+#[clap(name = "register")]
 pub struct Register {
     /// version
-    #[argh(positional)]
     version: String,
     /// engine path
-    #[argh(positional)]
     path: PathBuf,
     /// mono edition?
-    #[argh(switch)]
+    #[clap(long)]
     mono: bool,
     /// built from source?
-    #[argh(switch)]
+    #[clap(long)]
     source: bool,
 }
 
 /// unregister engine
-#[derive(FromArgs)]
-#[argh(subcommand, name = "unregister")]
+#[derive(Parser)]
+#[clap(name = "unregister")]
 pub struct Unregister {
     /// version
-    #[argh(positional)]
     version: String,
 }
 
 /// start engine
-#[derive(FromArgs)]
-#[argh(subcommand, name = "start")]
+#[derive(Parser)]
+#[clap(name = "start")]
 pub struct Start {
     /// version
-    #[argh(option, short = 'v')]
+    #[clap(short, long)]
     version: Option<String>,
 }
 
 /// execute command on engine
-#[derive(FromArgs)]
-#[argh(subcommand, name = "cmd")]
+#[derive(Parser)]
+#[clap(name = "cmd")]
 pub struct Cmd {
     /// version
-    #[argh(option, short = 'v')]
+    #[clap(short, long)]
     version: Option<String>,
     /// arguments
-    #[argh(positional)]
     args: Vec<String>,
 }
 
 /// set engine as default
-#[derive(FromArgs)]
-#[argh(subcommand, name = "set-default")]
+#[derive(Parser)]
+#[clap(name = "set-default")]
 pub struct SetDefault {
     /// version
-    #[argh(positional)]
     version: String,
 }
 
 /// get default engine
-#[derive(FromArgs)]
-#[argh(subcommand, name = "get-default")]
-pub struct GetDefault {}
+#[derive(Parser)]
+#[clap(name = "get-default")]
+pub struct GetDefault;
 
 /// download and install engine from official mirror or specific URL
-#[derive(FromArgs)]
-#[argh(subcommand, name = "install")]
+#[derive(Parser)]
+#[clap(name = "install")]
 pub struct Install {
     /// version
-    #[argh(positional)]
     version: String,
     /// release candidate?
-    #[argh(option)]
+    #[clap(long)]
     rc: Option<u16>,
+    /// alpha?
+    #[clap(long)]
+    alpha: Option<u16>,
     /// beta?
-    #[argh(option)]
+    #[clap(long)]
     beta: Option<u16>,
     /// headless?
-    #[argh(switch)]
+    #[clap(long)]
     headless: bool,
     /// server?
-    #[argh(switch)]
+    #[clap(long)]
     server: bool,
     /// mono?
-    #[argh(switch)]
+    #[clap(long)]
     mono: bool,
     /// target URL
-    #[argh(option)]
+    #[clap(long)]
     target_url: Option<String>,
     /// allow overwrite
-    #[argh(switch)]
+    #[clap(long)]
     overwrite: bool,
 }
 
 /// uninstall engine
-#[derive(FromArgs)]
-#[argh(subcommand, name = "uninstall")]
+#[derive(Parser)]
+#[clap(name = "uninstall")]
 pub struct Uninstall {
     /// version
-    #[argh(positional)]
     version: String,
     /// release candidate?
-    #[argh(option)]
+    #[clap(long)]
     rc: Option<u16>,
+    /// alpha?
+    #[clap(long)]
+    alpha: Option<u16>,
     /// beta?
-    #[argh(option)]
+    #[clap(long)]
     beta: Option<u16>,
     /// headless?
-    #[argh(switch)]
+    #[clap(long)]
     headless: bool,
     /// server?
-    #[argh(switch)]
+    #[clap(long)]
     server: bool,
     /// mono?
-    #[argh(switch)]
+    #[clap(long)]
     mono: bool,
 }
 
@@ -313,6 +311,7 @@ impl Execute for Install {
         let (version, system) = parse_godot_version_args(
             &self.version,
             self.rc,
+            self.alpha,
             self.beta,
             self.headless,
             self.server,
@@ -386,6 +385,7 @@ impl Execute for Uninstall {
         let (version, _system) = parse_godot_version_args(
             &self.version,
             self.rc,
+            self.alpha,
             self.beta,
             self.headless,
             self.server,
@@ -425,6 +425,7 @@ impl Execute for Uninstall {
 pub fn parse_godot_version_args(
     version: &str,
     rc: Option<u16>,
+    alpha: Option<u16>,
     beta: Option<u16>,
     headless: bool,
     server: bool,
@@ -456,6 +457,8 @@ pub fn parse_godot_version_args(
         let kind = {
             if let Some(rc) = rc {
                 GodotVersionKind::ReleaseCandidate(rc)
+            } else if let Some(a) = alpha {
+                GodotVersionKind::Alpha(a)
             } else if let Some(b) = beta {
                 GodotVersionKind::Beta(b)
             } else {

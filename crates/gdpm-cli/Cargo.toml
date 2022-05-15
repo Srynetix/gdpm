@@ -1,6 +1,6 @@
 [package]
 name = "gdpm-cli"
-version = "1.0.1"
+version = "1.1.0"
 edition = "2021"
 
 [[bin]]
@@ -10,7 +10,7 @@ path = "src/main.rs"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-argh = "0.1.6"
+clap = { version = "3.1.6", features = ["derive"] }
 color-eyre = "0.5.11"
 colored = "2.0.0"
 gdpm-core = { path = "../gdpm-core" }

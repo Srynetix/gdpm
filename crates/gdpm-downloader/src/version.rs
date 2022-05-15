@@ -36,6 +36,8 @@ pub enum GodotVersionKind {
     Stable,
     /// Release candidate.
     ReleaseCandidate(u16),
+    /// Alpha release.
+    Alpha(u16),
     /// Beta release.
     Beta(u16),
 }
@@ -199,6 +201,7 @@ impl Display for GodotVersionKind {
         match self {
             Self::Stable => write!(f, "stable"),
             Self::ReleaseCandidate(n) => write!(f, "rc{}", n),
+            Self::Alpha(n) => write!(f, "alpha{}", n),
             Self::Beta(n) => write!(f, "beta{}", n),
         }
     }
@@ -211,6 +214,9 @@ impl From<&str> for GodotVersionKind {
         } else if s.starts_with("rc") {
             let number = s.chars().skip(2).collect::<String>().parse().unwrap();
             Self::ReleaseCandidate(number)
+        } else if s.starts_with("alpha") {
+            let number = s.chars().skip(5).collect::<String>().parse().unwrap();
+            Self::Alpha(number)
         } else if s.starts_with("beta") {
             let number = s.chars().skip(4).collect::<String>().parse().unwrap();
             Self::Beta(number)

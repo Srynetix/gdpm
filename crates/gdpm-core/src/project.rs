@@ -14,7 +14,6 @@ pub struct GdProjectInfo {
     version: Option<String>,
     main_scene: Option<String>,
     engine_version: Option<String>,
-    settings: GdSettings,
 }
 
 impl GdProjectInfo {
@@ -39,7 +38,6 @@ impl GdProjectInfo {
             version,
             main_scene,
             engine_version,
-            settings,
         })
     }
 

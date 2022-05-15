@@ -1,4 +1,4 @@
-use argh::FromArgs;
+use clap::{Parser, Subcommand};
 use color_eyre::Result;
 use tracing_subscriber::EnvFilter;
 
@@ -7,13 +7,15 @@ mod engine;
 mod project;
 
 /// manage Godot versions and project dependencies
-#[derive(FromArgs)]
+#[derive(Parser)]
+#[clap(author, version, about, long_about = None)]
+#[clap(propagate_version = true)]
 pub struct Args {
     /// verbose mode
-    #[argh(switch, short = 'v')]
+    #[clap(short, long)]
     verbose: bool,
 
-    #[argh(subcommand)]
+    #[clap(subcommand)]
     command: Command,
 }
 
@@ -22,19 +24,12 @@ trait Execute {
     fn execute(self) -> Result<()>;
 }
 
-#[derive(FromArgs)]
-#[argh(subcommand)]
+#[derive(Subcommand)]
 enum Command {
     Project(project::Project),
     Dependencies(dependency::Dependencies),
     Engine(engine::Engine),
-    Version(Version),
 }
-
-/// show version
-#[derive(FromArgs)]
-#[argh(subcommand, name = "version")]
-struct Version {}
 
 pub fn parse_args(args: Args) -> Result<()> {
     // Set RUST_LOG depending on "verbose" arg
@@ -58,15 +53,5 @@ pub fn parse_args(args: Args) -> Result<()> {
         Command::Project(c) => c.execute(),
         Command::Dependencies(c) => c.execute(),
         Command::Engine(c) => c.execute(),
-        Command::Version(_) => {
-            let cmd_name = std::env::current_exe()
-                .unwrap()
-                .file_stem()
-                .unwrap()
-                .to_string_lossy()
-                .to_string();
-            println!("{} {}", cmd_name, env!("CARGO_PKG_VERSION"));
-            Ok(())
-        }
     }
 }

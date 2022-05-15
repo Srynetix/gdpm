@@ -1,3 +1,4 @@
+use clap::Parser;
 use color_eyre::Result;
 use commands::{parse_args, Args};
 
@@ -12,6 +13,6 @@ fn main() -> Result<()> {
         std::env::set_var("RUST_BACKTRACE", "full");
     }
 
-    let args: Args = argh::from_env();
+    let args: Args = Args::parse();
     parse_args(args)
 }

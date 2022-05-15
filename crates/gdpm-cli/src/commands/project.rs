@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use argh::FromArgs;
+use clap::{Parser, Subcommand};
 use color_eyre::Result;
 use colored::Colorize;
 use gdpm_core::{engine::EngineHandler, project::ProjectHandler};
@@ -13,15 +13,14 @@ use crate::common::{
 };
 
 /// project management
-#[derive(FromArgs)]
-#[argh(subcommand, name = "project")]
+#[derive(Parser)]
+#[clap(name = "project")]
 pub struct Project {
-    #[argh(subcommand)]
+    #[clap(subcommand)]
     cmd: Command,
 }
 
-#[derive(FromArgs)]
-#[argh(subcommand)]
+#[derive(Subcommand)]
 pub enum Command {
     Info(Info),
     Edit(Edit),
@@ -30,46 +29,45 @@ pub enum Command {
 }
 
 /// get project info
-#[derive(FromArgs)]
-#[argh(subcommand, name = "info")]
+#[derive(Parser)]
+#[clap(name = "info")]
 pub struct Info {
     /// project path
-    #[argh(option, short = 'p', default = "PathBuf::from(\".\")")]
+    #[clap(short, long, default_value = "PathBuf::from(\".\")")]
     path: PathBuf,
 }
 
 /// edit project
-#[derive(FromArgs)]
-#[argh(subcommand, name = "edit")]
+#[derive(Parser)]
+#[clap(name = "edit")]
 pub struct Edit {
     /// project path
-    #[argh(option, short = 'p', default = "PathBuf::from(\".\")")]
+    #[clap(short, long, default_value = "PathBuf::from(\".\")")]
     path: PathBuf,
 
     /// version
-    #[argh(option, short = 'v')]
+    #[clap(short, long)]
     version: Option<String>,
 }
 
 /// set project engine
-#[derive(FromArgs)]
-#[argh(subcommand, name = "set-engine")]
+#[derive(Parser)]
+#[clap(name = "set-engine")]
 pub struct SetEngine {
     /// project path
-    #[argh(option, short = 'p', default = "PathBuf::from(\".\")")]
+    #[clap(short, long, default_value = "PathBuf::from(\".\")")]
     path: PathBuf,
 
     /// version
-    #[argh(positional)]
     version: String,
 }
 
 /// unset project engine
-#[derive(FromArgs)]
-#[argh(subcommand, name = "unset-engine")]
+#[derive(Parser)]
+#[clap(name = "unset-engine")]
 pub struct UnsetEngine {
     /// project path
-    #[argh(option, short = 'p', default = "PathBuf::from(\".\")")]
+    #[clap(short, long, default_value = "PathBuf::from(\".\")")]
     path: PathBuf,
 }
 

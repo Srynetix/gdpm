@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use argh::FromArgs;
+use clap::{Parser, Subcommand};
 use color_eyre::Result;
 use colored::Colorize;
 use gdpm_core::plugins::DependencyHandler;
@@ -9,15 +9,14 @@ use super::Execute;
 use crate::common::get_project_info_or_exit;
 
 /// dependency management
-#[derive(FromArgs)]
-#[argh(subcommand, name = "deps")]
+#[derive(Parser)]
+#[clap(name = "deps")]
 pub struct Dependencies {
-    #[argh(subcommand)]
+    #[clap(subcommand)]
     cmd: Command,
 }
 
-#[derive(FromArgs)]
-#[argh(subcommand)]
+#[derive(Subcommand)]
 pub enum Command {
     Add(Add),
     Fork(Fork),
@@ -28,80 +27,73 @@ pub enum Command {
 }
 
 /// add dependency
-#[derive(FromArgs)]
-#[argh(subcommand, name = "add")]
+#[derive(Parser)]
+#[clap(name = "add")]
 pub struct Add {
     /// project path
-    #[argh(option, short = 'p', default = "PathBuf::from(\".\")")]
+    #[clap(short, long, default_value = "PathBuf::from(\".\")")]
     path: PathBuf,
     /// name
-    #[argh(positional)]
     name: String,
     /// version
-    #[argh(positional)]
     version: String,
     /// source
-    #[argh(positional)]
     source: String,
     /// do not install
-    #[argh(switch)]
+    #[clap(long)]
     no_install: bool,
 }
 
 /// fork dependency: include in code
-#[derive(FromArgs)]
-#[argh(subcommand, name = "fork")]
+#[derive(Parser)]
+#[clap(name = "fork")]
 pub struct Fork {
     /// project path
-    #[argh(option, short = 'p', default = "PathBuf::from(\".\")")]
+    #[clap(short, long, default_value = "PathBuf::from(\".\")")]
     path: PathBuf,
     /// name
-    #[argh(positional)]
     name: String,
 }
 
 /// remove dependency
-#[derive(FromArgs)]
-#[argh(subcommand, name = "remove")]
+#[derive(Parser)]
+#[clap(name = "remove")]
 pub struct Remove {
     /// project path
-    #[argh(option, short = 'p', default = "PathBuf::from(\".\")")]
+    #[clap(short, long, default_value = "PathBuf::from(\".\")")]
     path: PathBuf,
     /// name
-    #[argh(positional)]
     name: String,
 }
 
 /// list dependencies
-#[derive(FromArgs)]
-#[argh(subcommand, name = "list")]
+#[derive(Parser)]
+#[clap(name = "list")]
 pub struct List {
     /// project path
-    #[argh(option, short = 'p', default = "PathBuf::from(\".\")")]
+    #[clap(short, long, default_value = "PathBuf::from(\".\")")]
     path: PathBuf,
 }
 
 /// sync project dependencies
-#[derive(FromArgs)]
-#[argh(subcommand, name = "sync")]
+#[derive(Parser)]
+#[clap(name = "sync")]
 pub struct Sync {
     /// project path
-    #[argh(option, short = 'p', default = "PathBuf::from(\".\")")]
+    #[clap(short, long, default_value = "PathBuf::from(\".\")")]
     path: PathBuf,
     /// name
-    #[argh(positional)]
     name: Option<String>,
 }
 
 /// desync project dependencies
-#[derive(FromArgs)]
-#[argh(subcommand, name = "desync")]
+#[derive(Parser)]
+#[clap(name = "desync")]
 pub struct Desync {
     /// project path
-    #[argh(option, short = 'p', default = "PathBuf::from(\".\")")]
+    #[clap(short, long, default_value = "PathBuf::from(\".\")")]
     path: PathBuf,
     /// name
-    #[argh(positional)]
     name: Option<String>,
 }
 

@@ -29,7 +29,10 @@ impl Downloader {
         route.push_str(version.version());
 
         // Get special version
-        if let GodotVersionKind::Beta(_) | GodotVersionKind::ReleaseCandidate(_) = kind {
+        if let GodotVersionKind::Beta(_)
+        | GodotVersionKind::ReleaseCandidate(_)
+        | GodotVersionKind::Alpha(_) = kind
+        {
             route.push('/');
             route.push_str(&kind.to_string());
         }
@@ -44,7 +47,7 @@ impl Downloader {
         let filename = format!(
             "Godot_v{}-{}_{}.zip",
             version.version(),
-            kind.to_string(),
+            kind,
             system.get_archive_basename(version.mono())
         );
         route.push('/');

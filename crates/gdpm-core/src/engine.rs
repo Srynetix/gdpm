@@ -326,12 +326,15 @@ impl EngineHandler {
     ) -> Result<PathBuf, EngineError> {
         let engine_path = UserDir::get_or_create_directory(Path::new(ENGINE_DIR))?;
         let version_name = format!("{}", version);
+        let temp_name = "temp";
         let version_path = UserDir::get_or_create_directory(&engine_path.join(&version_name))?;
+        let extraction_path =
+            UserDir::get_or_create_directory(&engine_path.join(&version_name).join(&temp_name))?;
         let zip_path = version_path.join("download").with_extension("zip");
         write_bytes_to_file(&zip_path, &zip_data)?;
 
         // Unzip
-        open_and_extract_zip(&zip_path, &version_path)?;
+        open_and_extract_zip(&zip_path, &extraction_path)?;
 
         // Folder name
         let zip_folder_name = format!(
@@ -340,9 +343,16 @@ impl EngineHandler {
             version.kind(),
             system.get_archive_basename(version.mono())
         );
-        let zip_folder_path = version_path.join(&zip_folder_name);
-        let zip_exec_name = format!("{}.{}", &zip_folder_name, system.get_extension());
-        let zip_exec_path = version_path.join(&zip_folder_name).join(&zip_exec_name);
+        let zip_folder_path = extraction_path.join(&zip_folder_name);
+
+        // Mono versions have an additional folder
+        let zip_exec_path = if version.mono() {
+            let zip_exec_name = format!("{}.{}", &zip_folder_name, system.get_extension());
+            extraction_path.join(&zip_folder_name).join(&zip_exec_name)
+        } else {
+            zip_folder_path.with_extension(system.get_extension())
+        };
+
         let zip_exec_target = Path::new(&version_path)
             .join(&GODOT_EXECUTABLE_NAME)
             .with_extension(system.get_extension());
@@ -356,7 +366,7 @@ impl EngineHandler {
         }
 
         // Cleaning
-        remove_dir_all(&zip_folder_path)?;
+        remove_dir_all(&extraction_path)?;
         remove_file(&zip_path)?;
 
         // Register

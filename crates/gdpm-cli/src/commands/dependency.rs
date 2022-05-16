@@ -31,7 +31,7 @@ pub enum Command {
 #[clap(name = "add")]
 pub struct Add {
     /// project path
-    #[clap(short, long, default_value = "PathBuf::from(\".\")")]
+    #[clap(short, long, default_value = ".")]
     path: PathBuf,
     /// name
     name: String,
@@ -49,7 +49,7 @@ pub struct Add {
 #[clap(name = "fork")]
 pub struct Fork {
     /// project path
-    #[clap(short, long, default_value = "PathBuf::from(\".\")")]
+    #[clap(short, long, default_value = ".")]
     path: PathBuf,
     /// name
     name: String,
@@ -60,7 +60,7 @@ pub struct Fork {
 #[clap(name = "remove")]
 pub struct Remove {
     /// project path
-    #[clap(short, long, default_value = "PathBuf::from(\".\")")]
+    #[clap(short, long, default_value = ".")]
     path: PathBuf,
     /// name
     name: String,
@@ -71,7 +71,7 @@ pub struct Remove {
 #[clap(name = "list")]
 pub struct List {
     /// project path
-    #[clap(short, long, default_value = "PathBuf::from(\".\")")]
+    #[clap(short, long, default_value = ".")]
     path: PathBuf,
 }
 
@@ -80,7 +80,7 @@ pub struct List {
 #[clap(name = "sync")]
 pub struct Sync {
     /// project path
-    #[clap(short, long, default_value = "PathBuf::from(\".\")")]
+    #[clap(short, long, default_value = ".")]
     path: PathBuf,
     /// name
     name: Option<String>,
@@ -91,7 +91,7 @@ pub struct Sync {
 #[clap(name = "desync")]
 pub struct Desync {
     /// project path
-    #[clap(short, long, default_value = "PathBuf::from(\".\")")]
+    #[clap(short, long, default_value = ".")]
     path: PathBuf,
     /// name
     name: Option<String>,

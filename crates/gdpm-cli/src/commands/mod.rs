@@ -8,7 +8,7 @@ mod project;
 
 /// manage Godot versions and project dependencies
 #[derive(Parser)]
-#[clap(author, version, about, long_about = None)]
+#[clap(author, version, about, long_about = None, name = "gdpm")]
 #[clap(propagate_version = true)]
 pub struct Args {
     /// verbose mode

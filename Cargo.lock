@@ -481,7 +481,7 @@ dependencies = [
 
 [[package]]
 name = "gdpm-cli"
-version = "1.1.0"
+version = "1.1.1"
 dependencies = [
  "clap",
  "color-eyre",
@@ -494,7 +494,7 @@ dependencies = [
 
 [[package]]
 name = "gdpm-core"
-version = "1.1.0"
+version = "1.1.1"
 dependencies = [
  "colored",
  "gdpm-downloader",
@@ -507,7 +507,7 @@ dependencies = [
 
 [[package]]
 name = "gdpm-downloader"
-version = "1.1.0"
+version = "1.1.1"
 dependencies = [
  "futures-util",
  "indicatif",
@@ -518,7 +518,7 @@ dependencies = [
 
 [[package]]
 name = "gdpm-io"
-version = "1.1.0"
+version = "1.1.1"
 dependencies = [
  "colored",
  "dirs",

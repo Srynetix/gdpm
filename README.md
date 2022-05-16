@@ -24,10 +24,10 @@ A command line utility to manage a Godot 3.x project.
 The easiest way (you need to have Rust and Cargo):
 
 ```bash
-cargo install --git https://github.com/Srynetix/gdpm#v1.0.1 gdpm
+cargo install --git https://github.com/Srynetix/gdpm#v1.1 gdpm
 ```
 
-You can also get the latest release on the [GitHub release page](https://github.com/Srynetix/gdpm/releases), and put the executable on your PATH. 
+You can also get the latest release on the [GitHub release page](https://github.com/Srynetix/gdpm/releases), and put the executable in your PATH. 
 
 ## Workflow
 

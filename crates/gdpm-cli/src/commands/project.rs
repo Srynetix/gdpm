@@ -33,7 +33,7 @@ pub enum Command {
 #[clap(name = "info")]
 pub struct Info {
     /// project path
-    #[clap(short, long, default_value = "PathBuf::from(\".\")")]
+    #[clap(short, long, default_value = ".")]
     path: PathBuf,
 }
 
@@ -42,7 +42,7 @@ pub struct Info {
 #[clap(name = "edit")]
 pub struct Edit {
     /// project path
-    #[clap(short, long, default_value = "PathBuf::from(\".\")")]
+    #[clap(short, long, default_value = ".")]
     path: PathBuf,
 
     /// version
@@ -55,7 +55,7 @@ pub struct Edit {
 #[clap(name = "set-engine")]
 pub struct SetEngine {
     /// project path
-    #[clap(short, long, default_value = "PathBuf::from(\".\")")]
+    #[clap(short, long, default_value = ".")]
     path: PathBuf,
 
     /// version
@@ -67,7 +67,7 @@ pub struct SetEngine {
 #[clap(name = "unset-engine")]
 pub struct UnsetEngine {
     /// project path
-    #[clap(short, long, default_value = "PathBuf::from(\".\")")]
+    #[clap(short, long, default_value = ".")]
     path: PathBuf,
 }
 

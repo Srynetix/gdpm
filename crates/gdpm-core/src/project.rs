@@ -3,6 +3,7 @@
 use std::path::Path;
 
 use colored::Colorize;
+use gdpm_io::IoAdapter;
 use gdsettings_parser::{GdSettings, GdValue};
 
 use crate::{config::ProjectConfig, error::ProjectError};
@@ -73,30 +74,40 @@ impl GdProjectInfo {
 }
 
 /// Project handler.
-pub struct ProjectHandler;
+pub struct ProjectHandler<'a, I: IoAdapter> {
+    io_adapter: &'a I,
+}
 
-impl ProjectHandler {
+impl<'a, I: IoAdapter> ProjectHandler<'a, I> {
+    /// Creates a new project handler.
+    pub fn new(io_adapter: &'a I) -> Self {
+        Self { io_adapter }
+    }
+
     /// Get project info.
     ///
     /// Read the project.godot file from a Godot project.
-    pub fn get_project_info(path: &Path) -> Result<GdProjectInfo, ProjectError> {
+    pub fn get_project_info(&self, path: &Path) -> Result<GdProjectInfo, ProjectError> {
         // Get project configuration
-        ProjectConfig::load(path).and_then(GdProjectInfo::from_settings)
+        let pconf = ProjectConfig::new(self.io_adapter);
+        pconf.load(path).and_then(GdProjectInfo::from_settings)
     }
 
     /// Set project engine
-    pub fn set_project_engine(path: &Path, version: &str) -> Result<(), ProjectError> {
-        let mut conf = ProjectConfig::load(path)?;
+    pub fn set_project_engine(&self, path: &Path, version: &str) -> Result<(), ProjectError> {
+        let pconf = ProjectConfig::new(self.io_adapter);
+        let mut conf = pconf.load(path)?;
         conf.set_property("engine", "version", GdValue::String(version.into()));
 
-        ProjectConfig::save(path, conf)
+        pconf.save(path, conf)
     }
 
     /// Unset project engine
-    pub fn unset_project_engine(path: &Path) -> Result<(), ProjectError> {
-        let mut conf = ProjectConfig::load(path)?;
+    pub fn unset_project_engine(&self, path: &Path) -> Result<(), ProjectError> {
+        let pconf = ProjectConfig::new(self.io_adapter);
+        let mut conf = pconf.load(path)?;
         conf.remove_property("engine", "version")?;
 
-        ProjectConfig::save(path, conf)
+        pconf.save(path, conf)
     }
 }

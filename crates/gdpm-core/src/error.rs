@@ -1,6 +1,6 @@
 //! Errors.
 
-use gdpm_io::error::IoError;
+use gdpm_io::IoError;
 use gdsettings_parser::{GdSettingsError, ParserError};
 use thiserror::Error;
 

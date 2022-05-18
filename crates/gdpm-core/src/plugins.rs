@@ -244,7 +244,7 @@ impl<'a, I: IoAdapter> DependencyHandler<'a, I> {
     /// Check if the dependency is installed
     pub fn is_installed(&self, dependency: &Dependency, project_path: &Path) -> bool {
         let path = project_path.join(ADDONS_FOLDER).join(&dependency.name);
-        path.exists()
+        self.io_adapter.path_exists(&path)
     }
 
     /// Uninstall dependency
@@ -268,7 +268,7 @@ impl<'a, I: IoAdapter> DependencyHandler<'a, I> {
         project_path: &Path,
     ) -> Result<PluginInfo, PluginError> {
         let addon_path = project_path.join(ADDONS_FOLDER).join(&dependency.name);
-        if addon_path.exists() {
+        if self.io_adapter.path_exists(&addon_path) {
             return Err(PluginError::AlreadyInstalled(dependency.name.clone()));
         }
 
@@ -286,7 +286,7 @@ impl<'a, I: IoAdapter> DependencyHandler<'a, I> {
                 };
 
                 let project_addons = project_path.join(ADDONS_FOLDER);
-                if !project_addons.exists() {
+                if !self.io_adapter.path_exists(&project_addons) {
                     self.io_adapter.create_dir(&project_addons)?;
                 }
 
@@ -298,11 +298,11 @@ impl<'a, I: IoAdapter> DependencyHandler<'a, I> {
             DependencySource::GitSsh(p) => {
                 // Clone in the project .gdpm folder
                 let gdpm_path = project_path.join(".gdpm");
-                if !gdpm_path.exists() {
+                if !self.io_adapter.path_exists(&gdpm_path) {
                     self.io_adapter.create_dir(&gdpm_path)?;
                 }
                 let plugin_path = gdpm_path.join(&dependency.name);
-                if !plugin_path.exists() {
+                if !self.io_adapter.path_exists(&plugin_path) {
                     info!(
                         "Cloning plugin in '{}' from repository '{}' ...",
                         plugin_path.display(),
@@ -318,7 +318,7 @@ impl<'a, I: IoAdapter> DependencyHandler<'a, I> {
                 }
 
                 let project_addons = project_path.join(ADDONS_FOLDER);
-                if !project_addons.exists() {
+                if !self.io_adapter.path_exists(&project_addons) {
                     self.io_adapter.create_dir(&project_addons)?;
                 }
 
@@ -374,7 +374,7 @@ impl<'a, I: IoAdapter> DependencyHandler<'a, I> {
         let addons_path = project_path.join(ADDONS_FOLDER);
         let mut addons = vec![];
 
-        if addons_path.exists() {
+        if self.io_adapter.path_exists(&addons_path) {
             for entry in self.io_adapter.read_dir(&addons_path)? {
                 let entry =
                     entry.map_err(|e| IoError::ReadDirEntryError(addons_path.to_owned(), e))?;
@@ -382,7 +382,7 @@ impl<'a, I: IoAdapter> DependencyHandler<'a, I> {
 
                 // Check for plugin.cfg
                 let plugin_path = path.join(PLUGIN_CFG);
-                if !plugin_path.exists() {
+                if !self.io_adapter.path_exists(&plugin_path) {
                     // Ignore plugin
                     continue;
                 }

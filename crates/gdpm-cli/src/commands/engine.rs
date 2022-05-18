@@ -219,7 +219,13 @@ impl Execute for List {
 
 impl Execute for Register {
     fn execute<I: IoAdapter, D: DownloadAdapter>(self, context: Context<I, D>) -> Result<()> {
-        let engine_info = EngineInfo::new(self.version, self.path, self.mono, self.source)?;
+        let engine_info = EngineInfo::new(
+            context.io(),
+            self.version,
+            self.path,
+            self.mono,
+            self.source,
+        )?;
         let verbose_name = engine_info.get_verbose_name();
         let ehandler = EngineHandler::new(context.io());
         ehandler.register(engine_info)?;

@@ -35,13 +35,14 @@ pub struct EngineInfo {
 
 impl EngineInfo {
     /// Create new engine info
-    pub fn new(
+    pub fn new<I: IoAdapter>(
+        io_adapter: &I,
         version: String,
         path: PathBuf,
         has_mono: bool,
         from_source: bool,
     ) -> Result<Self, EngineError> {
-        if !path.is_file() {
+        if !io_adapter.path_is_file(&path) {
             Err(EngineError::EngineNotFound(
                 path.to_string_lossy().to_string(),
             ))
@@ -68,14 +69,6 @@ impl EngineInfo {
         }
 
         engines
-    }
-
-    /// Clone from other engine info
-    pub fn clone(&mut self, other: Self) {
-        self.path = other.path;
-        self.version = other.version;
-        self.has_mono = other.has_mono;
-        self.from_source = other.from_source;
     }
 
     /// Get engine info slug
@@ -198,7 +191,7 @@ impl<'a, I: IoAdapter> EngineHandler<'a, I> {
             .iter_mut()
             .find(|x| x.get_slug() == entry.get_slug())
         {
-            other_entry.clone(entry);
+            *other_entry = entry;
         } else {
             engine_list.push(entry);
         }
@@ -388,6 +381,7 @@ impl<'a, I: IoAdapter> EngineHandler<'a, I> {
 
         // Register
         self.register(EngineInfo::new(
+            self.io_adapter,
             version_name,
             zip_exec_target.clone(),
             version.mono(),
@@ -405,7 +399,7 @@ impl<'a, I: IoAdapter> EngineHandler<'a, I> {
         let version_path = engine_path.join(&version_name);
         self.get_version(&version_name)?;
 
-        if version_path.exists() {
+        if self.io_adapter.path_exists(&version_path) {
             self.unregister(&version_name)?;
 
             info!(
@@ -419,4 +413,79 @@ impl<'a, I: IoAdapter> EngineHandler<'a, I> {
 
         Ok(())
     }
+}
+
+#[cfg(test)]
+mod tests {
+    mod engineinfo {
+        use gdsettings_parser::GdSettings;
+        use mockall::predicate;
+        use std::{
+            path::{Path, PathBuf},
+            str::FromStr,
+        };
+
+        use crate::engine::EngineInfo;
+        use gdpm_io::MockIoAdapter;
+
+        #[test]
+        fn test_new() {
+            let mut adapter = MockIoAdapter::new();
+            adapter
+                .expect_path_is_file()
+                .with(predicate::eq(Path::new("/")))
+                .times(1)
+                .return_const(true);
+
+            assert!(
+                EngineInfo::new(&adapter, "1.0.0".into(), PathBuf::from("/"), false, false).is_ok(),
+                "engine info retrieving should work if file exists"
+            );
+
+            adapter
+                .expect_path_is_file()
+                .with(predicate::eq(Path::new("/")))
+                .times(1)
+                .return_const(false);
+
+            assert!(
+                EngineInfo::new(&adapter, "1.0.0".into(), PathBuf::from("/"), false, false)
+                    .is_err(),
+                "engine info retrieving should NOT work if file does not exist"
+            );
+        }
+
+        #[test]
+        fn test_from_settings() {
+            let settings = indoc::indoc! {r#"
+                [engines]
+                1-0-0 = { "path": "/hello", "version": "1.0.0" }
+                2-0-0 = { "path": "/hi", "version": "2.0.0", "has_mono": true }
+            "#};
+
+            let settings = GdSettings::from_str(settings).unwrap();
+            let engine_list = EngineInfo::from_settings(settings);
+
+            assert_eq!(
+                engine_list,
+                vec![
+                    EngineInfo {
+                        path: PathBuf::from("/hello"),
+                        from_source: false,
+                        has_mono: false,
+                        version: "1.0.0".to_string()
+                    },
+                    EngineInfo {
+                        path: PathBuf::from("/hi"),
+                        from_source: false,
+                        has_mono: true,
+                        version: "2.0.0".to_string()
+                    }
+                ]
+            )
+        }
+    }
+
+    #[test]
+    fn test_from_settings() {}
 }

@@ -8,4 +8,4 @@ mod interface;
 
 pub use crate::error::IoError;
 pub use crate::implementation::IoImpl;
-pub use crate::interface::IoAdapter;
+pub use crate::interface::{IoAdapter, MockIoAdapter};

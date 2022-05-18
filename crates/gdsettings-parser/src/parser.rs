@@ -1,6 +1,6 @@
 //! Godot project file parser
 
-use std::collections::BTreeMap;
+use std::{collections::BTreeMap, str::FromStr};
 
 use pest::Parser;
 use pest_derive::Parser;
@@ -101,6 +101,14 @@ impl GdSettings {
 impl ToString for GdSettings {
     fn to_string(&self) -> String {
         serialize_gdsettings(self)
+    }
+}
+
+impl FromStr for GdSettings {
+    type Err = ParserError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        parse_gdsettings_file(s)
     }
 }
 

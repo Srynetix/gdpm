@@ -3,7 +3,7 @@ use colored::Colorize;
 use std::{
     fs::{File, OpenOptions, ReadDir},
     io::{Read, Write},
-    path::Path,
+    path::{Path, PathBuf},
 };
 use tracing::debug;
 use zip::ZipArchive;
@@ -11,17 +11,33 @@ use zip::ZipArchive;
 /// IO adapter implementation.
 pub struct IoImpl;
 
+impl IoImpl {
+    fn open_file_read(&self, path: &Path) -> Result<File, IoError> {
+        File::open(path).map_err(|e| IoError::OpenFileError(path.to_owned(), e))
+    }
+
+    fn open_file_write(&self, path: &Path) -> Result<File, IoError> {
+        OpenOptions::new()
+            .truncate(true)
+            .write(true)
+            .open(path)
+            .map_err(|e| IoError::OpenFileError(path.to_owned(), e))
+    }
+}
+
 impl IoAdapter for IoImpl {
-    fn get_user_configuration_directory(&self) -> Result<std::path::PathBuf, IoError> {
+    fn get_user_configuration_directory(&self) -> Result<PathBuf, IoError> {
         dirs::config_dir().ok_or(IoError::UnavailableUserDirError)
     }
 
-    fn create_file(&self, path: &Path) -> Result<File, IoError> {
+    fn create_file(&self, path: &Path) -> Result<(), IoError> {
         debug!(
             "Creating file at path '{}' ...",
             path.display().to_string().color("green")
         );
-        File::create(path).map_err(|e| IoError::CreateFileError(path.into(), e))
+        File::create(path)
+            .map_err(|e| IoError::CreateFileError(path.into(), e))
+            .map(|_| ())
     }
 
     fn create_dir(&self, path: &Path) -> Result<(), IoError> {
@@ -42,12 +58,12 @@ impl IoAdapter for IoImpl {
         Ok(contents)
     }
 
-    fn write_string_to_file(&self, path: &Path, contents: &str) -> Result<File, IoError> {
+    fn write_string_to_file(&self, path: &Path, contents: &str) -> Result<(), IoError> {
         self.write_bytes_to_file(path, contents.as_bytes())
     }
 
-    fn write_bytes_to_file(&self, path: &Path, contents: &[u8]) -> Result<File, IoError> {
-        if !path.exists() {
+    fn write_bytes_to_file(&self, path: &Path, contents: &[u8]) -> Result<(), IoError> {
+        if !self.path_exists(path) {
             self.create_file(path)?;
         }
 
@@ -61,19 +77,15 @@ impl IoAdapter for IoImpl {
         file.write_all(contents)
             .map_err(|e| IoError::WriteFileError(path.to_owned(), e))?;
 
-        Ok(file)
+        Ok(())
     }
 
-    fn open_file_read(&self, path: &Path) -> Result<File, IoError> {
-        File::open(path).map_err(|e| IoError::OpenFileError(path.to_owned(), e))
+    fn path_exists(&self, path: &Path) -> bool {
+        path.exists()
     }
 
-    fn open_file_write(&self, path: &Path) -> Result<File, IoError> {
-        OpenOptions::new()
-            .truncate(true)
-            .write(true)
-            .open(path)
-            .map_err(|e| IoError::OpenFileError(path.to_owned(), e))
+    fn path_is_file(&self, path: &Path) -> bool {
+        path.is_file()
     }
 
     fn remove_file(&self, path: &Path) -> Result<(), IoError> {

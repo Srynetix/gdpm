@@ -1,9 +1,12 @@
 use clap::Parser;
 use color_eyre::Result;
 use commands::{parse_args, Args};
+use context::Context;
+use gdpm_core::{downloader::DownloadImpl, io::IoImpl};
 
 mod commands;
 mod common;
+mod context;
 
 fn main() -> Result<()> {
     color_eyre::install()?;
@@ -14,5 +17,6 @@ fn main() -> Result<()> {
     }
 
     let args: Args = Args::parse();
-    parse_args(args)
+    let ctx = Context::new(IoImpl, DownloadImpl);
+    parse_args(ctx, args)
 }

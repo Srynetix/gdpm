@@ -4,6 +4,7 @@ use color_eyre::Result;
 use colored::Colorize;
 use gdpm_core::{
     engine::{EngineHandler, EngineInfo},
+    io::IoAdapter,
     project::{GdProjectInfo, ProjectHandler},
 };
 
@@ -22,8 +23,9 @@ pub(crate) fn print_missing_project_engine_message() {
     );
 }
 
-pub(crate) fn get_project_info_or_exit(p: &Path) -> GdProjectInfo {
-    match ProjectHandler::get_project_info(p) {
+pub(crate) fn get_project_info_or_exit<I: IoAdapter>(io_adapter: &I, p: &Path) -> GdProjectInfo {
+    let phandler = ProjectHandler::new(io_adapter);
+    match phandler.get_project_info(p) {
         Ok(info) => info,
         Err(_) => {
             if p.to_str() == Some(".") {
@@ -43,11 +45,15 @@ pub(crate) fn get_project_info_or_exit(p: &Path) -> GdProjectInfo {
     }
 }
 
-pub(crate) fn validate_engine_version_or_exit(version: &str) -> Result<EngineInfo> {
-    match EngineHandler::get_version(version) {
+pub(crate) fn validate_engine_version_or_exit<I: IoAdapter>(
+    io_adapter: &I,
+    version: &str,
+) -> Result<EngineInfo> {
+    let ehandler = EngineHandler::new(io_adapter);
+    match ehandler.get_version(version) {
         Ok(v) => Ok(v),
         Err(_) => {
-            let available_engines = EngineHandler::list()?;
+            let available_engines = ehandler.list()?;
             let available_engine_names: Vec<String> = available_engines
                 .into_iter()
                 .map(|x| format!("- {}", x.get_verbose_name().color("green")))

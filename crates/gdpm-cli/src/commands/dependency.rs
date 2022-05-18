@@ -3,10 +3,10 @@ use std::path::PathBuf;
 use clap::{Parser, Subcommand};
 use color_eyre::Result;
 use colored::Colorize;
-use gdpm_core::plugins::DependencyHandler;
+use gdpm_core::{downloader::DownloadAdapter, io::IoAdapter, plugins::DependencyHandler};
 
 use super::Execute;
-use crate::common::get_project_info_or_exit;
+use crate::{common::get_project_info_or_exit, context::Context};
 
 /// dependency management
 #[derive(Parser)]
@@ -98,28 +98,29 @@ pub struct Desync {
 }
 
 impl Execute for Dependencies {
-    fn execute(self) -> Result<()> {
-        self.cmd.execute()
+    fn execute<I: IoAdapter, D: DownloadAdapter>(self, context: Context<I, D>) -> Result<()> {
+        self.cmd.execute(context)
     }
 }
 
 impl Execute for Command {
-    fn execute(self) -> Result<()> {
+    fn execute<I: IoAdapter, D: DownloadAdapter>(self, context: Context<I, D>) -> Result<()> {
         match self {
-            Self::List(c) => c.execute(),
-            Self::Add(c) => c.execute(),
-            Self::Fork(c) => c.execute(),
-            Self::Remove(c) => c.execute(),
-            Self::Sync(c) => c.execute(),
-            Self::Desync(c) => c.execute(),
+            Self::List(c) => c.execute(context),
+            Self::Add(c) => c.execute(context),
+            Self::Fork(c) => c.execute(context),
+            Self::Remove(c) => c.execute(context),
+            Self::Sync(c) => c.execute(context),
+            Self::Desync(c) => c.execute(context),
         }
     }
 }
 
 impl Execute for Add {
-    fn execute(self) -> Result<()> {
-        let info = get_project_info_or_exit(&self.path);
-        DependencyHandler::add_dependency(
+    fn execute<I: IoAdapter, D: DownloadAdapter>(self, context: Context<I, D>) -> Result<()> {
+        let info = get_project_info_or_exit(context.io(), &self.path);
+        let dhandler = DependencyHandler::new(context.io());
+        dhandler.add_dependency(
             &self.path,
             &self.name,
             &self.version,
@@ -150,9 +151,10 @@ impl Execute for Add {
 }
 
 impl Execute for Fork {
-    fn execute(self) -> Result<()> {
-        let info = get_project_info_or_exit(&self.path);
-        DependencyHandler::fork_dependency(&self.path, &self.name)?;
+    fn execute<I: IoAdapter, D: DownloadAdapter>(self, context: Context<I, D>) -> Result<()> {
+        let info = get_project_info_or_exit(context.io(), &self.path);
+        let dhandler = DependencyHandler::new(context.io());
+        dhandler.fork_dependency(&self.path, &self.name)?;
 
         println!(
             "Plugin {} forked in project {}.",
@@ -165,9 +167,10 @@ impl Execute for Fork {
 }
 
 impl Execute for Remove {
-    fn execute(self) -> Result<()> {
-        let info = get_project_info_or_exit(&self.path);
-        DependencyHandler::remove_dependency(&self.path, &self.name)?;
+    fn execute<I: IoAdapter, D: DownloadAdapter>(self, context: Context<I, D>) -> Result<()> {
+        let info = get_project_info_or_exit(context.io(), &self.path);
+        let dhandler = DependencyHandler::new(context.io());
+        dhandler.remove_dependency(&self.path, &self.name)?;
 
         println!(
             "Dependency {} removed from project {}.",
@@ -180,9 +183,10 @@ impl Execute for Remove {
 }
 
 impl Execute for List {
-    fn execute(self) -> Result<()> {
-        let info = get_project_info_or_exit(&self.path);
-        let dependencies = DependencyHandler::list_project_dependencies(&self.path)?;
+    fn execute<I: IoAdapter, D: DownloadAdapter>(self, context: Context<I, D>) -> Result<()> {
+        let info = get_project_info_or_exit(context.io(), &self.path);
+        let dhandler = DependencyHandler::new(context.io());
+        let dependencies = dhandler.list_project_dependencies(&self.path)?;
         if dependencies.is_empty() {
             println!(
                 "Project '{}' has no dependency.",
@@ -204,11 +208,12 @@ impl Execute for List {
 }
 
 impl Execute for Sync {
-    fn execute(self) -> Result<()> {
-        let info = get_project_info_or_exit(&self.path);
+    fn execute<I: IoAdapter, D: DownloadAdapter>(self, context: Context<I, D>) -> Result<()> {
+        let info = get_project_info_or_exit(context.io(), &self.path);
+        let dhandler = DependencyHandler::new(context.io());
 
         if let Some(n) = self.name {
-            DependencyHandler::sync_project_plugin(&self.path, &n)?;
+            dhandler.sync_project_plugin(&self.path, &n)?;
 
             println!(
                 "Dependency {} is now synchronized for project {}.",
@@ -216,7 +221,7 @@ impl Execute for Sync {
                 info.get_versioned_name().color("green")
             )
         } else {
-            DependencyHandler::sync_project_plugins(&self.path)?;
+            dhandler.sync_project_plugins(&self.path)?;
 
             println!(
                 "Dependencies are now synchronized for project {}.",
@@ -229,11 +234,12 @@ impl Execute for Sync {
 }
 
 impl Execute for Desync {
-    fn execute(self) -> Result<()> {
-        let info = get_project_info_or_exit(&self.path);
+    fn execute<I: IoAdapter, D: DownloadAdapter>(self, context: Context<I, D>) -> Result<()> {
+        let info = get_project_info_or_exit(context.io(), &self.path);
+        let dhandler = DependencyHandler::new(context.io());
 
         if let Some(n) = self.name {
-            DependencyHandler::desync_project_plugin(&self.path, &n)?;
+            dhandler.desync_project_plugin(&self.path, &n)?;
 
             println!(
                 "Dependency {} is desynchronized for project {}.",
@@ -241,7 +247,7 @@ impl Execute for Desync {
                 info.get_versioned_name().color("green")
             );
         } else {
-            DependencyHandler::desync_project_plugins(&self.path)?;
+            dhandler.desync_project_plugins(&self.path)?;
 
             println!(
                 "Dependencies are desynchronized for project {}.",

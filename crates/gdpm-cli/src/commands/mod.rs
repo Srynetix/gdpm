@@ -1,6 +1,9 @@
 use clap::{Parser, Subcommand};
 use color_eyre::Result;
+use gdpm_core::{downloader::DownloadAdapter, io::IoAdapter};
 use tracing_subscriber::EnvFilter;
+
+use crate::context::Context;
 
 mod dependency;
 mod engine;
@@ -21,7 +24,7 @@ pub struct Args {
 
 trait Execute {
     /// Execute!
-    fn execute(self) -> Result<()>;
+    fn execute<I: IoAdapter, D: DownloadAdapter>(self, context: Context<I, D>) -> Result<()>;
 }
 
 #[derive(Subcommand)]
@@ -31,7 +34,10 @@ enum Command {
     Engine(engine::Engine),
 }
 
-pub fn parse_args(args: Args) -> Result<()> {
+pub fn parse_args<I: IoAdapter, D: DownloadAdapter>(
+    context: Context<I, D>,
+    args: Args,
+) -> Result<()> {
     // Set RUST_LOG depending on "verbose" arg
     if std::env::var("RUST_LOG").unwrap_or_default().is_empty() {
         if args.verbose {
@@ -50,8 +56,8 @@ pub fn parse_args(args: Args) -> Result<()> {
         .init();
 
     match args.command {
-        Command::Project(c) => c.execute(),
-        Command::Dependencies(c) => c.execute(),
-        Command::Engine(c) => c.execute(),
+        Command::Project(c) => c.execute(context),
+        Command::Dependencies(c) => c.execute(context),
+        Command::Engine(c) => c.execute(context),
     }
 }

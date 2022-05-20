@@ -1,9 +1,10 @@
 [workspace]
 members = [
+    "crates/gdpm-downloader",
     "crates/gdpm-cli",
     "crates/gdpm-core",
     "crates/gdpm-io",
-    "crates/gdpm-downloader",
+    "crates/gdpm-types",
     "crates/gdsettings-parser",
 ]
 

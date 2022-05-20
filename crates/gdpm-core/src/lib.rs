@@ -17,3 +17,8 @@ pub mod downloader {
     //! Downloader module.
     pub use gdpm_downloader::*;
 }
+
+pub mod types {
+    //! Types module.
+    pub use gdpm_types::*;
+}

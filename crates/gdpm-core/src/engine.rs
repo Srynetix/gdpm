@@ -6,15 +6,17 @@ use std::{
 };
 
 use colored::Colorize;
-use gdpm_downloader::version::{GodotVersion, SystemVersion};
 use gdpm_io::{IoAdapter, IoError};
-use gdsettings_parser::{GdSettings, GdValue};
+use gdpm_types::{GodotVersion, SystemVersion};
+use gdsettings_parser::{
+    parse_gdsettings_file, GdSettings, GdSettingsMap, GdSettingsType, GdValue,
+};
 use slugify::slugify;
 use tracing::{debug, info};
 
 use crate::{
     config::{GlobalConfig, UserDir, ENGINES_SECTION},
-    error::EngineError,
+    error::{ConfigError, EngineError},
 };
 
 const ENGINE_DIR: &str = "engines";
@@ -412,6 +414,43 @@ impl<'a, I: IoAdapter> EngineHandler<'a, I> {
         }
 
         Ok(())
+    }
+
+    /// Cache versions.
+    pub fn write_versions_in_cache(&self, versions: Vec<GodotVersion>) -> Result<(), EngineError> {
+        let udir = UserDir::new(self.io_adapter);
+        let path = udir.get_or_create_file(Path::new("remote-cache.cfg"))?;
+
+        let mut data = GdSettingsMap::new();
+        for version in versions {
+            data.insert(version.to_string(), version.to_gdvalue());
+        }
+        let mut sections = GdSettingsType::new();
+        sections.insert("remote".into(), data);
+        let settings = GdSettings::new(sections);
+
+        udir.write_string_to_file(&path, &settings.to_string())?;
+        Ok(())
+    }
+
+    /// Read versions from cache.
+    pub fn read_versions_from_cache(&self) -> Result<Vec<GodotVersion>, EngineError> {
+        let udir = UserDir::new(self.io_adapter);
+        let path = udir.get_or_create_file(Path::new("remote-cache.cfg"))?;
+        let contents = udir.read_file_to_string(&path)?;
+        let settings = parse_gdsettings_file(&contents)
+            .map_err(|e| EngineError::ConfigError(ConfigError::MalformedSettings(e)))?;
+        let mut versions = vec![];
+
+        if let Some(section) = settings.get_section("remote") {
+            let values = section
+                .into_values()
+                .filter_map(GodotVersion::from_gdvalue)
+                .collect();
+            versions = values;
+        }
+
+        Ok(versions)
     }
 }
 

@@ -70,7 +70,7 @@ impl<'a, I: IoAdapter> UserDir<'a, I> {
         self.io_adapter.read_file_to_string(&self.get_file(path)?)
     }
 
-    /// Write string tp file in global directory.
+    /// Write string to file in global directory.
     pub fn write_string_to_file(&self, path: &Path, contents: &str) -> Result<(), IoError> {
         self.io_adapter
             .write_string_to_file(&self.get_file(path)?, contents)

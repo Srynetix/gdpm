@@ -1,6 +1,10 @@
 //! Versions.
 
-use std::fmt::Display;
+use std::{fmt::Display, str::FromStr};
+
+use gdsettings_parser::GdValue;
+
+use crate::TypeError;
 
 /// System version.
 #[derive(Debug, Clone)]
@@ -178,6 +182,39 @@ impl GodotVersion {
     pub fn mono(&self) -> bool {
         self.mono
     }
+
+    /// To GdValue.
+    pub fn to_gdvalue(&self) -> GdValue {
+        GdValue::Object(vec![
+            ("version".into(), GdValue::String(self.version.clone())),
+            ("kind".into(), GdValue::String(self.kind.to_string())),
+            ("mono".into(), GdValue::Boolean(self.mono)),
+        ])
+    }
+
+    /// From GdValue.
+    pub fn from_gdvalue(value: GdValue) -> Option<Self> {
+        if let Some(map) = value.to_object() {
+            let version = map
+                .get("version")
+                .and_then(|x| x.to_str())
+                .unwrap_or_else(|| String::from("unknown"));
+            let kind: GodotVersionKind = map
+                .get("kind")
+                .and_then(|x| x.to_str())
+                .map(|x| GodotVersionKind::from_str(&x).unwrap())
+                .unwrap_or(GodotVersionKind::Stable);
+            let mono = map.get("mono").and_then(|x| x.to_bool()).unwrap_or(false);
+
+            Some(Self {
+                version,
+                kind,
+                mono,
+            })
+        } else {
+            None
+        }
+    }
 }
 
 impl Display for GodotVersion {
@@ -196,32 +233,132 @@ impl Display for GodotVersion {
     }
 }
 
+impl FromStr for GodotVersion {
+    type Err = TypeError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let mut parts: Vec<_> = s.split('.').collect();
+        let mut kind = GodotVersionKind::Stable;
+        let mut mono = false;
+
+        if let Some(&"mono") = parts.last() {
+            mono = true;
+            parts.pop();
+        }
+
+        if let Some(&x) = parts.last() {
+            if x.parse::<u16>().is_err() {
+                kind = GodotVersionKind::from_str(x)?;
+                parts.pop();
+            }
+        }
+
+        let version = parts.join(".");
+
+        Ok(Self {
+            version,
+            kind,
+            mono,
+        })
+    }
+}
+
 impl Display for GodotVersionKind {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::Stable => write!(f, "stable"),
+            Self::ReleaseCandidate(n) if *n == 0 => write!(f, "rc"),
             Self::ReleaseCandidate(n) => write!(f, "rc{}", n),
+            Self::Alpha(n) if *n == 0 => write!(f, "alpha"),
             Self::Alpha(n) => write!(f, "alpha{}", n),
+            Self::Beta(n) if *n == 0 => write!(f, "beta"),
             Self::Beta(n) => write!(f, "beta{}", n),
         }
     }
 }
 
-impl From<&str> for GodotVersionKind {
-    fn from(s: &str) -> Self {
+impl FromStr for GodotVersionKind {
+    type Err = TypeError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
         if s == "stable" {
-            Self::Stable
+            Ok(Self::Stable)
         } else if s.starts_with("rc") {
-            let number = s.chars().skip(2).collect::<String>().parse().unwrap();
-            Self::ReleaseCandidate(number)
+            let number = s.chars().skip(2).collect::<String>().parse().unwrap_or(0);
+            Ok(Self::ReleaseCandidate(number))
         } else if s.starts_with("alpha") {
-            let number = s.chars().skip(5).collect::<String>().parse().unwrap();
-            Self::Alpha(number)
+            let number = s.chars().skip(5).collect::<String>().parse().unwrap_or(0);
+            Ok(Self::Alpha(number))
         } else if s.starts_with("beta") {
-            let number = s.chars().skip(4).collect::<String>().parse().unwrap();
-            Self::Beta(number)
+            let number = s.chars().skip(4).collect::<String>().parse().unwrap_or(0);
+            Ok(Self::Beta(number))
         } else {
-            panic!("Unsupported version kind: {}", s);
+            Err(TypeError::WrongVersionKind(s.to_string()))
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_parse_version_kind() {
+        assert_eq!(
+            GodotVersionKind::from_str("rc").unwrap(),
+            GodotVersionKind::ReleaseCandidate(0)
+        );
+        assert_eq!(
+            GodotVersionKind::from_str("rc9").unwrap(),
+            GodotVersionKind::ReleaseCandidate(9)
+        );
+        assert_eq!(
+            GodotVersionKind::from_str("alpha").unwrap(),
+            GodotVersionKind::Alpha(0)
+        );
+        assert_eq!(
+            GodotVersionKind::from_str("alpha2").unwrap(),
+            GodotVersionKind::Alpha(2)
+        );
+        assert_eq!(
+            GodotVersionKind::from_str("beta").unwrap(),
+            GodotVersionKind::Beta(0)
+        );
+        assert_eq!(
+            GodotVersionKind::from_str("beta1").unwrap(),
+            GodotVersionKind::Beta(1)
+        );
+        assert_eq!(
+            GodotVersionKind::from_str("stable").unwrap(),
+            GodotVersionKind::Stable
+        );
+    }
+
+    #[test]
+    fn test_parse_version() {
+        assert_eq!(
+            GodotVersion::from_str("3.0").unwrap(),
+            GodotVersion::new("3.0", GodotVersionKind::Stable, false)
+        );
+        assert_eq!(
+            GodotVersion::from_str("3.0.mono").unwrap(),
+            GodotVersion::new("3.0", GodotVersionKind::Stable, true)
+        );
+        assert_eq!(
+            GodotVersion::from_str("3.0.alpha1").unwrap(),
+            GodotVersion::new("3.0", GodotVersionKind::Alpha(1), false)
+        );
+        assert_eq!(
+            GodotVersion::from_str("3.1.beta2.mono").unwrap(),
+            GodotVersion::new("3.1", GodotVersionKind::Beta(2), true)
+        );
+        assert_eq!(
+            GodotVersion::from_str("3.1.2").unwrap(),
+            GodotVersion::new("3.1.2", GodotVersionKind::Stable, false)
+        );
+        assert_eq!(
+            GodotVersion::from_str("3.1.2.mono").unwrap(),
+            GodotVersion::new("3.1.2", GodotVersionKind::Stable, true)
+        );
     }
 }

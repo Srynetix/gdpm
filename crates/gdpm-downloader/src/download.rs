@@ -2,11 +2,8 @@
 
 use reqwest::Url;
 
-use crate::{
-    error::DownloadError,
-    version::{GodotVersion, GodotVersionKind, SystemVersion},
-    DownloadAdapter,
-};
+use crate::{error::DownloadError, DownloadAdapter};
+use gdpm_types::{GodotVersion, GodotVersionKind, SystemVersion};
 
 /// Downloader.
 pub struct Downloader;
@@ -54,20 +51,18 @@ impl Downloader {
     }
 
     /// Download file at URL.
-    pub fn download_file_at_url<I: DownloadAdapter>(
+    pub async fn download_file_at_url<I: DownloadAdapter>(
         download_adapter: &I,
         url: &str,
     ) -> Result<Vec<u8>, DownloadError> {
-        download_adapter.download_file_at_url(url)
+        download_adapter.download_file_at_url(url).await
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::{
-        download::Downloader,
-        version::{GodotVersion, GodotVersionKind, SystemVersion},
-    };
+    use crate::download::Downloader;
+    use gdpm_types::{GodotVersion, GodotVersionKind, SystemVersion};
 
     #[test]
     fn test_get_download_url_for_version() {

@@ -7,7 +7,8 @@ edition = "2021"
 
 [dependencies]
 colored = "2.0.0"
-gdpm-downloader = { path = "../gdpm-downloader/" }
+gdpm-downloader = { path = "../gdpm-downloader" }
+gdpm-types = { path = "../gdpm-types" }
 gdpm-io = { path = "../gdpm-io" }
 gdsettings-parser = { path = "../gdsettings-parser" }
 slugify = "0.1.0"

@@ -1,18 +1,17 @@
-use std::path::{Path, PathBuf};
+use std::{
+    path::{Path, PathBuf},
+    str::FromStr,
+};
 
 use clap::{Parser, Subcommand};
 use color_eyre::Result;
 use colored::Colorize;
 use gdpm_core::{
-    downloader::{
-        download::Downloader,
-        error::DownloadError,
-        version::{GodotVersion, GodotVersionKind, SystemVersion},
-        DownloadAdapter,
-    },
+    downloader::{download::Downloader, error::DownloadError, DownloadAdapter, GodotMirrorScanner},
     engine::{EngineHandler, EngineInfo},
     error::EngineError,
     io::IoAdapter,
+    types::{GodotVersion, SystemVersion},
 };
 use tracing::info;
 
@@ -21,6 +20,8 @@ use crate::{
     common::{print_missing_default_engine_message, validate_engine_version_or_exit},
     context::Context,
 };
+
+const MIRROR_URL: &str = "https://downloads.tuxfamily.org/godotengine/";
 
 /// engine management
 #[derive(Parser)]
@@ -33,6 +34,7 @@ pub struct Engine {
 #[derive(Subcommand)]
 pub enum Command {
     List(List),
+    ListRemote(ListRemote),
     Register(Register),
     Unregister(Unregister),
     Start(Start),
@@ -47,6 +49,15 @@ pub enum Command {
 #[derive(Parser)]
 #[clap(name = "list")]
 pub struct List;
+
+/// list available engines on official mirror
+#[derive(Parser)]
+#[clap(name = "list-remote")]
+pub struct ListRemote {
+    /// no cache
+    #[clap(long)]
+    no_cache: bool,
+}
 
 /// register engine
 #[derive(Parser)]
@@ -77,7 +88,6 @@ pub struct Unregister {
 #[clap(name = "start")]
 pub struct Start {
     /// version
-    #[clap(short, long)]
     version: Option<String>,
 }
 
@@ -105,30 +115,18 @@ pub struct SetDefault {
 #[clap(name = "get-default")]
 pub struct GetDefault;
 
-/// download and install engine from official mirror or specific URL
+/// download and install engine from official mirror or specific URL (e.g. 3.3.4, 3.3.4.mono, 3.5.rc1, 3.5.rc1.mono)
 #[derive(Parser)]
 #[clap(name = "install")]
 pub struct Install {
     /// version
     version: String,
-    /// release candidate?
-    #[clap(long)]
-    rc: Option<u16>,
-    /// alpha?
-    #[clap(long)]
-    alpha: Option<u16>,
-    /// beta?
-    #[clap(long)]
-    beta: Option<u16>,
     /// headless?
     #[clap(long)]
     headless: bool,
     /// server?
     #[clap(long)]
     server: bool,
-    /// mono?
-    #[clap(long)]
-    mono: bool,
     /// target URL
     #[clap(long)]
     target_url: Option<String>,
@@ -143,24 +141,12 @@ pub struct Install {
 pub struct Uninstall {
     /// version
     version: String,
-    /// release candidate?
-    #[clap(long)]
-    rc: Option<u16>,
-    /// alpha?
-    #[clap(long)]
-    alpha: Option<u16>,
-    /// beta?
-    #[clap(long)]
-    beta: Option<u16>,
     /// headless?
     #[clap(long)]
     headless: bool,
     /// server?
     #[clap(long)]
     server: bool,
-    /// mono?
-    #[clap(long)]
-    mono: bool,
 }
 
 impl Execute for Engine {
@@ -173,6 +159,7 @@ impl Execute for Command {
     fn execute<I: IoAdapter, D: DownloadAdapter>(self, context: Context<I, D>) -> Result<()> {
         match self {
             Self::List(c) => c.execute(context),
+            Self::ListRemote(c) => c.execute(context),
             Self::Register(c) => c.execute(context),
             Self::Unregister(c) => c.execute(context),
             Self::Start(c) => c.execute(context),
@@ -212,6 +199,59 @@ impl Execute for List {
                 println!("{}", entry.get_verbose_name());
             }
         }
+
+        Ok(())
+    }
+}
+
+impl ListRemote {
+    async fn list_remote_engines<I: IoAdapter, D: DownloadAdapter>(
+        context: &Context<I, D>,
+        no_cache: bool,
+    ) -> Result<()> {
+        let ehandler = EngineHandler::new(context.io());
+        let scanner = GodotMirrorScanner::new(context.download());
+
+        let should_scan = {
+            if !no_cache {
+                let cached_values = ehandler.read_versions_from_cache()?;
+                if !cached_values.is_empty() {
+                    info!("Reading versions from cache ...");
+                    for version in cached_values {
+                        println!("- {}", version);
+                    }
+
+                    false
+                } else {
+                    true
+                }
+            } else {
+                true
+            }
+        };
+
+        if should_scan {
+            info!("Fetching remote versions ...");
+
+            let versions = scanner.scan(MIRROR_URL).await?;
+            for version in &versions {
+                println!("- {}", version);
+            }
+
+            ehandler.write_versions_in_cache(versions)?;
+        }
+
+        Ok(())
+    }
+}
+
+impl Execute for ListRemote {
+    fn execute<I: IoAdapter, D: DownloadAdapter>(self, context: Context<I, D>) -> Result<()> {
+        let rt = tokio::runtime::Builder::new_multi_thread()
+            .enable_all()
+            .build()
+            .unwrap();
+        rt.block_on(Self::list_remote_engines(&context, self.no_cache))?;
 
         Ok(())
     }
@@ -322,42 +362,16 @@ impl Execute for GetDefault {
     }
 }
 
-impl Execute for Install {
-    fn execute<I: IoAdapter, D: DownloadAdapter>(self, context: Context<I, D>) -> Result<()> {
-        const MIRROR_URL: &str = "https://downloads.tuxfamily.org/godotengine/";
-
+impl Install {
+    async fn download_file_at_url<I: IoAdapter, D: DownloadAdapter>(
+        context: &Context<I, D>,
+        url: &str,
+        version: GodotVersion,
+        system: SystemVersion,
+    ) -> Result<()> {
         let ehandler = EngineHandler::new(context.io());
-        let (version, system) = parse_godot_version_args(
-            &self.version,
-            self.rc,
-            self.alpha,
-            self.beta,
-            self.headless,
-            self.server,
-            self.mono,
-        );
 
-        let version_name = format!("{}", version);
-        let existing_version = ehandler.has_version(&version_name)?;
-        if existing_version.is_some() {
-            if !self.overwrite {
-                println!("{}",
-                    format!("Engine version '{}' is already installed. Use '--overwrite' to force installation.", version_name).color("yellow")
-                );
-                std::process::exit(1);
-            } else {
-                info!(
-                    "Will overwrite existing engine version '{}'.",
-                    version_name.color("green")
-                );
-            }
-        }
-
-        let url = self.target_url.unwrap_or_else(|| {
-            Downloader::get_official_url_for_version(version.clone(), system.clone(), MIRROR_URL)
-        });
-
-        match Downloader::download_file_at_url(context.download(), &url) {
+        match Downloader::download_file_at_url(context.download(), url).await {
             Ok(c) => {
                 let path =
                     ehandler.install_from_official_zip(c, version.clone(), system.clone())?;
@@ -387,8 +401,7 @@ impl Execute for Install {
                     "{}",
                     format!(
                         "Unexpected error while trying to download file at url '{}'\n    | {}",
-                        url.as_str(),
-                        e
+                        url, e
                     )
                     .color("red")
                 )
@@ -399,17 +412,45 @@ impl Execute for Install {
     }
 }
 
+impl Execute for Install {
+    fn execute<I: IoAdapter, D: DownloadAdapter>(self, context: Context<I, D>) -> Result<()> {
+        let ehandler = EngineHandler::new(context.io());
+        let (version, system) = parse_godot_version_args(&self.version, self.headless, self.server);
+
+        let version_name = format!("{}", version);
+        let existing_version = ehandler.has_version(&version_name)?;
+        if existing_version.is_some() {
+            if !self.overwrite {
+                println!("{}",
+                    format!("Engine version '{}' is already installed. Use '--overwrite' to force installation.", version_name).color("yellow")
+                );
+                std::process::exit(1);
+            } else {
+                info!(
+                    "Will overwrite existing engine version '{}'.",
+                    version_name.color("green")
+                );
+            }
+        }
+
+        let url = self.target_url.unwrap_or_else(|| {
+            Downloader::get_official_url_for_version(version.clone(), system.clone(), MIRROR_URL)
+        });
+
+        let rt = tokio::runtime::Builder::new_multi_thread()
+            .enable_all()
+            .build()
+            .unwrap();
+        rt.block_on(Self::download_file_at_url(&context, &url, version, system))?;
+
+        Ok(())
+    }
+}
+
 impl Execute for Uninstall {
     fn execute<I: IoAdapter, D: DownloadAdapter>(self, context: Context<I, D>) -> Result<()> {
-        let (version, _system) = parse_godot_version_args(
-            &self.version,
-            self.rc,
-            self.alpha,
-            self.beta,
-            self.headless,
-            self.server,
-            self.mono,
-        );
+        let (version, _system) =
+            parse_godot_version_args(&self.version, self.headless, self.server);
 
         let ehandler = EngineHandler::new(context.io());
         let version_name = format!("{}", version);
@@ -444,12 +485,8 @@ impl Execute for Uninstall {
 
 pub fn parse_godot_version_args(
     version: &str,
-    rc: Option<u16>,
-    alpha: Option<u16>,
-    beta: Option<u16>,
     headless: bool,
     server: bool,
-    mono: bool,
 ) -> (GodotVersion, SystemVersion) {
     let system = SystemVersion::determine_system_kind();
 
@@ -467,25 +504,7 @@ pub fn parse_godot_version_args(
                 .color("red")
         );
         std::process::exit(1);
-    } else if beta.is_some() && rc.is_some() {
-        println!(
-            "{}",
-            "You can not use the flags --beta and --rc at the same time.".color("red")
-        );
-        std::process::exit(1);
-    } else {
-        let kind = {
-            if let Some(rc) = rc {
-                GodotVersionKind::ReleaseCandidate(rc)
-            } else if let Some(a) = alpha {
-                GodotVersionKind::Alpha(a)
-            } else if let Some(b) = beta {
-                GodotVersionKind::Beta(b)
-            } else {
-                GodotVersionKind::Stable
-            }
-        };
-
-        (GodotVersion::new(version, kind, mono), system)
     }
+
+    (GodotVersion::from_str(version).unwrap(), system)
 }

@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- New `list-remote` command which scans official mirror to fetch all available Godot versions (starting from 3.0)
+
 ### Fixed
 
 - Fix reading engine global configuration file when it's not created
@@ -14,6 +18,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - New adapter system to ease testing
+- The `install` and `uninstall` commands now accept a "qualified" version name, like "3.2.rc1" or "3.2.rc1.mono" (instead of individual flags)
 
 ## [1.1.1] - 2022-05-16
 

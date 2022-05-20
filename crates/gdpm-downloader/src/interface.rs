@@ -1,7 +1,13 @@
 use crate::error::DownloadError;
+use async_trait::async_trait;
 
 /// Download adapter.
+#[async_trait]
+#[mockall::automock]
 pub trait DownloadAdapter {
     /// Download file at URL.
-    fn download_file_at_url(&self, url: &str) -> Result<Vec<u8>, DownloadError>;
+    async fn download_file_at_url(&self, url: &str) -> Result<Vec<u8>, DownloadError>;
+
+    /// Get URL contents.
+    async fn get_url_contents(&self, url: &str) -> Result<String, DownloadError>;
 }

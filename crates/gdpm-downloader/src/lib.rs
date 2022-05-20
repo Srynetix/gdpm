@@ -6,7 +6,8 @@ pub mod download;
 pub mod error;
 mod implementation;
 mod interface;
-pub mod version;
+mod scan;
 
 pub use implementation::DownloadImpl;
-pub use interface::DownloadAdapter;
+pub use interface::{DownloadAdapter, MockDownloadAdapter};
+pub use scan::GodotMirrorScanner;

@@ -16,6 +16,7 @@ List of commands and subcommands:
   - `desync` - desynchronize dependencies
 - `engine` - engine management
   - `list` - list registered engines
+  - `list-remote` - list available engines on official mirror
   - `register` - register an engine on your filesystem
   - `unregister` - unregister a known engine
   - `start` - run a specific Godot Engine editor
@@ -70,8 +71,8 @@ gdpm project edit
 gdpm project edit --path ./my/project
 # > Running Godot Engine v3.1.1 for project MyProject2 ...
 
-gdpm project edit --path ./my/project -v 3.2alpha3
-# > Running Godot Engine v3.2alpha3 for project MyProject2 ...
+gdpm project edit --path ./my/project -v 3.2.alpha3
+# > Running Godot Engine v3.2.alpha3 for project MyProject2 ...
 ```
 
 ### `project set-engine` - choose a specific engine for a project
@@ -82,11 +83,11 @@ You can pass another folder using the `--path` argument.
 *Examples:*
 
 ```bash
-gdpm project set-engine 3.2alpha3
-# > Godot Engine v3.2alpha3 set for project MyProject.
+gdpm project set-engine 3.2.alpha3
+# > Godot Engine v3.2.alpha3 set for project MyProject.
 
-gdpm project set-engine 3.2alpha3 --path ./my/project
-# > Godot Engine v3.2alpha3 set for project MyProject2.
+gdpm project set-engine 3.2.alpha3 --path ./my/project
+# > Godot Engine v3.2.alpha3 set for project MyProject2.
 ```
 
 ### `project unset-engine` - unset the specific engine for a project
@@ -239,15 +240,31 @@ The default engine will have a star at start.
 ```bash
 gdpm engine list
 # * v3.1.1
-#   v3.1.1-mono
-#   v3.2alpha3
+#   v3.1.1.mono
+#   v3.2.alpha3
 #   vmaster
 
 gdpm engine list --verbose
 # * v3.1.1 (./path/to/3.1.1) [mono: false, built from source: false]
-#   v3.1.1-mono (./path/to/3.1.1-mono) [mono: true, built from source: false]
-#   v3.2alpha3 (./path/to/3.2alpha3) [mono: false, built from source: false]
+#   v3.1.1.mono (./path/to/3.1.1-mono) [mono: true, built from source: false]
+#   v3.2.alpha3 (./path/to/3.2alpha3) [mono: false, built from source: false]
 #   vmaster (./path/to/master) [mono: false, built from source: true]
+```
+
+### `engine list-remote` - list available engines on official mirror
+
+Get a list of the available engines on the official Godot Engine mirror.
+It will be cached on first run because it is quite slow and make a lot of requests to scan versions.
+Use the `--no-cache` flag to reset the cache.
+
+*Examples:*
+
+```bash
+gdpm engine list-remote
+# - 3.1.1
+# - 3.1.1.mono
+# - 3.2.rc1.mono
+# ...
 ```
 
 ### `engine register` - register an engine on your filesystem
@@ -263,8 +280,8 @@ The first engine you register will automatically become the default engine.
 gdpm engine register 3.1.1 C:/.../3.1.1/godot.exe
 # > Godot Engine v3.1.1 registered.
 
-gdpm engine register 3.1.1-mono C:/.../3.1.1-mono/godot.exe --mono
-# > Godot Engine v3.1.1-mono registered.
+gdpm engine register 3.1.1.mono C:/.../3.1.1-mono/godot.exe --mono
+# > Godot Engine v3.1.1.mono registered.
 
 gdpm engine register master C:/.../master/bin/godot.exe --source
 # > Godot Engine vmaster registered.
@@ -278,7 +295,7 @@ If you unregister the default engine, it will remain unset. You will have to cal
 *Examples:*
 
 ```bash
-gdpm engine unregister v3.2alpha2
+gdpm engine unregister 3.2.alpha2
 # > Godot Engine v3.2alpha2 unregistered.
 ```
 
@@ -337,14 +354,14 @@ Download and install engine from official mirror or specific URL.
 *Examples:*
 
 ```bash
-# Install 3.1.1.stable
+# Install 3.1.1
 gdpm engine install 3.1.1
 # Install 3.1.1.rc1
-gdpm engine install 3.1.1 --rc 1
+gdpm engine install 3.1.1.rc1
 # Install 3.1.1.beta1
-gdpm engine install 3.1.1 --beta 1
+gdpm engine install 3.1.1.beta1
 # Install 3.1.1.beta1.mono
-gdpm engine install 3.1.1 --beta 1 --mono
+gdpm engine install 3.1.1.beta1.mono
 # Install 3.1.1 headless version (for linux x64 only)
 gdpm engine install 3.1.1 --headless
 # Install 3.1.1 server version (for linux x64 only)
@@ -363,8 +380,8 @@ Use `engine unregister` to remove existing engines installations.
 *Examples:*
 
 ```bash
-# Uninstall 3.1.1.stable
+# Uninstall 3.1.1
 gdpm engine uninstall 3.1.1
 # Uninstall 3.1.1.rc1
-gdpm engine uninstall 3.1.1 --rc 1
+gdpm engine uninstall 3.1.1.rc1
 ```

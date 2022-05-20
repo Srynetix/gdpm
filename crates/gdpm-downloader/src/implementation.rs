@@ -1,4 +1,5 @@
 use crate::{error::DownloadError, DownloadAdapter};
+use async_trait::async_trait;
 
 use std::io::Write;
 
@@ -53,13 +54,21 @@ impl DownloadImpl {
     }
 }
 
+#[async_trait]
 impl DownloadAdapter for DownloadImpl {
-    fn download_file_at_url(&self, url: &str) -> Result<Vec<u8>, DownloadError> {
-        let rt = tokio::runtime::Builder::new_current_thread()
-            .enable_io()
-            .enable_time()
-            .build()
-            .map_err(DownloadError::AsyncRuntimeError)?;
-        rt.block_on(Self::download_file_at_url_async(url))
+    async fn download_file_at_url(&self, url: &str) -> Result<Vec<u8>, DownloadError> {
+        Self::download_file_at_url_async(url).await
+    }
+
+    async fn get_url_contents(&self, url: &str) -> Result<String, DownloadError> {
+        let client = Client::new();
+        let res = client
+            .get(url)
+            .send()
+            .await
+            .map_err(|e| DownloadError::ReqwestError(url.into(), e))?;
+        res.text()
+            .await
+            .map_err(|e| DownloadError::ReqwestError(url.into(), e))
     }
 }

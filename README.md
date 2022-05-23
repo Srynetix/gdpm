@@ -11,7 +11,9 @@ A command line utility to manage a Godot 3.x project.
 - [x] Parse the Godot project file
 - [x] Get project information using the project.godot file
 - [x] Write custom configuration in the project.godot file
-- [x] Manage Godot instances
+- [x] Manage Godot executables
+  - [x] Manual registering and unregistering
+  - [x] Scan versions and download from official mirror 
 - [x] Manage dependencies (in the addons folder)
   - [x] Sync from another project
   - [x] Sync from external source (git)

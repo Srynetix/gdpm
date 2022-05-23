@@ -41,31 +41,31 @@ You can use the following workflow.
 Before you start to manage your projects, you have to register engine instances.  
 For example, imagine you have two Godot instances on your disk:
 - Godot Engine **3.1**, stored in `C:\Godot\3.1\godot.exe`
-- Godot Engine **3.2beta1**, stored in `C:\Godot\3.2beta1\godot.exe`
+- Godot Engine **3.2.beta1**, stored in `C:\Godot\3.2beta1\godot.exe`
 
 You have to use the `gdpm engine register` command to register each version in a gdpm configuration file.  
 Following these examples, you have to execute:
 
 ```bash
 gdpm engine register 3.1 C:\Godot\3.1\godot.exe
-gdpm engine register 3.2beta1 C:\Godot\3.2beta1\godot.exe
+gdpm engine register 3.2.beta1 C:\Godot\3.2beta1\godot.exe
 ```
 
 The first engine entry will became default.  
 If you want to set the **3.2beta1** version as default, just execute:
 
 ```bash
-gdpm engine set-default 3.2beta1
+gdpm engine set-default 3.2.beta1
 ```
 
 If you do not have already installed engine versions, you can use the `engine install` command to let `gdpm` install them for you.
 
 ```bash
 # If you want the 3.3.4 stable, mono edition
-gdpm engine install 3.3.4 --mono
+gdpm engine install 3.3.4.mono
 
 # If you want the 3.4 beta 2, gdscript edition
-gdpm engine install 3.4 --beta 2
+gdpm engine install 3.4.beta2
 ```
 
 ### 2. Assign your engine version
@@ -83,7 +83,7 @@ When your project is ready, you can assign an engine version to it using this co
 
 ```bash
 gdpm project set-engine 3.1
-# or gpdm project set-engine 3.2beta1
+# or gpdm project set-engine 3.2.beta1
 ```
 
 You can see the changes using the `gdpm project info` command, which should show you the associated engine version.  

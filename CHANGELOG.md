@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.2.0] - 2022-05-23
+
 ### Added
 
 - New `list-remote` command which scans official mirror to fetch all available Godot versions (starting from 3.0)
@@ -47,7 +49,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Initial version
 
-[Unreleased]: https://github.com/Srynetix/gdpm/compare/v1.1.0...HEAD
-[1.0.1]: https://github.com/Srynetix/gdpm/releases/tag/v1.1.0
+[Unreleased]: https://github.com/Srynetix/gdpm/compare/v1.2.0...HEAD
+[1.2.0]: https://github.com/Srynetix/gdpm/releases/tag/v1.2.0
+[1.1.1]: https://github.com/Srynetix/gdpm/releases/tag/v1.1.1
+[1.1.0]: https://github.com/Srynetix/gdpm/releases/tag/v1.1.0
 [1.0.1]: https://github.com/Srynetix/gdpm/releases/tag/v1.0.1
 [1.0.0]: https://github.com/Srynetix/gdpm/releases/tag/v1.0.0

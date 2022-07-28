@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Upgrade all libs, including `tracing_subscriber` (and its dependency `thread_local`) fixing the CWE.
+
 ## [1.2.0] - 2022-05-23
 
 ### Added

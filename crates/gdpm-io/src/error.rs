@@ -38,4 +38,6 @@ pub enum IoError {
     OpenZipError(PathBuf, #[source] zip::result::ZipError),
     #[error("Could not extract zip file '{0}' to '{1}'.")]
     ExtractZipError(PathBuf, PathBuf, #[source] zip::result::ZipError),
+    #[error("Could not walk directory.")]
+    WalkDirError(#[source] walkdir::Error),
 }

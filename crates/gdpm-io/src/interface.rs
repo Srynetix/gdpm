@@ -33,4 +33,6 @@ pub trait IoAdapter {
     fn read_dir(&self, path: &Path) -> Result<ReadDir, IoError>;
     /// Open and extract ZIP file.
     fn open_and_extract_zip(&self, source: &Path, destination: &Path) -> Result<(), IoError>;
+    /// Find files in dir.
+    fn find_files_in_dir(&self, source: &Path, extension: &str) -> Result<Vec<PathBuf>, IoError>;
 }

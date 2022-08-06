@@ -6,6 +6,7 @@ use colored::Colorize;
 use gdpm_core::{
     downloader::DownloadAdapter, engine::EngineHandler, io::IoAdapter, project::ProjectHandler,
 };
+use gdscript_parser::GdScriptParser;
 use question::{Answer, Question};
 
 use super::Execute;
@@ -29,6 +30,7 @@ pub struct Project {
 pub enum Command {
     Info(Info),
     Edit(Edit),
+    Lint(Lint),
     SetEngine(SetEngine),
     UnsetEngine(UnsetEngine),
 }
@@ -53,6 +55,14 @@ pub struct Edit {
     /// version
     #[clap(short, long)]
     version: Option<String>,
+}
+
+/// lint GDScript code
+#[derive(Parser)]
+#[clap(name = "lint")]
+pub struct Lint {
+    /// file/dir path
+    path: PathBuf,
 }
 
 /// set project engine
@@ -87,6 +97,7 @@ impl Execute for Command {
         match self {
             Self::Info(c) => c.execute(context),
             Self::Edit(c) => c.execute(context),
+            Self::Lint(c) => c.execute(context),
             Self::SetEngine(c) => c.execute(context),
             Self::UnsetEngine(c) => c.execute(context),
         }
@@ -99,6 +110,18 @@ impl Execute for Info {
         info.show();
 
         Ok(())
+    }
+}
+
+impl Execute for Lint {
+    fn execute<I: IoAdapter, D: DownloadAdapter>(self, context: Context<I, D>) -> Result<()> {
+        match GdScriptParser::parse_path(context.io(), self.path) {
+            Ok(()) => Ok(()),
+            Err(e) => {
+                println!("{}", e);
+                Ok(())
+            }
+        }
     }
 }
 

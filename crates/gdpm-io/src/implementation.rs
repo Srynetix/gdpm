@@ -6,6 +6,7 @@ use std::{
     path::{Path, PathBuf},
 };
 use tracing::debug;
+use walkdir::{DirEntry, WalkDir};
 use zip::ZipArchive;
 
 /// IO adapter implementation.
@@ -165,5 +166,34 @@ impl IoAdapter for IoImpl {
             .map_err(|e| IoError::ExtractZipError(source.to_owned(), destination.to_owned(), e))?;
 
         Ok(())
+    }
+
+    fn find_files_in_dir(&self, source: &Path, extension: &str) -> Result<Vec<PathBuf>, IoError> {
+        let filter_extension = |entry: &DirEntry| -> bool {
+            if entry.path().is_dir() {
+                true
+            } else {
+                entry
+                    .file_name()
+                    .to_str()
+                    .map(|s| s.ends_with(extension))
+                    .unwrap_or(false)
+            }
+        };
+
+        let mut output = vec![];
+        for entry in WalkDir::new(source)
+            .into_iter()
+            .filter_entry(filter_extension)
+        {
+            let entry = entry.map_err(IoError::WalkDirError)?;
+            if entry.path().is_dir() {
+                continue;
+            }
+
+            output.push(entry.path().to_owned());
+        }
+
+        Ok(output)
     }
 }

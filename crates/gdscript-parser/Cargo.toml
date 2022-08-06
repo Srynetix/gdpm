@@ -1,0 +1,21 @@
+[package]
+name = "gdscript-parser"
+version = "0.1.0"
+authors = ["Denis Bourge <denis.bourge@sharingcloud.com>"]
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+nom = "7.1.1"
+nom_locate = "4.0.0"
+thiserror = "1.0.31"
+tracing = "0.1.36"
+tracing-subscriber = { version = "0.3.15", features = ["env-filter"] }
+tracing-tree = "0.2.1"
+gdpm-io = { path = "../gdpm-io" }
+gdpm-macros = { path = "../gdpm-macros" }
+
+[dev-dependencies]
+indoc = "1.0.7"
+pretty_assertions = "1.2.1"

@@ -18,3 +18,4 @@ question = "0.2.2"
 tokio = { version = "1.20.1", features = ["rt", "rt-multi-thread", "macros"] }
 tracing = "0.1.35"
 tracing-subscriber = { version = "0.3.15", features = ["env-filter"] }
+gdscript-parser = { path = "../gdscript-parser" }

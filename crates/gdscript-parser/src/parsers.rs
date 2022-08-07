@@ -3,11 +3,11 @@ use nom::{
     bytes::complete::{escaped, is_not, tag},
     character::{
         complete::{
-            alpha1, alphanumeric1, char, digit1, line_ending, multispace0, none_of, one_of, space0,
+            alpha1, alphanumeric1, char, digit1, line_ending, multispace0, none_of, space0,
         },
         streaming::space1,
     },
-    combinator::{all_consuming, cut, map, map_res, opt, peek, recognize, value},
+    combinator::{all_consuming, map, map_res, opt, peek, recognize, value},
     error::{context, VerboseError, VerboseErrorKind},
     multi::{many0, many0_count, many1, separated_list0, separated_list1},
     sequence::{delimited, pair, preceded, separated_pair, terminated, tuple},
@@ -15,10 +15,11 @@ use nom::{
 
 use crate::{
     ast::{
-        Array, AttrExpr, AttrNode, BinExpr, BinOp, Block, Boolean, ClassDecl, ClassNameDecl,
-        Comment, Condition, Decl, DottedIdent, Expr, ExtendsDecl, Float, ForStmt, FunctionArg,
-        FunctionCall, FunctionDecl, GdString, IfStmt, Int, Line, LineFragment, MatchCaseStmt,
-        MatchStmt, NodePath, Null, Object, Pair, Pass, SignalDecl, Stmt, UnExpr, UnOp, Value,
+        Array, AssignOp, AssignStmt, AttrExpr, AttrNode, BinExpr, BinOp, Block, Boolean, ClassDecl,
+        ClassNameDecl, Comment, Condition, ConstDecl, Decl, DottedIdent, EnumDecl, EnumVariant,
+        Expr, ExtendsDecl, Float, ForStmt, FunctionArg, FunctionCall, FunctionDecl,
+        FunctionModifier, GdString, IfStmt, Int, Line, LineFragment, MatchCaseStmt, MatchStmt,
+        NodePath, Null, Object, Pair, Pass, ReturnStmt, SignalDecl, Stmt, UnExpr, UnOp, Value,
         VarDecl, VarModifier, VarType, WhileStmt,
     },
     debug::{pp_ret, pp_span},
@@ -35,6 +36,26 @@ where
     F: FnMut(Span<'a>) -> Res<O>,
 {
     delimited(multispace0, inner, multispace0)
+}
+
+pub fn wslnoc<'a, F: 'a, O>(inner: F) -> impl FnMut(Span<'a>) -> Res<O>
+where
+    F: FnMut(Span<'a>) -> Res<O>,
+{
+    delimited(ms0noc, inner, ms0noc)
+}
+
+pub fn ms0noc(i: Span) -> Res<()> {
+    let (i, _) = multispace0(i)?;
+    match terminated(parse_comment, opt(line_ending))(i) {
+        Ok((i, _)) => return ms0noc(i),
+        Err(e) => match e {
+            nom::Err::Error(_) => (),
+            e => return Err(e),
+        },
+    }
+
+    pp_ret("ms0", Ok((i, ())))
 }
 
 pub fn ws<'a, F: 'a, O>(inner: F) -> impl FnMut(Span<'a>) -> Res<O>
@@ -76,7 +97,19 @@ pub fn parse_empty_line(i: Span) -> Res<()> {
 pub fn parse_int(i: Span) -> Res<Int> {
     pp_ret(
         "int",
-        context("int", map(map_res(digit1, |s: Span| s.parse::<i64>()), Int))(i),
+        context(
+            "int",
+            map(
+                alt((
+                    preceded(
+                        tag("0x"),
+                        map_res(alphanumeric1, |s: Span| i64::from_str_radix(*s, 16)),
+                    ),
+                    map_res(digit1, |s: Span| s.parse::<i64>()),
+                )),
+                Int,
+            ),
+        )(i),
     )
 }
 
@@ -103,25 +136,27 @@ pub fn parse_boolean(i: Span) -> Res<Boolean> {
     )
 }
 
-pub fn parse_string_inner(i: Span) -> Res<Span> {
-    escaped(none_of("\\\"'"), '\\', one_of("\"n\\'"))(i)
-}
-
 #[tracing::instrument(skip_all, fields(i = pp_span(i)))]
 pub fn parse_string(i: Span) -> Res<GdString> {
-    pp_ret(
-        "string",
-        context(
-            "string",
-            map(
-                alt((
-                    preceded(char('\"'), cut(terminated(parse_string_inner, char('\"')))),
-                    preceded(char('\''), cut(terminated(parse_string_inner, char('\'')))),
-                )),
-                |v| GdString(*v),
-            ),
-        )(i),
-    )
+    let parse = map(alt((parse_quoted_single, parse_quoted_double)), |v| {
+        GdString(*v)
+    });
+
+    pp_ret("string", context("string", parse)(i))
+}
+
+fn parse_quoted_single(i: Span) -> Res<Span> {
+    let esc = escaped(none_of("\\\'"), '\\', char('\''));
+    let esc_or_empty = alt((esc, tag("")));
+    let res = delimited(char('\''), esc_or_empty, char('\''))(i)?;
+    Ok(res)
+}
+
+fn parse_quoted_double(i: Span) -> Res<Span> {
+    let esc = escaped(none_of("\\\""), '\\', char('"'));
+    let esc_or_empty = alt((esc, tag("")));
+    let res = delimited(char('"'), esc_or_empty, char('"'))(i)?;
+    Ok(res)
 }
 
 #[tracing::instrument(skip_all, fields(i = pp_span(i)))]
@@ -138,10 +173,16 @@ pub fn parse_node_path(i: Span) -> Res<NodePath> {
 
 #[tracing::instrument(skip_all, fields(i = pp_span(i)))]
 pub fn parse_array(i: Span) -> Res<Array> {
-    let inner_parse = map(separated_list0(char(','), wsl(parse_value)), Array);
+    let inner_parse = map(
+        terminated(
+            separated_list0(wslnoc(char(',')), parse_expr),
+            opt(wslnoc(char(','))),
+        ),
+        Array,
+    );
     let parse = preceded(
-        pair(char('['), multispace0),
-        terminated(inner_parse, pair(multispace0, char(']'))),
+        pair(char('['), ms0noc),
+        terminated(inner_parse, pair(ms0noc, char(']'))),
     );
 
     pp_ret("array", context("array", parse)(i))
@@ -149,10 +190,16 @@ pub fn parse_array(i: Span) -> Res<Array> {
 
 #[tracing::instrument(skip_all, fields(i = pp_span(i)))]
 pub fn parse_object(i: Span) -> Res<Object> {
-    let pairs = map(separated_list0(char(','), parse_pair), Object);
+    let pairs = map(
+        terminated(
+            separated_list0(wslnoc(char(',')), parse_pair),
+            opt(wslnoc(char(','))),
+        ),
+        Object,
+    );
     let parse = preceded(
-        pair(char('{'), multispace0),
-        terminated(pairs, pair(multispace0, char('}'))),
+        pair(char('{'), ms0noc),
+        terminated(pairs, pair(ms0noc, char('}'))),
     );
 
     pp_ret("object", context("object", parse)(i))
@@ -167,8 +214,6 @@ pub fn parse_value(i: Span) -> Res<Value> {
         map(parse_object, Value::Object),
         map(parse_node_path, Value::NodePath),
         map(parse_attr_expr, Value::AttrExpr),
-        map(parse_function_call, Value::FuncCall),
-        map(parse_ident, Value::Ident),
         map(parse_string, Value::String),
         map(parse_float, Value::Float),
         map(parse_int, Value::Int),
@@ -188,7 +233,7 @@ pub fn parse_pair(i: Span) -> Res<Pair> {
         context(
             "pair",
             map(
-                separated_pair(wsl(parse_value), char(':'), wsl(parse_value)),
+                separated_pair(wsl(parse_value), char(':'), wsl(parse_expr)),
                 |(k, v)| Pair(k, v),
             ),
         )(i),
@@ -197,9 +242,10 @@ pub fn parse_pair(i: Span) -> Res<Pair> {
 
 #[tracing::instrument(skip_all, fields(i = pp_span(i)))]
 pub fn parse_comment(i: Span) -> Res<Comment> {
-    let parse = map(preceded(char('#'), is_not("\n\r")), |s: Span| {
-        Comment(s.trim())
-    });
+    let parse = map(
+        preceded(ws(char('#')), opt(is_not("\n\r"))),
+        |s: Option<Span>| Comment(s.map(|x| x.trim()).unwrap_or_default()),
+    );
     pp_ret("comment", context("comment", parse)(i))
 }
 
@@ -219,37 +265,75 @@ pub fn parse_var_decl(i: Span) -> Res<VarDecl> {
         opt(preceded(ws(char('=')), parse_expr)),
     );
     let parse_assign_infer = preceded(ws(tag(":=")), parse_expr);
-    let parse_assign = alt((
-        map(parse_assign_infer, |e| (true, None, Some(e))),
-        map(parse_assign_type, |(typ, exp)| (false, typ, exp)),
-    ));
+    let parse_assign = map(
+        opt(alt((
+            map(parse_assign_infer, |e| (true, None, Some(e))),
+            map(parse_assign_type, |(typ, exp)| (false, typ, exp)),
+        ))),
+        |assign| assign.unwrap_or((false, None, None)),
+    );
+    let parse_setget = map(
+        opt(preceded(
+            ws(tag("setget")),
+            alt((
+                map(
+                    pair(parse_ident, preceded(ws(char(',')), parse_ident)),
+                    |(i1, i2)| (Some(i1.0), Some(i2.0)),
+                ),
+                map(preceded(ws(char(',')), parse_ident), |ident| {
+                    (None, Some(ident.0))
+                }),
+                map(parse_ident, |ident| (Some(ident.0), None)),
+            )),
+        )),
+        |v| v.unwrap_or((None, None)),
+    );
 
     let parse = map(
         tuple((
             parse_var_modifier,
             ws(tag("var")),
             parse_ident,
-            opt(parse_assign),
+            parse_assign,
+            parse_setget,
         )),
-        |(modifier, _, name, assign)| match assign {
-            Some((infer, typ, exp)) => VarDecl {
-                modifier,
-                name: name.0,
-                infer,
-                r#type: typ,
-                value: exp,
-            },
-            None => VarDecl {
-                modifier,
-                name: name.0,
-                infer: false,
-                r#type: None,
-                value: None,
-            },
+        |(modifier, _, name, (infer, typ, exp), (setf, getf))| VarDecl {
+            modifier,
+            name: name.0,
+            infer,
+            r#type: typ,
+            value: exp,
+            set_func: setf,
+            get_func: getf,
         },
     );
 
     pp_ret("var_decl", context("var_decl", parse)(i))
+}
+
+#[tracing::instrument(skip_all, fields(i = pp_span(i)))]
+pub fn parse_const_decl(i: Span) -> Res<ConstDecl> {
+    let parse_assign_type = pair(
+        opt(preceded(ws(char(':')), parse_var_type)),
+        preceded(ws(char('=')), parse_expr),
+    );
+    let parse_assign_infer = preceded(ws(tag(":=")), parse_expr);
+    let parse_assign = alt((
+        map(parse_assign_infer, |e| (true, None, e)),
+        map(parse_assign_type, |(typ, exp)| (false, typ, exp)),
+    ));
+
+    let parse = map(
+        preceded(ws(tag("const")), pair(parse_ident, parse_assign)),
+        |(name, (infer, typ, exp))| ConstDecl {
+            name: name.0,
+            infer,
+            r#type: typ,
+            value: exp,
+        },
+    );
+
+    pp_ret("const_decl", context("const_decl", parse)(i))
 }
 
 #[tracing::instrument(skip_all, fields(i = pp_span(i)))]
@@ -293,13 +377,40 @@ pub fn parse_signal_decl(i: Span) -> Res<SignalDecl> {
     pp_ret("signal_decl", parse(i))
 }
 
+#[tracing::instrument(skip_all, fields(i = pp_span(i)))]
+pub fn parse_assign_op(i: Span) -> Res<AssignOp> {
+    let mut parse = alt((
+        value(AssignOp::Assign, tag("=")),
+        value(AssignOp::AssignAdd, tag("+=")),
+        value(AssignOp::AssignSub, tag("-=")),
+        value(AssignOp::AssignMul, tag("*=")),
+        value(AssignOp::AssignDiv, tag("/=")),
+        value(AssignOp::AssignMod, tag("%=")),
+    ));
+
+    pp_ret("assign_op", parse(i))
+}
+
+#[tracing::instrument(skip_all, fields(i = pp_span(i)))]
+pub fn parse_assign_stmt(i: Span) -> Res<AssignStmt> {
+    let mut parse = map(
+        tuple((ws(parse_attr_expr), ws(parse_assign_op), ws(parse_expr))),
+        |(attr, op, value)| AssignStmt { attr, op, value },
+    );
+
+    pp_ret("assign_stmt", parse(i))
+}
+
 #[tracing::instrument(skip_all, fields(i = pp_span(i), indent = indent))]
 pub fn parse_decl(i: Span, indent: usize) -> Res<Decl> {
     let parse = alt((
         map(parse_var_decl, Decl::Var),
+        map(parse_const_decl, Decl::Const),
         map(parse_extends_decl, Decl::Extends),
         map(parse_classname_decl, Decl::ClassName),
+        map(parse_enum_decl, Decl::Enum),
         map(parse_signal_decl, Decl::Signal),
+        map(|i| parse_class_decl(i, indent), Decl::Class),
         map(|i| parse_function_decl(i, indent), Decl::Function),
     ));
     pp_ret("decl", context("decl", parse)(i))
@@ -312,9 +423,21 @@ pub fn parse_stmt(i: Span, indent: usize) -> Res<Stmt> {
         map(|i| parse_while_stmt(i, indent), Stmt::While),
         map(|i| parse_for_stmt(i, indent), Stmt::For),
         map(|i| parse_match_stmt(i, indent), Stmt::Match),
+        map(parse_return_stmt, Stmt::Return),
+        map(parse_assign_stmt, Stmt::Assign),
         map(parse_pass, Stmt::Pass),
     ));
     pp_ret("stmt", context("stmt", parse)(i))
+}
+
+#[tracing::instrument(skip_all, fields(i = pp_span(i)))]
+pub fn parse_return_stmt(i: Span) -> Res<ReturnStmt> {
+    let mut parse = map(
+        preceded(pair(tag("return"), space1), parse_expr),
+        ReturnStmt,
+    );
+
+    pp_ret("return_stmt", parse(i))
 }
 
 #[tracing::instrument(skip_all, fields(i = pp_span(i), indent = indent))]
@@ -359,7 +482,9 @@ pub fn parse_block(i: Span, indent: usize) -> Res<Block> {
 
 #[tracing::instrument(skip_all, fields(i = pp_span(i)))]
 pub fn parse_file(i: Span) -> Res<Block> {
-    context("file", all_consuming(move |i| parse_block(i, 0)))(i)
+    let parse = all_consuming(terminated(move |i| parse_block(i, 0), many0(line_ending)));
+
+    context("file", parse)(i)
 }
 
 #[tracing::instrument(skip_all, fields(i = pp_span(i)))]
@@ -368,12 +493,12 @@ pub fn parse_function_call(i: Span) -> Res<FunctionCall> {
         pair(
             parse_ident,
             delimited(
-                ws(char('(')),
-                opt(separated_list0(ws(char(',')), parse_expr)),
-                ws(char(')')),
+                pair(char('('), ms0noc),
+                opt(separated_list0(wsl(char(',')), parse_expr)),
+                pair(ms0noc, char(')')),
             ),
         ),
-        |(name, args)| FunctionCall::new(name.0, args.unwrap_or_default()),
+        |(name, args)| FunctionCall::new(name.0).with_args(args.unwrap_or_default()),
     );
 
     pp_ret("function_call", parse(i))
@@ -384,9 +509,7 @@ pub fn parse_attr_node(i: Span) -> Res<AttrNode> {
     let mut parse = alt((
         map(preceded(char('.'), parse_function_call), AttrNode::FuncCall),
         map(preceded(char('.'), parse_ident), |i| AttrNode::Name(i.0)),
-        map(delimited(char('['), parse_int, char(']')), |i| {
-            AttrNode::Index(i.0 as usize)
-        }),
+        map(delimited(char('['), parse_expr, char(']')), AttrNode::Index),
     ));
 
     pp_ret("attr_node", parse(i))
@@ -404,13 +527,31 @@ pub fn parse_first_attr_node(i: Span) -> Res<AttrNode> {
 
 #[tracing::instrument(skip_all, fields(i = pp_span(i)))]
 pub fn parse_attr_expr(i: Span) -> Res<AttrExpr> {
-    let mut parse = map(
-        pair(parse_first_attr_node, many1(parse_attr_node)),
-        |(first, mut rest)| {
-            rest.insert(0, first);
-            AttrExpr(rest)
-        },
-    );
+    let mut parse = alt((
+        // Special parens case
+        map(
+            pair(
+                delimited(char('('), parse_expr, char(')')),
+                many0(parse_attr_node),
+            ),
+            |(expr, mut rest)| {
+                rest.insert(0, AttrNode::Parens(expr));
+                AttrExpr(rest)
+            },
+        ),
+        // Special string.format case
+        map(
+            pair(parse_string, preceded(ws(char('.')), parse_function_call)),
+            |(s, fncall)| AttrExpr::new().with_string(s.0).with_func_call(fncall),
+        ),
+        map(
+            pair(parse_first_attr_node, many0(parse_attr_node)),
+            |(first, mut rest)| {
+                rest.insert(0, first);
+                AttrExpr(rest)
+            },
+        ),
+    ));
     pp_ret("attr_expr", parse(i))
 }
 
@@ -479,18 +620,21 @@ pub fn parse_expr_logic_expr(i: Span) -> Res<Expr> {
     let (i, num1) = parse_expr_math_expr(i)?;
     let (i, exprs) = many0(tuple((
         map(
-            alt((
+            wsl(alt((
                 tag("&&"),
                 tag("and"),
                 tag("||"),
                 tag("or"),
                 tag(">="),
                 tag("<="),
+                tag(">"),
+                tag("<"),
                 tag("=="),
                 tag("!="),
                 tag("is"),
+                tag("in"),
                 tag("as"),
-            )),
+            ))),
             |k: Span| *k,
         ),
         parse_expr_logic_expr,
@@ -503,7 +647,7 @@ pub fn parse_expr_logic_expr(i: Span) -> Res<Expr> {
 pub fn parse_expr_math_expr(i: Span) -> Res<Expr> {
     let (i, num1) = parse_expr_term(i)?;
     let (i, exprs) = many0(tuple((
-        map(ws(alt((tag("+"), tag("-")))), |k: Span| *k),
+        map(wsl(alt((tag("+"), tag("-")))), |k: Span| *k),
         parse_expr_math_expr,
     )))(i)?;
 
@@ -517,7 +661,7 @@ pub fn parse_expr_rec<'a>(a: Expr<'a>, rem: Vec<(&str, Expr<'a>)>) -> Expr<'a> {
 
 #[tracing::instrument(skip_all, fields(i = pp_span(i)))]
 pub fn parse_expr_un(i: Span) -> Res<Expr> {
-    let (i, op) = opt(map(ws(alt((tag("-"), tag("+"), tag("!")))), |k: Span| *k))(i)?;
+    let (i, op) = opt(map(wsl(alt((tag("-"), tag("+"), tag("!")))), |k: Span| *k))(i)?;
     let (i, num) = parse_expr_operation(i)?;
 
     pp_ret(
@@ -534,7 +678,14 @@ pub fn parse_expr_term(i: Span) -> Res<Expr> {
     let (i, num1) = parse_expr_un(i)?;
     let (i, exprs) = many0(tuple((
         map(
-            ws(alt((tag("*"), tag("/"), tag("%"), tag("|"), tag("&")))),
+            wsl(alt((
+                tag("*"),
+                tag("/"),
+                tag("%"),
+                tag("|"),
+                tag("&"),
+                tag("^"),
+            ))),
             |k: Span| *k,
         ),
         parse_expr_term,
@@ -590,13 +741,16 @@ pub fn parse_expr_binop<'a>(tup: (&str, Expr<'a>), expr1: Expr<'a>) -> Expr<'a> 
         "%" => new_expr(expr1, expr2, BinOp::Mod),
         "&" => new_expr(expr1, expr2, BinOp::BinAnd),
         "|" => new_expr(expr1, expr2, BinOp::BinOr),
+        "^" => new_expr(expr1, expr2, BinOp::BinXor),
         "&&" | "and" => new_expr(expr1, expr2, BinOp::And),
         "||" | "or" => new_expr(expr1, expr2, BinOp::Or),
         "==" => new_expr(expr1, expr2, BinOp::Eq),
         "!=" => new_expr(expr1, expr2, BinOp::Neq),
         ">" => new_expr(expr1, expr2, BinOp::Gt),
+        "<" => new_expr(expr1, expr2, BinOp::Lt),
         ">=" => new_expr(expr1, expr2, BinOp::Gte),
         "<=" => new_expr(expr1, expr2, BinOp::Lte),
+        "in" => new_expr(expr1, expr2, BinOp::In),
         "is" => new_expr(expr1, expr2, BinOp::Is),
         "as" => new_expr(expr1, expr2, BinOp::As),
         _ => unreachable!(),
@@ -610,6 +764,42 @@ pub fn parse_indented_block(i: Span, indent: usize) -> Res<Block> {
         preceded(many1(line_ending), |i| more_indent(i, indent))(i)
             .and_then(|(i, indent)| parse_block(i, indent)),
     )
+}
+
+#[tracing::instrument(skip_all, fields(i = pp_span(i)))]
+pub fn parse_enum_variant(i: Span) -> Res<EnumVariant> {
+    let mut parse = map(
+        pair(ws(parse_ident), opt(preceded(ws(char('=')), parse_value))),
+        |(ident, value)| EnumVariant {
+            name: ident.0,
+            value,
+        },
+    );
+
+    pp_ret("enum_variant", parse(i))
+}
+
+#[tracing::instrument(skip_all, fields(i = pp_span(i)))]
+pub fn parse_enum_decl(i: Span) -> Res<EnumDecl> {
+    let mut parse = map(
+        preceded(
+            pair(tag("enum"), space1),
+            pair(
+                parse_ident,
+                delimited(
+                    wsl(char('{')),
+                    separated_list1(wsl(char(',')), parse_enum_variant),
+                    wsl(char('}')),
+                ),
+            ),
+        ),
+        |(name, variants)| EnumDecl {
+            name: name.0,
+            variants,
+        },
+    );
+
+    pp_ret("enum_decl", parse(i))
 }
 
 #[tracing::instrument(skip_all, fields(i = pp_span(i), indent = indent))]
@@ -660,30 +850,16 @@ pub fn parse_else_stmt(i: Span, indent: usize) -> Res<ElseStmt> {
 
 #[tracing::instrument(skip_all, fields(i = pp_span(i), indent = indent))]
 pub fn parse_while_stmt(i: Span, indent: usize) -> Res<WhileStmt> {
-    let parse = preceded(tag("while"), |i| parse_condition(i, indent));
+    let parse = preceded(pair(tag("while"), space1), |i| parse_condition(i, indent));
 
     pp_ret("while_stmt", map(parse, WhileStmt)(i))
 }
 
 #[tracing::instrument(skip_all, fields(i = pp_span(i), indent = indent))]
 pub fn parse_for_stmt(i: Span, indent: usize) -> Res<ForStmt> {
-    let mut parse = map(
-        preceded(
-            ws(tag("for")),
-            tuple((
-                parse_expr,
-                terminated(preceded(ws(tag("in")), parse_expr), ws(char(':'))),
-                |i| parse_indented_block(i, indent),
-            )),
-        ),
-        |(expr, in_expr, block)| ForStmt {
-            expr,
-            in_expr,
-            block,
-        },
-    );
+    let parse = preceded(pair(tag("for"), space1), |i| parse_condition(i, indent));
 
-    pp_ret("for_stmt", parse(i))
+    pp_ret("for_stmt", map(parse, ForStmt)(i))
 }
 
 #[tracing::instrument(skip_all, fields(i = pp_span(i), indent = indent))]
@@ -767,6 +943,21 @@ pub fn parse_function_arg(i: Span) -> Res<FunctionArg> {
     )
 }
 
+#[tracing::instrument(skip_all, fields(i = pp_span(i)))]
+pub fn parse_function_modifier(i: Span) -> Res<FunctionModifier> {
+    let mut parse = alt((
+        value(FunctionModifier::Static, tag("static")),
+        value(FunctionModifier::RemoteSync, tag("remotesync")),
+        value(FunctionModifier::MasterSync, tag("mastersync")),
+        value(FunctionModifier::PuppetSync, tag("puppetsync")),
+        value(FunctionModifier::Remote, tag("remote")),
+        value(FunctionModifier::Master, tag("master")),
+        value(FunctionModifier::Puppet, tag("puppet")),
+    ));
+
+    pp_ret("function_modifier", parse(i))
+}
+
 #[tracing::instrument(skip_all, fields(i = pp_span(i), indent = indent))]
 pub fn parse_function_decl(i: Span, indent: usize) -> Res<FunctionDecl> {
     let parse_args = delimited(
@@ -775,14 +966,18 @@ pub fn parse_function_decl(i: Span, indent: usize) -> Res<FunctionDecl> {
         ws(char(')')),
     );
     let parse_type = opt(preceded(ws(tag("->")), parse_var_type));
-    let parse_header = preceded(
-        pair(tag("func"), space1),
-        terminated(tuple((parse_ident, parse_args, parse_type)), ws(char(':'))),
+    let parse_header = pair(
+        opt(terminated(parse_function_modifier, space1)),
+        preceded(
+            pair(tag("func"), space1),
+            terminated(tuple((parse_ident, parse_args, parse_type)), ws(char(':'))),
+        ),
     );
 
     let mut parse = map(
         pair(parse_header, |i| parse_indented_block(i, indent)),
-        |((ident, args, typ), block)| FunctionDecl {
+        |((modifier, (ident, args, typ)), block)| FunctionDecl {
+            modifier,
             name: ident,
             args,
             return_type: typ,

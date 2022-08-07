@@ -134,6 +134,7 @@ fn test_int() {
     ap(parse_int, "1234", Int(1234));
     ap(parse_int, "01234", Int(1234));
     ap(parse_int, "0", Int(0));
+    ap(parse_int, "0x0f", Int(15));
     apr(parse_int, "0foo", Int(0), "foo");
 
     anp(parse_int, "-1234");
@@ -175,6 +176,11 @@ fn test_string() {
         r#""Hello/123 4, 5""#,
         GdString("Hello/123 4, 5"),
     );
+    ap(
+        parse_string,
+        r#""Reading JSON data from path '%s'.""#,
+        GdString("Reading JSON data from path '%s'."),
+    );
 
     anp(parse_string, "Hello");
 }
@@ -200,7 +206,7 @@ fn test_node_path() {
 
 #[test]
 fn test_value() {
-    ap(parse_value, "hello", Value::Ident(Ident("hello")));
+    ap(parse_value, "hello", Value::ident("hello"));
     ap(parse_value, "'hello'", Value::String(GdString("hello")));
     ap(parse_value, "1234", Value::Int(Int(1234)));
     ap(parse_value, "1.0", Value::Float(Float(1.0)));
@@ -214,17 +220,57 @@ fn test_value() {
 fn test_array() {
     ap(
         parse_array,
-        "[1, id , \"ha\", 3.0, 4.15]",
+        "[1, id , \"foo\", 3.0, 4.15]",
         Array(vec![
-            Value::Int(Int(1)),
-            Value::Ident(Ident("id")),
-            Value::String(GdString("ha")),
-            Value::Float(Float(3.0)),
-            Value::Float(Float(4.15)),
+            Expr::value(Value::int(1)),
+            Expr::value(Value::ident("id")),
+            Expr::value(Value::string("foo")),
+            Expr::value(Value::float(3.0)),
+            Expr::value(Value::float(4.15)),
         ]),
     );
     ap(parse_array, "[]", Array(vec![]));
     ap(parse_array, "[ ]", Array(vec![]));
+
+    ap(
+        parse_array,
+        indoc! { r#"[
+            a,
+
+            b
+        ]"#},
+        Array(vec![
+            Expr::value(Value::ident("a")),
+            Expr::value(Value::ident("b")),
+        ]),
+    );
+
+    ap(
+        parse_array,
+        indoc! { r#"[
+            # one
+            # two
+            a,
+
+            # two
+            b
+            # two
+        ]"#},
+        Array(vec![
+            Expr::value(Value::ident("a")),
+            Expr::value(Value::ident("b")),
+        ]),
+    );
+
+    apn(
+        parse_array,
+        indoc! { r#"[
+            _rand_u8(), _rand_u8(), _rand_u8(), _rand_u8(),
+            _rand_u8(), _rand_u8(), ((_rand_u8()) & 0x0f) | 0x40, _rand_u8(),
+            ((_rand_u8()) & 0x3f) | 0x80, _rand_u8(), _rand_u8(), _rand_u8(),
+            _rand_u8(), _rand_u8(), _rand_u8(), _rand_u8(),
+        ]"#},
+    );
 
     anp(parse_array, "[1,, ]");
     anp(parse_array, "[1,,");
@@ -236,12 +282,12 @@ fn test_pair() {
     ap(
         parse_pair,
         "12: 'hello'",
-        Pair(Value::Int(Int(12)), Value::String(GdString("hello"))),
+        Pair(Value::int(12), Expr::value(Value::string("hello"))),
     );
     ap(
         parse_pair,
         "'a' : b",
-        Pair(Value::String(GdString("a")), Value::Ident(Ident("b"))),
+        Pair(Value::string("a"), Expr::value(Value::ident("b"))),
     );
 }
 
@@ -252,22 +298,38 @@ fn test_object() {
     ap(
         parse_object,
         "{'a': 1}",
-        Object(vec![Pair(Value::String(GdString("a")), Value::Int(Int(1)))]),
+        Object(vec![Pair(
+            Value::String(GdString("a")),
+            Expr::value(Value::int(1)),
+        )]),
     );
     ap(
         parse_object,
         "{'a': 1, 2.0: id}",
         Object(vec![
-            Pair(Value::String(GdString("a")), Value::Int(Int(1))),
-            Pair(Value::Float(Float(2.0)), Value::Ident(Ident("id"))),
+            Pair(Value::string("a"), Expr::value(Value::int(1))),
+            Pair(Value::float(2.0), Expr::value(Value::ident("id"))),
         ]),
     );
     ap(
         parse_object,
         "{1: [2, 3]\n}",
         Object(vec![Pair(
-            Value::Int(Int(1)),
-            Value::Array(Array(vec![Value::Int(Int(2)), Value::Int(Int(3))])),
+            Value::int(1),
+            Expr::value(Value::array(vec![
+                Expr::value(Value::int(2)),
+                Expr::value(Value::int(3)),
+            ])),
+        )]),
+    );
+    ap(
+        parse_object,
+        indoc! {r#"{
+            "loggers": {}
+        }"#},
+        Object(vec![Pair(
+            Value::string("loggers"),
+            Expr::value(Value::object(vec![])),
         )]),
     );
 
@@ -294,6 +356,8 @@ fn test_var_decl() {
             r#type: None,
             infer: false,
             value: None,
+            set_func: None,
+            get_func: None,
         },
     );
     ap(
@@ -305,6 +369,8 @@ fn test_var_decl() {
             r#type: None,
             infer: false,
             value: None,
+            set_func: None,
+            get_func: None,
         },
     );
     ap(
@@ -316,6 +382,8 @@ fn test_var_decl() {
             r#type: Some(DottedIdent("Node")),
             infer: false,
             value: None,
+            set_func: None,
+            get_func: None,
         },
     );
     ap(
@@ -327,6 +395,8 @@ fn test_var_decl() {
             r#type: Some(DottedIdent("Node")),
             infer: false,
             value: None,
+            set_func: None,
+            get_func: None,
         },
     );
     ap(
@@ -338,6 +408,8 @@ fn test_var_decl() {
             r#type: None,
             infer: false,
             value: Some(Expr::Value(Value::float(5.0))),
+            set_func: None,
+            get_func: None,
         },
     );
     ap(
@@ -349,9 +421,10 @@ fn test_var_decl() {
             r#type: Some(DottedIdent("Node")),
             infer: false,
             value: Some(Expr::Value(Value::int(5))),
+            set_func: None,
+            get_func: None,
         },
     );
-
     ap(
         parse_var_decl,
         "onready    var   hello  := 5+ 5",
@@ -365,6 +438,59 @@ fn test_var_decl() {
                 BinOp::Add,
                 Expr::value(Value::int(5)),
             )),
+            set_func: None,
+            get_func: None,
+        },
+    );
+    ap(
+        parse_var_decl,
+        "onready    var   hello  := 5+ 5 setget foo",
+        VarDecl {
+            modifier: Some(VarModifier::OnReady),
+            name: "hello",
+            r#type: None,
+            infer: true,
+            value: Some(Expr::bin(
+                Expr::value(Value::int(5)),
+                BinOp::Add,
+                Expr::value(Value::int(5)),
+            )),
+            set_func: Some("foo"),
+            get_func: None,
+        },
+    );
+    ap(
+        parse_var_decl,
+        "onready    var   hello  := 5+ 5 setget ,foo",
+        VarDecl {
+            modifier: Some(VarModifier::OnReady),
+            name: "hello",
+            r#type: None,
+            infer: true,
+            value: Some(Expr::bin(
+                Expr::value(Value::int(5)),
+                BinOp::Add,
+                Expr::value(Value::int(5)),
+            )),
+            set_func: None,
+            get_func: Some("foo"),
+        },
+    );
+    ap(
+        parse_var_decl,
+        "onready    var   hello  := 5+ 5 setget foo,bar",
+        VarDecl {
+            modifier: Some(VarModifier::OnReady),
+            name: "hello",
+            r#type: None,
+            infer: true,
+            value: Some(Expr::bin(
+                Expr::value(Value::int(5)),
+                BinOp::Add,
+                Expr::value(Value::int(5)),
+            )),
+            set_func: Some("foo"),
+            get_func: Some("bar"),
         },
     );
 
@@ -469,12 +595,8 @@ fn test_block() {
 
             abcd"#},
         Block(vec![
-            Line(vec![LineFragment::Expr(Expr::Value(Value::Ident(Ident(
-                "abcd",
-            ))))]),
-            Line(vec![LineFragment::Expr(Expr::Value(Value::Ident(Ident(
-                "abcd",
-            ))))]),
+            Line(vec![LineFragment::Expr(Expr::value(Value::ident("abcd")))]),
+            Line(vec![LineFragment::Expr(Expr::Value(Value::ident("abcd")))]),
         ]),
     );
 }
@@ -488,6 +610,62 @@ fn test_file() {
                 class_name Foo
         "#},
     );
+
+    ap(
+        parse_file,
+        indoc! {r#"
+        func _on_area_detector_body_entered(body: PhysicsBody2D) -> void:
+            if body is Bullet:
+                var bullet := body as Bullet
+                if bullet.hurt_player:
+                    bullet.destroy()
+                    kill()
+        "#},
+        Block::new_line(Line::new_fragment(LineFragment::Decl(Decl::Function(
+            FunctionDecl::new(
+                "_on_area_detector_body_entered",
+                vec![FunctionArg::new_typed("body", "PhysicsBody2D")],
+                Some(DottedIdent("void")),
+                Block::new_line(Line::new_fragment(LineFragment::Stmt(Stmt::If(
+                    IfStmt::new(
+                        Expr::bin(
+                            Expr::value(Value::ident("body")),
+                            BinOp::Is,
+                            Expr::value(Value::ident("Bullet")),
+                        ),
+                        Block::new_line(Line::new_fragment(LineFragment::Decl(Decl::Var(
+                            VarDecl::new("bullet")
+                                .with_infer(true)
+                                .with_value(Expr::bin(
+                                    Expr::value(Value::ident("body")),
+                                    BinOp::As,
+                                    Expr::value(Value::ident("Bullet")),
+                                )),
+                        ))))
+                        .with_line(Line::new_fragment(
+                            LineFragment::Stmt(Stmt::If(IfStmt::new(
+                                Expr::value(Value::attr_expr(
+                                    AttrExpr::new().with_name("bullet").with_name("hurt_player"),
+                                )),
+                                Block::new_line(Line::new_fragment(LineFragment::Expr(
+                                    Expr::value(Value::attr_expr(
+                                        AttrExpr::new()
+                                            .with_name("bullet")
+                                            .with_func_call(FunctionCall::new("destroy")),
+                                    )),
+                                )))
+                                .with_line(Line::new_fragment(
+                                    LineFragment::Expr(Expr::value(Value::attr_expr(
+                                        AttrExpr::new().with_func_call(FunctionCall::new("kill")),
+                                    ))),
+                                )),
+                            ))),
+                        )),
+                    ),
+                )))),
+            ),
+        )))),
+    )
 }
 
 #[test]
@@ -515,7 +693,7 @@ fn test_expr() {
 
     ap(
         parse_expr,
-        "a + b",
+        "(a) + b",
         Expr::bin(
             Expr::value(Value::ident("a")),
             BinOp::Add,
@@ -570,6 +748,31 @@ fn test_expr() {
             ),
         ),
     );
+
+    ap(
+        parse_expr,
+        "((_rand_u8()) & 0x0f)",
+        Expr::bin(
+            Expr::value(Value::attr_expr(
+                AttrExpr::new().with_func_call(FunctionCall::new("_rand_u8")),
+            )),
+            BinOp::BinAnd,
+            Expr::Value(Value::int(15)),
+        ),
+    );
+
+    ap(
+        parse_expr,
+        r#"file_name in [".", ".."]"#,
+        Expr::bin(
+            Expr::value(Value::ident("file_name")),
+            BinOp::In,
+            Expr::value(Value::array(vec![
+                Expr::value(Value::string(".")),
+                Expr::value(Value::string("..")),
+            ])),
+        ),
+    )
 }
 
 #[test]
@@ -585,7 +788,7 @@ fn test_if_stmt() {
             if_branch: Condition {
                 expr: Expr::Value(Value::Int(Int(123456))),
                 block: Block(vec![Line(vec![LineFragment::Expr(Expr::Value(
-                    Value::Ident(Ident("hello")),
+                    Value::ident("hello"),
                 ))])]),
             },
             elif_branches: vec![],
@@ -604,12 +807,8 @@ fn test_if_stmt() {
             if_branch: Condition {
                 expr: Expr::Value(Value::Int(Int(123456))),
                 block: Block(vec![
-                    Line(vec![LineFragment::Expr(Expr::Value(Value::Ident(Ident(
-                        "hello",
-                    ))))]),
-                    Line(vec![LineFragment::Expr(Expr::Value(Value::Ident(Ident(
-                        "hi",
-                    ))))]),
+                    Line(vec![LineFragment::Expr(Expr::Value(Value::ident("hello")))]),
+                    Line(vec![LineFragment::Expr(Expr::Value(Value::ident("hi")))]),
                 ]),
             },
             elif_branches: vec![],
@@ -629,14 +828,12 @@ fn test_if_stmt() {
             if_branch: Condition {
                 expr: Expr::Value(Value::Int(Int(123456))),
                 block: Block(vec![
-                    Line(vec![LineFragment::Expr(Expr::Value(Value::Ident(Ident(
-                        "hello",
-                    ))))]),
+                    Line(vec![LineFragment::Expr(Expr::Value(Value::ident("hello")))]),
                     Line(vec![LineFragment::Stmt(Stmt::If(IfStmt {
                         if_branch: Condition {
                             expr: Expr::Value(Value::Int(Int(123456))),
                             block: Block(vec![Line(vec![LineFragment::Expr(Expr::Value(
-                                Value::Ident(Ident("hi")),
+                                Value::ident("hi"),
                             ))])]),
                         },
                         elif_branches: vec![],
@@ -661,15 +858,13 @@ fn test_if_stmt() {
                 if_branch: Condition {
                     expr: Expr::Value(Value::Int(Int(123456))),
                     block: Block(vec![Line(vec![LineFragment::Expr(Expr::Value(
-                        Value::Ident(Ident("hello")),
+                        Value::ident("hello"),
                     ))])]),
                 },
                 elif_branches: vec![],
                 else_branch: None,
             }))]),
-            Line(vec![LineFragment::Expr(Expr::Value(Value::Ident(Ident(
-                "hi",
-            ))))]),
+            Line(vec![LineFragment::Expr(Expr::Value(Value::ident("hi")))]),
         ]),
     );
 
@@ -691,35 +886,33 @@ fn test_if_stmt() {
         Block(vec![
             Line(vec![LineFragment::Stmt(Stmt::If(IfStmt {
                 if_branch: Condition {
-                    expr: Expr::Value(Value::Int(Int(123456))),
+                    expr: Expr::Value(Value::int(123456)),
                     block: Block(vec![Line(vec![LineFragment::Expr(Expr::Value(
-                        Value::Ident(Ident("hello")),
+                        Value::ident("hello"),
                     ))])]),
                 },
                 elif_branches: vec![ElifStmt(Condition {
-                    expr: Expr::Value(Value::Ident(Ident("a"))),
+                    expr: Expr::Value(Value::ident("a")),
                     block: Block(vec![Line(vec![LineFragment::Expr(Expr::Value(
-                        Value::Ident(Ident("bar")),
+                        Value::ident("bar"),
                     ))])]),
                 })],
                 else_branch: Some(ElseStmt(Block(vec![Line(vec![LineFragment::Stmt(
                     Stmt::If(IfStmt {
                         if_branch: Condition {
-                            expr: Expr::Value(Value::Ident(Ident("a"))),
+                            expr: Expr::Value(Value::ident("a")),
                             block: Block(vec![Line(vec![LineFragment::Expr(Expr::Value(
-                                Value::Ident(Ident("foo")),
+                                Value::ident("foo"),
                             ))])]),
                         },
                         elif_branches: vec![],
                         else_branch: Some(ElseStmt(Block(vec![Line(vec![LineFragment::Expr(
-                            Expr::Value(Value::Ident(Ident("foo"))),
+                            Expr::Value(Value::ident("foo")),
                         )])]))),
                     }),
                 )])]))),
             }))]),
-            Line(vec![LineFragment::Expr(Expr::Value(Value::Ident(Ident(
-                "hi",
-            ))))]),
+            Line(vec![LineFragment::Expr(Expr::Value(Value::ident("hi")))]),
         ]),
     );
 
@@ -761,6 +954,7 @@ fn test_function_decl() {
         func   foo  (bar  , baz  :  Node, qux = 1234 )  ->   Node:
             spam"#},
         FunctionDecl {
+            modifier: None,
             name: Ident("foo"),
             args: vec![
                 FunctionArg {
@@ -781,8 +975,22 @@ fn test_function_decl() {
             ],
             return_type: Some(DottedIdent("Node")),
             block: Block(vec![Line(vec![LineFragment::Expr(Expr::Value(
-                Value::Ident(Ident("spam")),
+                Value::ident("spam"),
             ))])]),
+        },
+    );
+
+    api(
+        parse_function_decl,
+        indoc! {r#"
+        static func foo():
+            pass"#},
+        FunctionDecl {
+            modifier: Some(FunctionModifier::Static),
+            name: Ident("foo"),
+            args: vec![],
+            return_type: None,
+            block: Block::new_line(Line::new_fragment(LineFragment::Stmt(Stmt::Pass(Pass)))),
         },
     );
 }
@@ -808,11 +1016,14 @@ fn test_for_stmt() {
         indoc! {r#"
         for x in array:
             pass"#},
-        ForStmt {
-            expr: Expr::Value(Value::Ident(Ident("x"))),
-            in_expr: Expr::Value(Value::Ident(Ident("array"))),
-            block: Block(vec![Line(vec![LineFragment::Stmt(Stmt::Pass(Pass))])]),
-        },
+        ForStmt(Condition::new(
+            Expr::bin(
+                Expr::value(Value::ident("x")),
+                BinOp::In,
+                Expr::Value(Value::ident("array")),
+            ),
+            Block(vec![Line(vec![LineFragment::Stmt(Stmt::Pass(Pass))])]),
+        )),
     )
 }
 
@@ -899,26 +1110,19 @@ fn test_signal_decl() {
 
 #[test]
 fn test_function_call() {
-    ap(
-        parse_function_call,
-        "foo()",
-        FunctionCall::new("foo", vec![]),
-    );
+    ap(parse_function_call, "foo()", FunctionCall::new("foo"));
     ap(
         parse_function_call,
         "foo(a)",
-        FunctionCall::new("foo", vec![Expr::value(Value::ident("a"))]),
+        FunctionCall::new("foo").with_args(vec![Expr::value(Value::ident("a"))]),
     );
     ap(
         parse_function_call,
         "foo(a, 1234)",
-        FunctionCall::new(
-            "foo",
-            vec![
-                Expr::value(Value::ident("a")),
-                Expr::value(Value::int(1234)),
-            ],
-        ),
+        FunctionCall::new("foo").with_args(vec![
+            Expr::value(Value::ident("a")),
+            Expr::value(Value::int(1234)),
+        ]),
     );
 }
 
@@ -927,53 +1131,238 @@ fn test_attr_expr() {
     ap(
         parse_attr_expr,
         "a.b",
-        AttrExpr(vec![AttrNode::Name("a"), AttrNode::Name("b")]),
+        AttrExpr::new().with_name("a").with_name("b"),
     );
     ap(
         parse_attr_expr,
         "a.b[1].c",
-        AttrExpr(vec![
-            AttrNode::Name("a"),
-            AttrNode::Name("b"),
-            AttrNode::Index(1),
-            AttrNode::Name("c"),
-        ]),
+        AttrExpr::new()
+            .with_name("a")
+            .with_name("b")
+            .with_index(Expr::value(Value::int(1)))
+            .with_name("c"),
     );
     ap(
         parse_attr_expr,
         "a(123).abcd",
-        AttrExpr(vec![
-            AttrNode::FuncCall(FunctionCall::new("a", vec![Expr::value(Value::int(123))])),
-            AttrNode::Name("abcd"),
-        ]),
+        AttrExpr::new()
+            .with_func_call(FunctionCall::new("a").with_args(vec![Expr::value(Value::int(123))]))
+            .with_name("abcd"),
     );
     ap(
         parse_attr_expr,
         "a(123)[1].abcd",
-        AttrExpr(vec![
-            AttrNode::FuncCall(FunctionCall::new("a", vec![Expr::value(Value::int(123))])),
-            AttrNode::Index(1),
-            AttrNode::Name("abcd"),
-        ]),
+        AttrExpr::new()
+            .with_func_call(FunctionCall::new("a").with_args(vec![Expr::value(Value::int(123))]))
+            .with_index(Expr::value(Value::int(1)))
+            .with_name("abcd"),
+    );
+    ap(
+        parse_attr_expr,
+        "a(123)[idx].abcd",
+        AttrExpr::new()
+            .with_func_call(FunctionCall::new("a").with_args(vec![Expr::value(Value::int(123))]))
+            .with_index(Expr::value(Value::ident("idx")))
+            .with_name("abcd"),
     );
     ap(
         parse_attr_expr,
         "abcd.efgh.ijkl()",
-        AttrExpr(vec![
-            AttrNode::Name("abcd"),
-            AttrNode::Name("efgh"),
-            AttrNode::FuncCall(FunctionCall::new("ijkl", vec![])),
-        ]),
+        AttrExpr::new()
+            .with_name("abcd")
+            .with_name("efgh")
+            .with_func_call(FunctionCall::new("ijkl")),
     );
-
-    anp(parse_attr_expr, "a");
-    anp(parse_attr_expr, "a()");
+    ap(parse_attr_expr, "a", AttrExpr::new().with_name("a"));
+    ap(
+        parse_attr_expr,
+        "a()",
+        AttrExpr::new().with_func_call(FunctionCall::new("a")),
+    );
+    ap(
+        parse_attr_expr,
+        "(a + b).add()",
+        AttrExpr::new()
+            .with_parens(Expr::bin(
+                Expr::Value(Value::ident("a")),
+                BinOp::Add,
+                Expr::Value(Value::ident("b")),
+            ))
+            .with_func_call(FunctionCall::new("add")),
+    );
+    ap(
+        parse_attr_expr,
+        r#"logger.debug("Reading JSON data from path '%s'." % path)"#,
+        AttrExpr::new()
+            .with_name("logger")
+            .with_func_call(FunctionCall::new("debug").with_args(vec![Expr::bin(
+                Expr::value(Value::string("Reading JSON data from path '%s'.")),
+                BinOp::Mod,
+                Expr::value(Value::ident("path")),
+            )])),
+    );
 }
 
-// #[test]
-// fn test_sample() {
-//     apn(
-//         parse_file,
-//         include_str!("samples/Player.gd")
-//     );
-// }
+#[test]
+fn test_assign_stmt() {
+    ap(
+        parse_assign_stmt,
+        "a = 5",
+        AssignStmt {
+            attr: AttrExpr::new().with_name("a"),
+            op: AssignOp::Assign,
+            value: Expr::value(Value::int(5)),
+        },
+    );
+    ap(
+        parse_assign_stmt,
+        "a.b.c += 5 * 2",
+        AssignStmt {
+            attr: AttrExpr::new().with_name("a").with_name("b").with_name("c"),
+            op: AssignOp::AssignAdd,
+            value: Expr::bin(
+                Expr::value(Value::int(5)),
+                BinOp::Mul,
+                Expr::value(Value::int(2)),
+            ),
+        },
+    );
+}
+
+#[test]
+fn test_enum_decl() {
+    ap(
+        parse_enum_decl,
+        indoc! {r#"
+            enum Test {
+                A,
+                B,
+                C = 3
+            }"#},
+        EnumDecl::new(
+            "Test",
+            vec![
+                EnumVariant::new("A"),
+                EnumVariant::new("B"),
+                EnumVariant::new("C").with_value(Value::int(3)),
+            ],
+        ),
+    );
+}
+
+#[test]
+fn test_const_decl() {
+    ap(
+        parse_const_decl,
+        "const FOO = 5",
+        ConstDecl::new("FOO", Expr::value(Value::int(5))),
+    );
+    ap(
+        parse_const_decl,
+        "const FOO := 5",
+        ConstDecl::new("FOO", Expr::value(Value::int(5))).with_infer(true),
+    );
+    ap(
+        parse_const_decl,
+        "const FOO: int = 5",
+        ConstDecl::new("FOO", Expr::value(Value::int(5))).with_type("int"),
+    );
+
+    ap(
+        parse_const_decl,
+        indoc! {r#"
+            const _static_data := {
+                "loggers": {},
+            }"#},
+        ConstDecl::new(
+            "_static_data",
+            Expr::value(Value::object(vec![Pair(
+                Value::string("loggers"),
+                Expr::value(Value::object(vec![])),
+            )])),
+        )
+        .with_infer(true),
+    );
+
+    anp(parse_const_decl, "const FOO");
+}
+
+#[test]
+fn test_return_stmt() {
+    ap(
+        parse_return_stmt,
+        "return null",
+        ReturnStmt(Expr::value(Value::Null(Null))),
+    );
+    ap(
+        parse_return_stmt,
+        indoc! {r#"
+            return Color(
+                255,
+                255,
+                255,
+                0
+            )"#},
+        ReturnStmt(Expr::Value(Value::attr_expr(
+            AttrExpr::new().with_func_call(FunctionCall::new("Color").with_args(vec![
+                Expr::value(Value::int(255)),
+                Expr::value(Value::int(255)),
+                Expr::value(Value::int(255)),
+                Expr::value(Value::int(0)),
+            ])),
+        ))),
+    );
+    ap(
+        parse_return_stmt,
+        indoc! {r#"
+            return "[{time}] [{level_str}] [{name}] {args}".format({
+                "time": "%0.3f" % time,
+                "level_str": level_str,
+                "name": name,
+                "args": _format_args(message, args)
+            })"#},
+        ReturnStmt(Expr::Value(Value::attr_expr(
+            AttrExpr::new()
+                .with_string("[{time}] [{level_str}] [{name}] {args}")
+                .with_func_call(
+                    FunctionCall::new("format").with_arg(Expr::value(Value::object(vec![
+                        Pair(
+                            Value::string("time"),
+                            Expr::bin(
+                                Expr::value(Value::string("%0.3f")),
+                                BinOp::Mod,
+                                Expr::value(Value::ident("time")),
+                            ),
+                        ),
+                        Pair(
+                            Value::string("level_str"),
+                            Expr::value(Value::ident("level_str")),
+                        ),
+                        Pair(Value::string("name"), Expr::value(Value::ident("name"))),
+                        Pair(
+                            Value::string("args"),
+                            Expr::value(Value::attr_expr(
+                                AttrExpr::new().with_func_call(
+                                    FunctionCall::new("_format_args")
+                                        .with_arg(Expr::value(Value::ident("message")))
+                                        .with_arg(Expr::value(Value::ident("args"))),
+                                ),
+                            )),
+                        ),
+                    ]))),
+                ),
+        ))),
+    );
+    // ap(
+    //     parse_return_stmt,
+    //     r#"return ("0x%s" % definition[name]["unicode"]).hex_to_int()"#,
+    //     ReturnStmt()
+    // )
+}
+
+#[test]
+fn test_sample() {
+    apn(parse_file, include_str!("tests/simple.gd"));
+    apn(parse_file, include_str!("tests/simple2.gd"));
+    apn(parse_file, include_str!("tests/Player.gd"));
+}

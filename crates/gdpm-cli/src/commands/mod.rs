@@ -48,12 +48,12 @@ pub fn parse_args<I: IoAdapter, D: DownloadAdapter>(
     }
 
     // Initialize tracing
-    tracing_subscriber::fmt()
-        .with_env_filter(EnvFilter::from_default_env())
-        .without_time()
-        .with_target(false)
-        .compact()
-        .init();
+    // tracing_subscriber::fmt()
+    //     .with_env_filter(EnvFilter::from_default_env())
+    //     .without_time()
+    //     .with_target(false)
+    //     .compact()
+    //     .init();
 
     match args.command {
         Command::Project(c) => c.execute(context),

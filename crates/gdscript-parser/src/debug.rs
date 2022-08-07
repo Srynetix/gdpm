@@ -20,7 +20,7 @@ pub fn init_tracing() -> BoxResult<()> {
 }
 
 pub fn pp_span(i: Span) -> String {
-    format!("{}", *i)
+    format!("{}", i.chars().take(30).collect::<String>())
 }
 
 pub fn pp_ret<'a, O: std::fmt::Debug>(name: &'static str, result: Res<'a, O>) -> Res<'a, O> {

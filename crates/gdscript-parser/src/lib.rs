@@ -1,6 +1,5 @@
 use std::path::{Path, PathBuf};
 
-use debug::init_tracing;
 use gdpm_io::IoAdapter;
 use nom_locate::LocatedSpan;
 
@@ -28,8 +27,6 @@ pub struct GdScriptParser;
 
 impl GdScriptParser {
     pub fn parse_path(io: &dyn IoAdapter, path: impl AsRef<Path>) -> Result<(), ParserError> {
-        init_tracing().unwrap();
-
         let path = path.as_ref();
         if path.is_dir() {
             Self::parse_dir(io, path)

@@ -8,12 +8,13 @@ pub enum Value<'a> {
     NodePath(NodePath<'a>),
     Array(Array<'a>),
     Object(Object<'a>),
-    AttrExpr(AttrExpr<'a>),
+    Ident(Ident<'a>),
+    FunctionCall(FunctionCall<'a>),
 }
 
 impl<'a> Value<'a> {
     pub fn ident(ident: &'a str) -> Self {
-        Self::AttrExpr(AttrExpr(vec![AttrNode::Name(ident)]))
+        Self::Ident(Ident(ident))
     }
 
     pub fn int(int_v: i64) -> Self {
@@ -32,12 +33,12 @@ impl<'a> Value<'a> {
         Self::Array(Array(arr_v))
     }
 
-    pub fn attr_expr(expr: AttrExpr<'a>) -> Self {
-        Self::AttrExpr(expr)
-    }
-
     pub fn object(pairs: Vec<Pair<'a>>) -> Self {
         Self::Object(Object(pairs))
+    }
+
+    pub fn func_call(func_call: FunctionCall<'a>) -> Self {
+        Self::FunctionCall(func_call)
     }
 }
 
@@ -79,7 +80,7 @@ pub struct VarDecl<'a> {
     pub modifier: Option<VarModifier>,
     pub name: &'a str,
     pub infer: bool,
-    pub r#type: Option<VarType<'a>>,
+    pub r#type: Option<DottedIdent<'a>>,
     pub value: Option<Expr<'a>>,
     pub set_func: Option<&'a str>,
     pub get_func: Option<&'a str>,
@@ -133,7 +134,7 @@ impl<'a> VarDecl<'a> {
 pub struct ConstDecl<'a> {
     pub name: &'a str,
     pub infer: bool,
-    pub r#type: Option<VarType<'a>>,
+    pub r#type: Option<DottedIdent<'a>>,
     pub value: Expr<'a>,
 }
 
@@ -162,7 +163,7 @@ impl<'a> ConstDecl<'a> {
 pub struct Comment<'a>(pub &'a str);
 
 #[derive(PartialEq, Clone, Debug)]
-pub struct Pair<'a>(pub Value<'a>, pub Expr<'a>);
+pub struct Pair<'a>(pub Expr<'a>, pub Expr<'a>);
 
 #[derive(PartialEq, Clone, Debug)]
 pub struct ExtendsDecl<'a>(pub &'a str);
@@ -228,51 +229,7 @@ impl<'a> EnumVariant<'a> {
 }
 
 #[derive(PartialEq, Clone, Debug)]
-pub enum AttrNode<'a> {
-    Name(&'a str),
-    String(&'a str),
-    Index(Expr<'a>),
-    Parens(Expr<'a>),
-    FuncCall(FunctionCall<'a>),
-}
-
-#[derive(PartialEq, Clone, Debug)]
-pub struct AttrExpr<'a>(pub Vec<AttrNode<'a>>);
-
-impl<'a> AttrExpr<'a> {
-    pub fn new() -> Self {
-        AttrExpr(vec![])
-    }
-
-    pub fn with_string(mut self, value: &'a str) -> Self {
-        self.0.push(AttrNode::String(value));
-        self
-    }
-
-    pub fn with_name(mut self, value: &'a str) -> Self {
-        self.0.push(AttrNode::Name(value));
-        self
-    }
-
-    pub fn with_index(mut self, value: Expr<'a>) -> Self {
-        self.0.push(AttrNode::Index(value));
-        self
-    }
-
-    pub fn with_parens(mut self, value: Expr<'a>) -> Self {
-        self.0.push(AttrNode::Parens(value));
-        self
-    }
-
-    pub fn with_func_call(mut self, value: FunctionCall<'a>) -> Self {
-        self.0.push(AttrNode::FuncCall(value));
-        self
-    }
-}
-
-#[derive(PartialEq, Clone, Debug)]
 pub struct DottedIdent<'a>(pub &'a str);
-pub type VarType<'a> = DottedIdent<'a>;
 
 #[derive(PartialEq, Clone, Debug)]
 pub enum Decl<'a> {
@@ -287,14 +244,6 @@ pub enum Decl<'a> {
 }
 
 #[derive(PartialEq, Clone, Debug)]
-pub enum LineFragment<'a> {
-    Stmt(Stmt<'a>),
-    Decl(Decl<'a>),
-    Expr(Expr<'a>),
-    Comment(Comment<'a>),
-}
-
-#[derive(PartialEq, Clone, Debug)]
 pub enum BinOp {
     Add,
     Sub,
@@ -304,6 +253,8 @@ pub enum BinOp {
     BinAnd,
     BinOr,
     BinXor,
+    Attr,
+    Index,
     And,
     Or,
     Eq,
@@ -338,17 +289,11 @@ pub struct UnExpr<'a> {
 }
 
 #[derive(PartialEq, Clone, Debug)]
-pub struct Line<'a>(pub Vec<LineFragment<'a>>);
-
-impl<'a> Line<'a> {
-    pub fn new_fragment(fragment: LineFragment<'a>) -> Self {
-        Line(vec![fragment])
-    }
-
-    pub fn with_fragment(mut self, fragment: LineFragment<'a>) -> Self {
-        self.0.push(fragment);
-        self
-    }
+pub enum Line<'a> {
+    Stmt(Stmt<'a>),
+    Decl(Decl<'a>),
+    Expr(Expr<'a>),
+    Comment(Comment<'a>),
 }
 
 #[derive(PartialEq, Clone, Debug)]
@@ -376,6 +321,7 @@ impl<'a> Expr<'a> {
     pub fn bin(a: Self, op: BinOp, b: Self) -> Self {
         Self::Bin(Box::new(BinExpr { a, b, op }))
     }
+
     pub fn un(op: UnOp, a: Self) -> Self {
         Self::Un(Box::new(UnExpr { a, op }))
     }
@@ -411,7 +357,7 @@ pub enum AssignOp {
 
 #[derive(PartialEq, Clone, Debug)]
 pub struct AssignStmt<'a> {
-    pub attr: AttrExpr<'a>,
+    pub source: Expr<'a>,
     pub op: AssignOp,
     pub value: Expr<'a>,
 }
@@ -489,7 +435,7 @@ pub struct MatchCaseStmt<'a>(pub Condition<'a>);
 #[derive(PartialEq, Clone, Debug)]
 pub struct FunctionArg<'a> {
     pub name: Ident<'a>,
-    pub r#type: Option<VarType<'a>>,
+    pub r#type: Option<DottedIdent<'a>>,
     pub default: Option<Expr<'a>>,
 }
 
@@ -532,7 +478,7 @@ pub struct FunctionDecl<'a> {
     pub modifier: Option<FunctionModifier>,
     pub name: Ident<'a>,
     pub args: Vec<FunctionArg<'a>>,
-    pub return_type: Option<VarType<'a>>,
+    pub return_type: Option<DottedIdent<'a>>,
     pub block: Block<'a>,
 }
 

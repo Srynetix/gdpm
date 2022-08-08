@@ -25,9 +25,7 @@ impl Parse for CompArgs {
             match input.parse::<Token![,]>() {
                 Ok(_) => (),
                 Err(e) => {
-                    if input.is_empty() {
-                        ()
-                    } else {
+                    if !input.is_empty() {
                         return Err(e);
                     }
                 }
@@ -63,9 +61,7 @@ impl Parse for TokenArgs {
             match input.parse::<Token![,]>() {
                 Ok(_) => (),
                 Err(e) => {
-                    if input.is_empty() {
-                        ()
-                    } else {
+                    if !input.is_empty() {
                         return Err(e);
                     }
                 }

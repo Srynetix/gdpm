@@ -3,7 +3,7 @@ use std::path::{Path, PathBuf};
 use gdpm_io::IoAdapter;
 use parsers::new_span;
 
-pub(crate) mod ast;
+pub mod ast;
 pub(crate) mod parsers;
 
 #[cfg(test)]

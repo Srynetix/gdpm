@@ -12,29 +12,24 @@ use nom::{
     multi::{many0, many0_count, many1, separated_list0, separated_list1},
     sequence::{delimited, pair, preceded, separated_pair, terminated, tuple},
 };
+use nom_locate::LocatedSpan;
+use nom_tracable::{tracable_parser, TracableInfo};
 
-use crate::{
-    ast::{
-        Array, AssignOp, AssignStmt, BinExpr, BinOp, Block, Boolean, ClassDecl, ClassNameDecl,
-        Comment, Condition, ConstDecl, Decl, DottedIdent, EnumDecl, EnumVariant, Expr, ExtendsDecl,
-        Float, ForStmt, FunctionArg, FunctionCall, FunctionDecl, FunctionModifier, GdString,
-        IfStmt, Int, Line, MatchCaseStmt, MatchStmt, NodePath, Null, Object, Pair, Pass,
-        ReturnStmt, SignalDecl, Stmt, UnExpr, UnOp, Value, VarDecl, VarModifier, WhileStmt,
-    },
-    debug::{pp_ret, pp_span},
+use crate::ast::{
+    Array, AssignOp, AssignStmt, BinExpr, BinOp, Block, Boolean, ClassDecl, ClassNameDecl, Comment,
+    Condition, ConstDecl, Decl, DottedIdent, EnumDecl, EnumVariant, Expr, ExtendsDecl, Float,
+    ForStmt, FunctionArg, FunctionCall, FunctionDecl, FunctionModifier, GdString, IfStmt, Int,
+    Line, MatchCaseStmt, MatchStmt, NodePath, Null, Object, Pair, Pass, ReturnStmt, SignalDecl,
+    Stmt, UnExpr, UnOp, Value, VarDecl, VarModifier, WhileStmt,
 };
 use crate::{
     ast::{ElifStmt, ElseStmt, Ident},
     types::{Res, Span},
 };
 
-/// A combinator that takes a parser `inner` and produces a parser that also consumes both leading and
-/// trailing whitespace, returning the output of `inner`.
-pub fn wsl<'a, F: 'a, O>(inner: F) -> impl FnMut(Span<'a>) -> Res<O>
-where
-    F: FnMut(Span<'a>) -> Res<O>,
-{
-    delimited(multispace0, inner, multispace0)
+pub fn new_span(input: &str) -> Span {
+    let info = TracableInfo::new();
+    LocatedSpan::new_extra(input, info)
 }
 
 pub fn wslnoc<'a, F: 'a, O>(inner: F) -> impl FnMut(Span<'a>) -> Res<O>
@@ -44,17 +39,20 @@ where
     delimited(ms0noc, inner, ms0noc)
 }
 
+#[tracable_parser]
 pub fn ms0noc(i: Span) -> Res<()> {
-    let (i, _) = multispace0(i)?;
-    match terminated(parse_comment, opt(line_ending))(i) {
-        Ok((i, _)) => return ms0noc(i),
-        Err(e) => match e {
-            nom::Err::Error(_) => (),
-            e => return Err(e),
-        },
-    }
+    context("ms0noc", |i| {
+        let (i, _) = multispace0(i)?;
+        match terminated(parse_comment, opt(line_ending))(i) {
+            Ok((i, _)) => return ms0noc(i),
+            Err(e) => match e {
+                nom::Err::Error(_) => (),
+                e => return Err(e),
+            },
+        }
 
-    pp_ret("ms0", Ok((i, ())))
+        Ok((i, ()))
+    })(i)
 }
 
 pub fn ws<'a, F: 'a, O>(inner: F) -> impl FnMut(Span<'a>) -> Res<O>
@@ -64,117 +62,110 @@ where
     delimited(space0, inner, space0)
 }
 
-#[tracing::instrument(skip_all, fields(i = pp_span(i)))]
+#[tracable_parser]
 pub fn parse_ident(i: Span) -> Res<Ident> {
-    pp_ret(
+    context(
         "ident",
-        context(
-            "ident",
-            map(
-                recognize(pair(
-                    alt((alpha1, tag("_"))),
-                    many0_count(alt((alphanumeric1, tag("_")))),
-                )),
-                |r: Span| Ident(*r),
-            ),
-        )(i),
-    )
+        map(
+            recognize(pair(
+                alt((alpha1, tag("_"))),
+                many0_count(alt((alphanumeric1, tag("_")))),
+            )),
+            |r: Span| Ident(*r),
+        ),
+    )(i)
 }
 
-#[tracing::instrument(skip_all, fields(i = pp_span(i)))]
+#[tracable_parser]
 pub fn parse_empty_line(i: Span) -> Res<()> {
-    pp_ret(
-        "empty_line",
-        context("empty_line", terminated(value((), space0), line_ending))(i),
-    )
+    context("empty_line", terminated(value((), space0), line_ending))(i)
 }
 
-#[tracing::instrument(skip_all, fields(i = pp_span(i)))]
+#[tracable_parser]
 pub fn parse_many_empty_lines(i: Span) -> Res<()> {
-    let mut this_i = i;
-    loop {
-        match parse_empty_line(this_i) {
-            Ok((i, _)) => {
-                this_i = i;
-                continue;
+    context("many_empty_lines", |i| {
+        let mut this_i = i;
+        loop {
+            match parse_empty_line(this_i) {
+                Ok((i, _)) => {
+                    this_i = i;
+                    continue;
+                }
+                Err(e) => match e {
+                    nom::Err::Error(_) => break,
+                    e => return Err(e),
+                },
             }
-            Err(e) => match e {
-                nom::Err::Error(_) => break,
-                e => return Err(e),
-            },
         }
-    }
-
-    pp_ret("many_empty_lines", Ok((this_i, ())))
+        Ok((this_i, ()))
+    })(i)
 }
 
-#[tracing::instrument(skip_all, fields(i = pp_span(i)))]
+#[tracable_parser]
 pub fn parse_int(i: Span) -> Res<Int> {
-    pp_ret(
+    context(
         "int",
-        context(
-            "int",
-            map(
-                alt((
-                    preceded(
-                        tag("0x"),
-                        map_res(alphanumeric1, |s: Span| i64::from_str_radix(*s, 16)),
-                    ),
-                    map_res(digit1, |s: Span| s.parse::<i64>()),
-                )),
-                Int,
-            ),
-        )(i),
-    )
+        map(
+            alt((
+                preceded(
+                    tag("0x"),
+                    map_res(alphanumeric1, |s: Span| i64::from_str_radix(*s, 16)),
+                ),
+                map_res(digit1, |s: Span| s.parse::<i64>()),
+            )),
+            Int,
+        ),
+    )(i)
 }
 
-#[tracing::instrument(skip_all, fields(i = pp_span(i)))]
+#[tracable_parser]
 pub fn parse_null(i: Span) -> Res<Null> {
-    pp_ret("null", context("null", value(Null, tag("null")))(i))
+    context("null", value(Null, tag("null")))(i)
 }
 
-#[tracing::instrument(skip_all, fields(i = pp_span(i)))]
+#[tracable_parser]
 pub fn parse_float(i: Span) -> Res<Float> {
     let parse = map_res(recognize(tuple((digit1, char('.'), digit1))), |s: Span| {
         s.parse::<f64>().map(Float)
     });
-    pp_ret("float", context("float", parse)(i))
+    context("float", parse)(i)
 }
 
-#[tracing::instrument(skip_all, fields(i = pp_span(i)))]
+#[tracable_parser]
 pub fn parse_boolean(i: Span) -> Res<Boolean> {
     let parse_true = value(Boolean(true), alt((tag("true"), tag("True"))));
     let parse_false = value(Boolean(false), alt((tag("false"), tag("False"))));
-    pp_ret(
-        "boolean",
-        context("boolean", alt((parse_true, parse_false)))(i),
-    )
+    context("boolean", alt((parse_true, parse_false)))(i)
 }
 
-#[tracing::instrument(skip_all, fields(i = pp_span(i)))]
+#[tracable_parser]
 pub fn parse_string(i: Span) -> Res<GdString> {
     let parse = map(alt((parse_quoted_single, parse_quoted_double)), |v| {
         GdString(*v)
     });
 
-    pp_ret("string", context("string", parse)(i))
+    context("string", parse)(i)
 }
 
 fn parse_quoted_single(i: Span) -> Res<Span> {
-    let esc = escaped(none_of("\\\'"), '\\', one_of("\'n\\"));
-    let esc_or_empty = alt((esc, tag("")));
-    let res = delimited(char('\''), esc_or_empty, char('\''))(i)?;
-    Ok(res)
+    context("quoted_single", |i| {
+        let esc = escaped(none_of("\\\'"), '\\', one_of("\'n\\"));
+        let esc_or_empty = alt((esc, tag("")));
+        let res = delimited(char('\''), esc_or_empty, char('\''))(i)?;
+        Ok(res)
+    })(i)
 }
 
 fn parse_quoted_double(i: Span) -> Res<Span> {
-    let esc = escaped(none_of("\\\""), '\\', one_of("\"n\\"));
-    let esc_or_empty = alt((esc, tag("")));
-    let res = delimited(char('"'), esc_or_empty, char('"'))(i)?;
-    Ok(res)
+    context("quoted_double", |i| {
+        let esc = escaped(none_of("\\\""), '\\', one_of("\"n\\"));
+        let esc_or_empty = alt((esc, tag("")));
+        let res = delimited(char('"'), esc_or_empty, char('"'))(i)?;
+        Ok(res)
+    })(i)
 }
 
-#[tracing::instrument(skip_all, fields(i = pp_span(i)))]
+#[tracable_parser]
 pub fn parse_node_path(i: Span) -> Res<NodePath> {
     let parse_ident_path = recognize(separated_list1(char('/'), parse_ident));
     let parse_string_path = recognize(parse_string);
@@ -183,10 +174,10 @@ pub fn parse_node_path(i: Span) -> Res<NodePath> {
         |v| NodePath(*v),
     );
 
-    pp_ret("node_path", context("node_path", parse)(i))
+    context("node_path", parse)(i)
 }
 
-#[tracing::instrument(skip_all, fields(i = pp_span(i)))]
+#[tracable_parser]
 pub fn parse_array(i: Span) -> Res<Array> {
     let inner_parse = map(
         terminated(
@@ -200,10 +191,10 @@ pub fn parse_array(i: Span) -> Res<Array> {
         terminated(inner_parse, pair(ms0noc, char(']'))),
     );
 
-    pp_ret("array", context("array", parse)(i))
+    context("array", parse)(i)
 }
 
-#[tracing::instrument(skip_all, fields(i = pp_span(i)))]
+#[tracable_parser]
 pub fn parse_object(i: Span) -> Res<Object> {
     let pairs = map(
         terminated(
@@ -217,10 +208,10 @@ pub fn parse_object(i: Span) -> Res<Object> {
         terminated(pairs, pair(ms0noc, char('}'))),
     );
 
-    pp_ret("object", context("object", parse)(i))
+    context("object", parse)(i)
 }
 
-#[tracing::instrument(skip_all, fields(i = pp_span(i)))]
+#[tracable_parser]
 pub fn parse_value(i: Span) -> Res<Value> {
     let parse = alt((
         map(parse_null, Value::Null),
@@ -234,47 +225,45 @@ pub fn parse_value(i: Span) -> Res<Value> {
         map(parse_float, Value::Float),
         map(parse_int, Value::Int),
     ));
-    pp_ret("value", context("value", parse)(i))
+
+    context("value", parse)(i)
 }
 
-#[tracing::instrument(skip_all, fields(i = pp_span(i)))]
+#[tracable_parser]
 pub fn parse_pass(i: Span) -> Res<Pass> {
-    pp_ret("pass", value(Pass, tag("pass"))(i))
+    context("pass", value(Pass, tag("pass")))(i)
 }
 
-#[tracing::instrument(skip_all, fields(i = pp_span(i)))]
+#[tracable_parser]
 pub fn parse_pair(i: Span) -> Res<Pair> {
-    pp_ret(
+    context(
         "pair",
-        context(
-            "pair",
-            map(
-                separated_pair(wsl(parse_expr), char(':'), wsl(parse_expr)),
-                |(k, v)| Pair(k, v),
-            ),
-        )(i),
-    )
+        map(
+            separated_pair(wslnoc(parse_expr), char(':'), wslnoc(parse_expr)),
+            |(k, v)| Pair(k, v),
+        ),
+    )(i)
 }
 
-#[tracing::instrument(skip_all, fields(i = pp_span(i)))]
+#[tracable_parser]
 pub fn parse_comment(i: Span) -> Res<Comment> {
     let parse = map(
         preceded(ws(char('#')), opt(is_not("\n\r"))),
         |s: Option<Span>| Comment(s.map(|x| x.trim()).unwrap_or_default()),
     );
-    pp_ret("comment", context("comment", parse)(i))
+    context("comment", parse)(i)
 }
 
-#[tracing::instrument(skip_all, fields(i = pp_span(i)))]
+#[tracable_parser]
 pub fn parse_var_modifier(i: Span) -> Res<Option<VarModifier>> {
     let onready = value(VarModifier::OnReady, tag("onready"));
     let export = value(VarModifier::Export, tag("export"));
     let parse = opt(alt((onready, export)));
 
-    pp_ret("var_modifier", context("var_modifier", parse)(i))
+    context("var_modifier", parse)(i)
 }
 
-#[tracing::instrument(skip_all, fields(i = pp_span(i)))]
+#[tracable_parser]
 pub fn parse_var_decl(i: Span) -> Res<VarDecl> {
     let parse_assign_type = pair(
         opt(preceded(ws(char(':')), parse_dotted_ident)),
@@ -324,10 +313,10 @@ pub fn parse_var_decl(i: Span) -> Res<VarDecl> {
         },
     );
 
-    pp_ret("var_decl", context("var_decl", parse)(i))
+    context("var_decl", parse)(i)
 }
 
-#[tracing::instrument(skip_all, fields(i = pp_span(i)))]
+#[tracable_parser]
 pub fn parse_const_decl(i: Span) -> Res<ConstDecl> {
     let parse_assign_type = pair(
         opt(preceded(ws(char(':')), parse_dotted_ident)),
@@ -349,10 +338,10 @@ pub fn parse_const_decl(i: Span) -> Res<ConstDecl> {
         },
     );
 
-    pp_ret("const_decl", context("const_decl", parse)(i))
+    context("const_decl", parse)(i)
 }
 
-#[tracing::instrument(skip_all, fields(i = pp_span(i)))]
+#[tracable_parser]
 pub fn parse_extends_decl(i: Span) -> Res<ExtendsDecl> {
     let parse = map(
         preceded(
@@ -361,22 +350,22 @@ pub fn parse_extends_decl(i: Span) -> Res<ExtendsDecl> {
         ),
         ExtendsDecl,
     );
-    pp_ret("extends_decl", context("extends_decl", parse)(i))
+    context("extends_decl", parse)(i)
 }
 
-#[tracing::instrument(skip_all, fields(i = pp_span(i)))]
+#[tracable_parser]
 pub fn parse_classname_decl(i: Span) -> Res<ClassNameDecl> {
     let parse = map(
         preceded(pair(tag("class_name"), space1), map(parse_ident, |x| x.0)),
         ClassNameDecl,
     );
-    pp_ret("classname_decl", context("classname_decl", parse)(i))
+    context("classname_decl", parse)(i)
 }
 
-#[tracing::instrument(skip_all, fields(i = pp_span(i)))]
+#[tracable_parser]
 pub fn parse_signal_decl(i: Span) -> Res<SignalDecl> {
     let parse_args = separated_list0(ws(char(',')), parse_ident);
-    let mut parse = map(
+    let parse = map(
         preceded(
             pair(tag("signal"), space1),
             pair(
@@ -390,12 +379,12 @@ pub fn parse_signal_decl(i: Span) -> Res<SignalDecl> {
         },
     );
 
-    pp_ret("signal_decl", parse(i))
+    context("signal_decl", parse)(i)
 }
 
-#[tracing::instrument(skip_all, fields(i = pp_span(i)))]
+#[tracable_parser]
 pub fn parse_assign_op(i: Span) -> Res<AssignOp> {
-    let mut parse = alt((
+    let parse = alt((
         value(AssignOp::Assign, tag("=")),
         value(AssignOp::AssignAdd, tag("+=")),
         value(AssignOp::AssignSub, tag("-=")),
@@ -404,20 +393,20 @@ pub fn parse_assign_op(i: Span) -> Res<AssignOp> {
         value(AssignOp::AssignMod, tag("%=")),
     ));
 
-    pp_ret("assign_op", parse(i))
+    context("assign_op", parse)(i)
 }
 
-#[tracing::instrument(skip_all, fields(i = pp_span(i)))]
+#[tracable_parser]
 pub fn parse_assign_stmt(i: Span) -> Res<AssignStmt> {
-    let mut parse = map(
+    let parse = map(
         tuple((ws(parse_expr), ws(parse_assign_op), ws(parse_expr))),
         |(source, op, value)| AssignStmt { source, op, value },
     );
 
-    pp_ret("assign_stmt", parse(i))
+    context("assign_stmt", parse)(i)
 }
 
-#[tracing::instrument(skip_all, fields(i = pp_span(i), indent = indent))]
+#[tracable_parser]
 pub fn parse_decl(i: Span, indent: usize) -> Res<Decl> {
     let parse = alt((
         map(parse_classname_decl, Decl::ClassName),
@@ -429,10 +418,11 @@ pub fn parse_decl(i: Span, indent: usize) -> Res<Decl> {
         map(parse_const_decl, Decl::Const),
         map(parse_var_decl, Decl::Var),
     ));
-    pp_ret("decl", context("decl", parse)(i))
+
+    context("decl", parse)(i)
 }
 
-#[tracing::instrument(skip_all, fields(i = pp_span(i), indent = indent))]
+#[tracable_parser]
 pub fn parse_stmt(i: Span, indent: usize) -> Res<Stmt> {
     let parse = alt((
         map(|i| parse_if_stmt(i, indent), Stmt::If),
@@ -443,20 +433,21 @@ pub fn parse_stmt(i: Span, indent: usize) -> Res<Stmt> {
         map(parse_assign_stmt, Stmt::Assign),
         map(parse_pass, Stmt::Pass),
     ));
-    pp_ret("stmt", context("stmt", parse)(i))
+
+    context("stmt", parse)(i)
 }
 
-#[tracing::instrument(skip_all, fields(i = pp_span(i)))]
+#[tracable_parser]
 pub fn parse_return_stmt(i: Span) -> Res<ReturnStmt> {
-    let mut parse = map(
+    let parse = map(
         preceded(pair(tag("return"), space1), parse_expr),
         ReturnStmt,
     );
 
-    pp_ret("return_stmt", parse(i))
+    context("return_stmt", parse)(i)
 }
 
-#[tracing::instrument(skip_all, fields(i = pp_span(i), indent = indent))]
+#[tracable_parser]
 pub fn parse_line(i: Span, indent: usize) -> Res<Line> {
     let parse = terminated(
         alt((
@@ -465,163 +456,160 @@ pub fn parse_line(i: Span, indent: usize) -> Res<Line> {
             map(parse_expr, Line::Expr),
             map(parse_comment, Line::Comment),
         )),
-        many0(alt((
-            map(parse_comment, |_| ()),
-            map(char(';'), |_| ())
-        ))),
+        many0(alt((map(parse_comment, |_| ()), map(char(';'), |_| ())))),
     );
     let parse = preceded(|i| same_indent(i, indent), parse);
 
-    pp_ret("line", context("line", parse)(i))
+    context("line", parse)(i)
 }
 
-#[tracing::instrument(skip_all, fields(i = pp_span(i), indent = indent))]
+#[tracable_parser]
 pub fn parse_block(i: Span, indent: usize) -> Res<Block> {
-    let mut lines = vec![];
-    let mut this_i = i;
-    loop {
-        let (i, _) = parse_many_empty_lines(this_i)?;
-        this_i = i;
+    context("block", |i| {
+        let mut lines = vec![];
+        let mut this_i = i;
+        loop {
+            let (i, _) = parse_many_empty_lines(this_i)?;
+            this_i = i;
 
-        // Line
-        match parse_line(this_i, indent) {
-            Ok((i, line)) => {
-                lines.push(line);
-                this_i = i;
+            // Line
+            match parse_line(this_i, indent) {
+                Ok((i, line)) => {
+                    lines.push(line);
+                    this_i = i;
+                }
+                Err(e) => match e {
+                    nom::Err::Error(_) => break,
+                    e => return Err(e),
+                },
             }
-            Err(e) => match e {
-                nom::Err::Error(_) => break,
-                e => return Err(e),
-            },
         }
-    }
 
-    pp_ret("block", Ok((this_i, Block(lines))))
+        Ok((this_i, Block(lines)))
+    })(i)
 }
 
-#[tracing::instrument(skip_all, fields(i = pp_span(i)))]
+#[tracable_parser]
 pub fn parse_file(i: Span) -> Res<Block> {
     let parse = all_consuming(terminated(move |i| parse_block(i, 0), many0(line_ending)));
 
     context("file", parse)(i)
 }
 
-#[tracing::instrument(skip_all, fields(i = pp_span(i)))]
+#[tracable_parser]
 pub fn parse_function_call(i: Span) -> Res<FunctionCall> {
-    let mut parse = map(
+    let parse = map(
         pair(
             parse_ident,
             delimited(
                 pair(char('('), ms0noc),
-                opt(separated_list0(wsl(char(',')), parse_expr)),
+                opt(separated_list0(wslnoc(char(',')), parse_expr)),
                 pair(ms0noc, char(')')),
             ),
         ),
         |(name, args)| FunctionCall::new(name.0).with_args(args.unwrap_or_default()),
     );
 
-    pp_ret("function_call", parse(i))
+    context("function_call", parse)(i)
 }
 
+#[tracable_parser]
 pub fn more_indent(i: Span, indent: usize) -> Res<usize> {
-    let (s, parsed) = scan_indentation(i)?;
-    if parsed > indent {
-        Ok((s, parsed))
-    } else {
-        Err(nom::Err::Error(VerboseError {
-            errors: vec![(
-                s,
-                VerboseErrorKind::Context("should be a greater indentation"),
-            )],
-        }))
-    }
+    context("more_indent", |i| {
+        let (s, parsed) = scan_indentation(i)?;
+        if parsed > indent {
+            Ok((s, parsed))
+        } else {
+            Err(nom::Err::Error(VerboseError {
+                errors: vec![(
+                    s,
+                    VerboseErrorKind::Context("should be a greater indentation"),
+                )],
+            }))
+        }
+    })(i)
 }
 
-#[tracing::instrument(skip_all, fields(i = pp_span(i), indent = indent))]
+#[tracable_parser]
 pub fn same_indent(i: Span, indent: usize) -> Res<()> {
-    let (s, parsed) = parse_indentation(i)?;
-    pp_ret(
-        "same_indent",
+    context("same_indent", |i| {
+        let (s, parsed) = parse_indentation(i)?;
         if parsed == indent {
             Ok((s, ()))
         } else {
             Err(nom::Err::Error(VerboseError {
                 errors: vec![(s, VerboseErrorKind::Context("not the same indentation"))],
             }))
-        },
-    )
+        }
+    })(i)
 }
 
-pub fn less_indent(i: Span, indent: usize) -> Res<usize> {
-    let (s, parsed) = scan_indentation(i)?;
-    if parsed < indent {
-        Ok((s, parsed))
-    } else {
-        Err(nom::Err::Error(VerboseError {
-            errors: vec![(
-                s,
-                VerboseErrorKind::Context("should be a lesser indentation"),
-            )],
-        }))
-    }
-}
-
+#[tracable_parser]
 pub fn parse_indentation(i: Span) -> Res<usize> {
-    let (s, spaces) = many0(char(' '))(i)?;
-    let indent_level = spaces.len();
-    Ok((s, indent_level))
+    context("parse_indentation", |i| {
+        let (s, spaces) = many0(char(' '))(i)?;
+        let indent_level = spaces.len();
+        Ok((s, indent_level))
+    })(i)
 }
 
+#[tracable_parser]
 pub fn scan_indentation(i: Span) -> Res<usize> {
-    let (s, spaces) = peek(many0(char(' ')))(i)?;
-    let indent_level = spaces.len();
-    Ok((s, indent_level))
+    context("scan_indentation", |i| {
+        let (s, spaces) = peek(many0(char(' ')))(i)?;
+        let indent_level = spaces.len();
+        Ok((s, indent_level))
+    })(i)
 }
 
-#[tracing::instrument(skip_all, fields(i = pp_span(i)))]
+#[tracable_parser]
 pub fn parse_expr(i: Span) -> Res<Expr> {
-    pp_ret("expr", parse_expr_logic_expr(i))
+    context("expr", parse_expr_logic_expr)(i)
 }
 
-// #[tracing::instrument(skip_all, fields(i = pp_span(i)))]
+#[tracable_parser]
 pub fn parse_expr_logic_expr(i: Span) -> Res<Expr> {
-    let (i, num1) = parse_expr_math_expr(i)?;
-    let (i, exprs) = many0(tuple((
-        map(
-            wsl(alt((
-                alt((
-                    tag("."),
-                    tag("&&"),
-                    tag("||"),
-                    tag(">="),
-                    tag("<="),
-                    tag(">"),
-                    tag("<"),
-                    tag("=="),
-                    tag("!="),
-                )),
-                terminated(
-                    alt((tag("and"), tag("or"), tag("is"), tag("in"), tag("as"))),
-                    peek(one_of("([\n\t ")),
-                ),
-            ))),
-            |k: Span| *k,
-        ),
-        parse_expr_logic_expr,
-    )))(i)?;
+    context("expr_logic_expr", |i| {
+        let (i, num1) = parse_expr_math_expr(i)?;
+        let (i, exprs) = many0(tuple((
+            map(
+                wslnoc(alt((
+                    alt((
+                        tag("."),
+                        tag("&&"),
+                        tag("||"),
+                        tag(">="),
+                        tag("<="),
+                        tag(">"),
+                        tag("<"),
+                        tag("=="),
+                        tag("!="),
+                    )),
+                    terminated(
+                        alt((tag("and"), tag("or"), tag("is"), tag("in"), tag("as"))),
+                        peek(one_of("([\n\t ")),
+                    ),
+                ))),
+                |k: Span| *k,
+            ),
+            parse_expr_logic_expr,
+        )))(i)?;
 
-    pp_ret("expr_logic_expr", Ok((i, parse_expr_rec(num1, exprs))))
+        Ok((i, parse_expr_rec(num1, exprs)))
+    })(i)
 }
 
-// #[tracing::instrument(skip_all, fields(i = pp_span(i)))]
+#[tracable_parser]
 pub fn parse_expr_math_expr(i: Span) -> Res<Expr> {
-    let (i, num1) = parse_expr_term(i)?;
-    let (i, exprs) = many0(tuple((
-        map(wsl(alt((tag("+"), tag("-")))), |k: Span| *k),
-        parse_expr_math_expr,
-    )))(i)?;
+    context("expr_math_expr", |i| {
+        let (i, num1) = parse_expr_term(i)?;
+        let (i, exprs) = many0(tuple((
+            map(wslnoc(alt((tag("+"), tag("-")))), |k: Span| *k),
+            parse_expr_math_expr,
+        )))(i)?;
 
-    pp_ret("expr_math_expr", Ok((i, parse_expr_rec(num1, exprs))))
+        Ok((i, parse_expr_rec(num1, exprs)))
+    })(i)
 }
 
 pub fn parse_expr_rec<'a>(a: Expr<'a>, rem: Vec<(&str, Expr<'a>)>) -> Expr<'a> {
@@ -629,80 +617,82 @@ pub fn parse_expr_rec<'a>(a: Expr<'a>, rem: Vec<(&str, Expr<'a>)>) -> Expr<'a> {
         .fold(a, |acc, val| parse_expr_binop(val, acc))
 }
 
-// #[tracing::instrument(skip_all, fields(i = pp_span(i)))]
+#[tracable_parser]
 pub fn parse_expr_un(i: Span) -> Res<Expr> {
-    let (i, op) = opt(map(wsl(alt((tag("-"), tag("+"), tag("!")))), |k: Span| *k))(i)?;
-    let (i, num) = parse_expr_index(i)?;
-    // let (i, num) = parse_expr_operation(i)?;
+    context("expr_un", |i| {
+        let (i, op) = opt(map(
+            wslnoc(alt((tag("-"), tag("+"), tag("!")))),
+            |k: Span| *k,
+        ))(i)?;
+        let (i, num) = parse_expr_index(i)?;
 
-    pp_ret(
-        "expr_un",
         match op {
             Some(op) => Ok((i, parse_expr_unop(op, num))),
             None => Ok((i, num)),
-        },
-    )
+        }
+    })(i)
 }
 
-// #[tracing::instrument(skip_all, fields(i = pp_span(i)))]
+#[tracable_parser]
 pub fn parse_expr_term(i: Span) -> Res<Expr> {
-    let (i, num1) = parse_expr_un(i)?;
-    let (i, exprs) = many0(tuple((
-        map(
-            wsl(alt((
-                tag("*"),
-                tag("/"),
-                tag("%"),
-                tag("|"),
-                tag("&"),
-                tag("^"),
-            ))),
-            |k: Span| *k,
-        ),
-        parse_expr_term,
-    )))(i)?;
+    context("expr_term", |i| {
+        let (i, num1) = parse_expr_un(i)?;
+        let (i, exprs) = many0(tuple((
+            map(
+                wslnoc(alt((
+                    tag("*"),
+                    tag("/"),
+                    tag("%"),
+                    tag("|"),
+                    tag("&"),
+                    tag("^"),
+                ))),
+                |k: Span| *k,
+            ),
+            parse_expr_term,
+        )))(i)?;
 
-    pp_ret("expr_term", Ok((i, parse_expr_rec(num1, exprs))))
+        Ok((i, parse_expr_rec(num1, exprs)))
+    })(i)
 }
 
-// #[tracing::instrument(skip_all, fields(i = pp_span(i)))]
+#[tracable_parser]
 pub fn parse_expr_index(i: Span) -> Res<Expr> {
-    let (i, num1) = parse_expr_operation(i)?;
-    let (i, exprs) = many0(delimited(
-        pair(char('['), ms0noc),
-        parse_expr_math_expr,
-        pair(ms0noc, char(']')),
-    ))(i)?;
+    context("expr_index", |i| {
+        let (i, num1) = parse_expr_operation(i)?;
+        let (i, exprs) = many0(delimited(
+            pair(char('['), ms0noc),
+            parse_expr_math_expr,
+            pair(ms0noc, char(']')),
+        ))(i)?;
 
-    let final_expr = exprs
-        .into_iter()
-        .fold(num1, |acc, val| Expr::bin(acc, BinOp::Index, val));
+        let final_expr = exprs
+            .into_iter()
+            .fold(num1, |acc, val| Expr::bin(acc, BinOp::Index, val));
 
-    pp_ret("expr_index", Ok((i, final_expr)))
+        Ok((i, final_expr))
+    })(i)
 }
 
-// #[tracing::instrument(skip_all, fields(i = pp_span(i)))]
+#[tracable_parser]
 pub fn parse_expr_operation(i: Span) -> Res<Expr> {
-    pp_ret(
-        "expr_operation",
-        alt((parse_expr_parens, parse_expr_value))(i),
-    )
+    context("expr_operation", alt((parse_expr_parens, parse_expr_value)))(i)
 }
 
-// #[tracing::instrument(skip_all, fields(i = pp_span(i)))]
+#[tracable_parser]
 pub fn parse_expr_value(i: Span) -> Res<Expr> {
-    pp_ret(
+    context(
         "expr_value",
-        map(delimited(space0, parse_value, space0), Expr::Value)(i),
-    )
+        map(delimited(space0, parse_value, space0), Expr::Value),
+    )(i)
 }
 
-// #[tracing::instrument(skip_all, fields(i = pp_span(i)))]
+#[tracable_parser]
 pub fn parse_expr_parens(i: Span) -> Res<Expr> {
-    pp_ret(
+    context(
         "expr_parens",
-        delimited(space0, delimited(char('('), parse_expr, char(')')), space0)(i),
-    )
+        delimited(space0, delimited(char('('), parse_expr, char(')')), space0),
+    )(i)
 }
 
 pub fn parse_expr_unop<'a>(op: &str, expr: Expr<'a>) -> Expr<'a> {
@@ -745,20 +735,19 @@ pub fn parse_expr_binop<'a>(tup: (&str, Expr<'a>), expr1: Expr<'a>) -> Expr<'a> 
     }
 }
 
-#[tracing::instrument(skip_all, fields(i = pp_span(i), indent = indent))]
+#[tracable_parser]
 pub fn parse_indented_block(i: Span, indent: usize) -> Res<Block> {
-    pp_ret(
-        "indented_block",
+    context("indented_block", |i| {
         preceded(pair(opt(parse_comment), many1(line_ending)), |i| {
             more_indent(i, indent)
         })(i)
-        .and_then(|(i, indent)| parse_block(i, indent)),
-    )
+        .and_then(|(i, indent)| parse_block(i, indent))
+    })(i)
 }
 
-// #[tracing::instrument(skip_all, fields(i = pp_span(i)))]
+#[tracable_parser]
 pub fn parse_enum_variant(i: Span) -> Res<EnumVariant> {
-    let mut parse = map(
+    let parse = map(
         pair(ws(parse_ident), opt(preceded(ws(char('=')), parse_value))),
         |(ident, value)| EnumVariant {
             name: ident.0,
@@ -766,19 +755,19 @@ pub fn parse_enum_variant(i: Span) -> Res<EnumVariant> {
         },
     );
 
-    pp_ret("enum_variant", parse(i))
+    context("enum_variant", parse)(i)
 }
 
-#[tracing::instrument(skip_all, fields(i = pp_span(i)))]
+#[tracable_parser]
 pub fn parse_enum_decl(i: Span) -> Res<EnumDecl> {
-    let mut parse = map(
+    let parse = map(
         preceded(
             pair(tag("enum"), space1),
             pair(
                 parse_ident,
                 delimited(
                     preceded(space0, pair(char('{'), ms0noc)),
-                    separated_list1(wsl(char(',')), parse_enum_variant),
+                    separated_list1(wslnoc(char(',')), parse_enum_variant),
                     pair(ms0noc, char('}')),
                 ),
             ),
@@ -789,72 +778,69 @@ pub fn parse_enum_decl(i: Span) -> Res<EnumDecl> {
         },
     );
 
-    pp_ret("enum_decl", parse(i))
+    context("enum_decl", parse)(i)
 }
 
-#[tracing::instrument(skip_all, fields(i = pp_span(i), indent = indent))]
+#[tracable_parser]
 pub fn parse_if_stmt(i: Span, indent: usize) -> Res<IfStmt> {
     let parse = preceded(tag("if"), |i| parse_condition(i, indent));
 
-    pp_ret(
+    context(
         "if_stmt",
-        context(
-            "if_stmt",
-            map(
-                tuple((
-                    parse,
-                    many0(preceded(
-                        |i| same_indent(i, indent),
-                        |i| parse_elif_stmt(i, indent),
-                    )),
-                    opt(preceded(
-                        |i| same_indent(i, indent),
-                        |i| parse_else_stmt(i, indent),
-                    )),
+        map(
+            tuple((
+                parse,
+                many0(preceded(
+                    |i| same_indent(i, indent),
+                    |i| parse_elif_stmt(i, indent),
                 )),
-                |(ifb, elifb, elseb)| IfStmt {
-                    if_branch: ifb,
-                    elif_branches: elifb,
-                    else_branch: elseb,
-                },
-            ),
-        )(i),
-    )
+                opt(preceded(
+                    |i| same_indent(i, indent),
+                    |i| parse_else_stmt(i, indent),
+                )),
+            )),
+            |(ifb, elifb, elseb)| IfStmt {
+                if_branch: ifb,
+                elif_branches: elifb,
+                else_branch: elseb,
+            },
+        ),
+    )(i)
 }
 
-#[tracing::instrument(skip_all, fields(i = pp_span(i), indent = indent))]
+#[tracable_parser]
 pub fn parse_elif_stmt(i: Span, indent: usize) -> Res<ElifStmt> {
     let parse = preceded(tag("elif"), |i| parse_condition(i, indent));
 
-    pp_ret("elif_stmt", map(parse, ElifStmt)(i))
+    context("elif_stmt", map(parse, ElifStmt))(i)
 }
 
-#[tracing::instrument(skip_all, fields(i = pp_span(i), indent = indent))]
+#[tracable_parser]
 pub fn parse_else_stmt(i: Span, indent: usize) -> Res<ElseStmt> {
     let parse = preceded(terminated(tag("else"), ws(char(':'))), |i| {
         parse_indented_block(i, indent)
     });
 
-    pp_ret("else_stmt", map(parse, ElseStmt)(i))
+    context("else_stmt", map(parse, ElseStmt))(i)
 }
 
-#[tracing::instrument(skip_all, fields(i = pp_span(i), indent = indent))]
+#[tracable_parser]
 pub fn parse_while_stmt(i: Span, indent: usize) -> Res<WhileStmt> {
     let parse = preceded(pair(tag("while"), space1), |i| parse_condition(i, indent));
 
-    pp_ret("while_stmt", map(parse, WhileStmt)(i))
+    context("while_stmt", map(parse, WhileStmt))(i)
 }
 
-#[tracing::instrument(skip_all, fields(i = pp_span(i), indent = indent))]
+#[tracable_parser]
 pub fn parse_for_stmt(i: Span, indent: usize) -> Res<ForStmt> {
     let parse = preceded(pair(tag("for"), space1), |i| parse_condition(i, indent));
 
-    pp_ret("for_stmt", map(parse, ForStmt)(i))
+    context("for_stmt", map(parse, ForStmt))(i)
 }
 
-#[tracing::instrument(skip_all, fields(i = pp_span(i), indent = indent))]
+#[tracable_parser]
 pub fn parse_match_stmt(i: Span, indent: usize) -> Res<MatchStmt> {
-    pp_ret("match_stmt", {
+    context("match_stmt", |i| {
         let mut cases = vec![];
         let (i, expr) = terminated(
             preceded(pair(tag("match"), space1), parse_expr),
@@ -884,47 +870,44 @@ pub fn parse_match_stmt(i: Span, indent: usize) -> Res<MatchStmt> {
         }
 
         Ok((this_i, MatchStmt { expr, cases }))
-    })
+    })(i)
 }
 
-#[tracing::instrument(skip_all, fields(i = pp_span(i), indent = indent))]
+#[tracable_parser]
 pub fn parse_match_case_stmt(i: Span, indent: usize) -> Res<MatchCaseStmt> {
-    pp_ret(
+    context(
         "match_case_stmt",
-        map(|i| parse_condition(i, indent), MatchCaseStmt)(i),
-    )
+        map(|i| parse_condition(i, indent), MatchCaseStmt),
+    )(i)
 }
 
-#[tracing::instrument(skip_all, fields(i = pp_span(i), indent = indent))]
+#[tracable_parser]
 pub fn parse_condition(i: Span, indent: usize) -> Res<Condition> {
     let parse_cond = terminated(preceded(space0, parse_expr), ws(char(':')));
 
-    pp_ret(
+    context(
         "condition",
-        context(
-            "condition",
-            map(
-                pair(parse_cond, |i| parse_indented_block(i, indent)),
-                |(e, b)| Condition { expr: e, block: b },
-            ),
-        )(i),
-    )
+        map(
+            pair(parse_cond, |i| parse_indented_block(i, indent)),
+            |(e, b)| Condition { expr: e, block: b },
+        ),
+    )(i)
 }
 
-#[tracing::instrument(skip_all, fields(i = pp_span(i)))]
+#[tracable_parser]
 pub fn parse_dotted_ident(i: Span) -> Res<DottedIdent> {
-    pp_ret(
+    context(
         "dotted_ident",
         map(
             recognize(separated_list1(char('.'), parse_ident)),
             |x: Span| DottedIdent(*x),
-        )(i),
-    )
+        ),
+    )(i)
 }
 
-#[tracing::instrument(skip_all, fields(i = pp_span(i)))]
+#[tracable_parser]
 pub fn parse_function_arg(i: Span) -> Res<FunctionArg> {
-    pp_ret(
+    context(
         "function_arg",
         map(
             tuple((
@@ -937,13 +920,13 @@ pub fn parse_function_arg(i: Span) -> Res<FunctionArg> {
                 r#type: typ,
                 default: expr,
             },
-        )(i),
-    )
+        ),
+    )(i)
 }
 
-#[tracing::instrument(skip_all, fields(i = pp_span(i)))]
+#[tracable_parser]
 pub fn parse_function_modifier(i: Span) -> Res<FunctionModifier> {
-    let mut parse = alt((
+    let parse = alt((
         value(FunctionModifier::Static, tag("static")),
         value(FunctionModifier::RemoteSync, tag("remotesync")),
         value(FunctionModifier::MasterSync, tag("mastersync")),
@@ -953,15 +936,15 @@ pub fn parse_function_modifier(i: Span) -> Res<FunctionModifier> {
         value(FunctionModifier::Puppet, tag("puppet")),
     ));
 
-    pp_ret("function_modifier", parse(i))
+    context("function_modifier", parse)(i)
 }
 
-#[tracing::instrument(skip_all, fields(i = pp_span(i), indent = indent))]
+#[tracable_parser]
 pub fn parse_function_decl(i: Span, indent: usize) -> Res<FunctionDecl> {
     let parse_args = delimited(
-        ws(char('(')),
-        separated_list0(wsl(char(',')), parse_function_arg),
-        ws(char(')')),
+        preceded(space0, terminated(char('('), ms0noc)),
+        separated_list0(wslnoc(char(',')), parse_function_arg),
+        preceded(ms0noc, terminated(char(')'), space0)),
     );
     let parse_type = opt(preceded(ws(tag("->")), parse_dotted_ident));
     let parse_header = pair(
@@ -972,7 +955,7 @@ pub fn parse_function_decl(i: Span, indent: usize) -> Res<FunctionDecl> {
         ),
     );
 
-    let mut parse = map(
+    let parse = map(
         pair(parse_header, |i| parse_indented_block(i, indent)),
         |((modifier, (ident, args, typ)), block)| FunctionDecl {
             modifier,
@@ -983,12 +966,12 @@ pub fn parse_function_decl(i: Span, indent: usize) -> Res<FunctionDecl> {
         },
     );
 
-    pp_ret("function_decl", parse(i))
+    context("function_decl", parse)(i)
 }
 
-#[tracing::instrument(skip_all, fields(i = pp_span(i), indent = indent))]
+#[tracable_parser]
 pub fn parse_class_decl(i: Span, indent: usize) -> Res<ClassDecl> {
-    let mut parse = map(
+    let parse = map(
         preceded(
             ws(tag("class")),
             pair(terminated(parse_ident, ws(char(':'))), |i| {
@@ -998,5 +981,5 @@ pub fn parse_class_decl(i: Span, indent: usize) -> Res<ClassDecl> {
         |(name, block)| ClassDecl { name, block },
     );
 
-    pp_ret("class_decl", parse(i))
+    context("class_decl", parse)(i)
 }

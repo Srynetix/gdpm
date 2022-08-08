@@ -1,13 +1,11 @@
 use indoc::indoc;
-use nom_locate::LocatedSpan;
+use nom_tracable::cumulative_histogram;
+use nom_tracable::histogram;
 use pretty_assertions::assert_eq;
 
 use crate::ast::*;
 use crate::parsers::*;
-use crate::{
-    debug::init_tracing,
-    types::{Res, Span},
-};
+use crate::types::{Res, Span};
 
 /// Assert parse
 #[track_caller]
@@ -25,7 +23,8 @@ fn apn<'a, T: PartialEq + std::fmt::Debug>(
     mut func: impl FnMut(Span<'a>) -> Res<'a, T>,
     input: &'static str,
 ) {
-    match func(input.into()) {
+    let span = new_span(input);
+    match func(span) {
         Ok(_) => {}
         Err(e) => match e {
             nom::Err::Error(err) => panic!("Could not parse: {}", err),
@@ -33,16 +32,6 @@ fn apn<'a, T: PartialEq + std::fmt::Debug>(
             _ => panic!("Could not parse: {}", e),
         },
     }
-}
-/// Assert parse with indent
-#[track_caller]
-fn api<'a, T: PartialEq + std::fmt::Debug>(
-    mut func: impl FnMut(Span<'a>, usize) -> Res<'a, T>,
-    input: &'static str,
-    value: T,
-) {
-    let f = move |i| func(i, 0);
-    apr(f, input, value, "")
 }
 
 /// Assert parse with remaining
@@ -53,13 +42,17 @@ fn apr<'a, T: PartialEq + std::fmt::Debug>(
     value: T,
     remaining: &'static str,
 ) {
-    match func(input.into()) {
+    let span = new_span(input);
+    match func(span) {
         Ok(res) => {
+            histogram();
+            cumulative_histogram();
+
             // Validate capture
             assert_eq!(res.1, value);
 
             // Validate remaining
-            let remaining_span = LocatedSpan::new(remaining);
+            let remaining_span = new_span(remaining);
 
             match (remaining_span, res.0) {
                 (a, b) if *a == *b => (),
@@ -67,43 +60,29 @@ fn apr<'a, T: PartialEq + std::fmt::Debug>(
                 (a, b) => panic!("remaining value should NOT be empty: {a} != {b}"),
             }
         }
-        Err(e) => match e {
-            nom::Err::Error(err) => panic!("Could not parse: {}", err),
-            nom::Err::Failure(err) => panic!("Could not parse: {}", err),
-            _ => panic!("Could not parse: {}", e),
-        },
+        Err(e) => {
+            histogram();
+            cumulative_histogram();
+
+            match e {
+                nom::Err::Error(err) => panic!("Could not parse: {}", err),
+                nom::Err::Failure(err) => panic!("Could not parse: {}", err),
+                _ => panic!("Could not parse: {}", e),
+            }
+        }
     }
 }
 
 /// Assert not parse
 #[track_caller]
 fn anp<'a, T: std::fmt::Debug>(mut func: impl FnMut(Span<'a>) -> Res<'a, T>, input: &'static str) {
-    match func(input.into()) {
+    let span = new_span(input);
+    match func(span) {
         Err(_) => (),
         Ok(r) => {
             assert!(false, "Token should not match: {:?}", r);
         }
     }
-}
-
-/// Assert not parse widh indent
-#[track_caller]
-fn anpi<'a, T: std::fmt::Debug>(
-    mut func: impl FnMut(Span<'a>, usize) -> Res<'a, T>,
-    input: &'static str,
-) {
-    let mut f = move |i| func(i, 0);
-
-    match f(input.into()) {
-        Err(_) => (),
-        Ok(r) => {
-            assert!(false, "Token should not match: {:?}", r);
-        }
-    }
-}
-
-fn setup() {
-    init_tracing().unwrap();
 }
 
 #[test]
@@ -542,19 +521,19 @@ fn test_classname_decl() {
 
 #[test]
 fn test_decl() {
-    api(
-        parse_decl,
+    ap(
+        |i| parse_decl(i, 0),
         "class_name Foo",
         Decl::ClassName(ClassNameDecl("Foo")),
     );
 
-    anpi(parse_decl, "foo");
+    anp(|i| parse_decl(i, 0), "foo");
 }
 
 #[test]
 fn test_line() {
-    api(
-        parse_line,
+    ap(
+        |i| parse_line(i, 0),
         "class_name Foo",
         Line::Decl(Decl::ClassName(ClassNameDecl("Foo"))),
     );
@@ -572,8 +551,8 @@ fn test_line() {
 
 #[test]
 fn test_block() {
-    api(
-        parse_block,
+    ap(
+        |i| parse_block(i, 0),
         indoc! {r#"
             # Hey!
             class_name Foo
@@ -585,8 +564,8 @@ fn test_block() {
         ]),
     );
 
-    api(
-        parse_block,
+    ap(
+        |i| parse_block(i, 0),
         indoc! {r#"
             abcd
 
@@ -660,17 +639,17 @@ fn test_file() {
 #[test]
 fn test_indent() {
     // Level 0
-    assert!(same_indent(LocatedSpan::new("ok"), 0).is_ok());
-    assert!(more_indent(LocatedSpan::new("ok"), 0).is_err());
+    assert!(same_indent(new_span("ok"), 0).is_ok());
+    assert!(more_indent(new_span("ok"), 0).is_err());
 
     // Level 1
-    assert!(more_indent(LocatedSpan::new("  ok"), 0).is_ok());
-    assert!(more_indent(LocatedSpan::new("  ok"), 2).is_err());
-    assert!(same_indent(LocatedSpan::new("  ok"), 2).is_ok());
+    assert!(more_indent(new_span("  ok"), 0).is_ok());
+    assert!(more_indent(new_span("  ok"), 2).is_err());
+    assert!(same_indent(new_span("  ok"), 2).is_ok());
 
     // Level 2
-    assert!(same_indent(LocatedSpan::new("ok"), 0).is_ok());
-    assert!(more_indent(LocatedSpan::new("ok"), 0).is_err());
+    assert!(same_indent(new_span("ok"), 0).is_ok());
+    assert!(more_indent(new_span("ok"), 0).is_err());
 }
 
 #[test]
@@ -883,8 +862,8 @@ fn test_expr() {
 
 #[test]
 fn test_if_stmt() {
-    api(
-        parse_if_stmt,
+    ap(
+        |i| parse_if_stmt(i, 0),
         indoc!(
             r#"
             if 123456:
@@ -899,8 +878,8 @@ fn test_if_stmt() {
             else_branch: None,
         },
     );
-    api(
-        parse_if_stmt,
+    ap(
+        |i| parse_if_stmt(i, 0),
         indoc!(
             r#"
             if 123456:
@@ -919,8 +898,8 @@ fn test_if_stmt() {
             else_branch: None,
         },
     );
-    api(
-        parse_if_stmt,
+    ap(
+        |i| parse_if_stmt(i, 0),
         indoc!(
             r#"
             if 123456:
@@ -947,8 +926,8 @@ fn test_if_stmt() {
             else_branch: None,
         },
     );
-    api(
-        parse_block,
+    ap(
+        |i| parse_block(i, 0),
         indoc!(
             r#"
             if 123456:
@@ -968,8 +947,8 @@ fn test_if_stmt() {
         ]),
     );
 
-    api(
-        parse_block,
+    ap(
+        |i| parse_block(i, 0),
         indoc!(
             r#"
             if 123456:
@@ -1008,16 +987,16 @@ fn test_if_stmt() {
         ]),
     );
 
-    anpi(
-        parse_if_stmt,
+    anp(
+        |i| parse_if_stmt(i, 0),
         indoc!(
             r#"
             if 123456:
         "#
         ),
     );
-    anpi(
-        parse_if_stmt,
+    anp(
+        |i| parse_if_stmt(i, 0),
         indoc!(
             r#"
             if 123456:
@@ -1040,8 +1019,8 @@ fn test_dotted_ident() {
 
 #[test]
 fn test_function_decl() {
-    api(
-        parse_function_decl,
+    ap(
+        |i| parse_function_decl(i, 0),
         indoc! {r#"
         func   foo  (bar  , baz  :  Node, qux = 1234 )  ->   Node:
             spam"#},
@@ -1070,8 +1049,8 @@ fn test_function_decl() {
         },
     );
 
-    api(
-        parse_function_decl,
+    ap(
+        |i| parse_function_decl(i, 0),
         indoc! {r#"
         static func foo():
             pass"#},
@@ -1084,8 +1063,8 @@ fn test_function_decl() {
         },
     );
 
-    api(
-        parse_function_decl,
+    ap(
+        |i| parse_function_decl(i, 0),
         indoc! {r#"
         static func add_message(message: LogMessage) -> void:
             _static_data["messages"].append(message)"#},
@@ -1111,8 +1090,8 @@ fn test_function_decl() {
 
 #[test]
 fn test_while_stmt() {
-    api(
-        parse_while_stmt,
+    ap(
+        |i| parse_while_stmt(i, 0),
         indoc! {r#"
         while true:
             pass"#},
@@ -1125,8 +1104,8 @@ fn test_while_stmt() {
 
 #[test]
 fn test_for_stmt() {
-    api(
-        parse_for_stmt,
+    ap(
+        |i| parse_for_stmt(i, 0),
         indoc! {r#"
         for x in array:
             pass"#},
@@ -1143,8 +1122,8 @@ fn test_for_stmt() {
 
 #[test]
 fn test_match_stmt() {
-    api(
-        parse_match_stmt,
+    ap(
+        |i| parse_match_stmt(i, 0),
         indoc! {r#"
             match x:
                 foo:
@@ -1171,8 +1150,8 @@ fn test_match_stmt() {
 
 #[test]
 fn test_class_decl() {
-    api(
-        parse_class_decl,
+    ap(
+        |i| parse_class_decl(i, 0),
         indoc! {r#"
             class Foo:
                 pass"#},
@@ -1182,8 +1161,8 @@ fn test_class_decl() {
         },
     );
 
-    api(
-        parse_class_decl,
+    ap(
+        |i| parse_class_decl(i, 0),
         indoc! {r#"
         class _LogData:
             const _static_data := {"messages": [], "cursor": 0}

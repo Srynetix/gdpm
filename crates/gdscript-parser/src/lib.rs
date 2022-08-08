@@ -1,10 +1,9 @@
 use std::path::{Path, PathBuf};
 
 use gdpm_io::IoAdapter;
-use nom_locate::LocatedSpan;
+use parsers::new_span;
 
 pub(crate) mod ast;
-pub(crate) mod debug;
 pub(crate) mod parsers;
 
 #[cfg(test)]
@@ -46,7 +45,7 @@ impl GdScriptParser {
         {
             let contents = std::fs::read_to_string(&file).unwrap();
 
-            match parsers::parse_file(LocatedSpan::new(&contents)) {
+            match parsers::parse_file(new_span(&contents)) {
                 Ok(_) => {
                     file_map.push((file.clone(), "OK".into()));
                 }
@@ -65,7 +64,7 @@ impl GdScriptParser {
     pub fn parse_file(path: impl AsRef<Path>) -> Result<(), ParserError> {
         let contents = std::fs::read_to_string(path.as_ref()).unwrap();
 
-        match parsers::parse_file(LocatedSpan::new(&contents)) {
+        match parsers::parse_file(new_span(&contents)) {
             Ok((_, p)) => {
                 println!("{:#?}", p);
                 Ok(())

@@ -1,7 +1,6 @@
 use nom::{error::VerboseError, IResult};
 use nom_locate::LocatedSpan;
+use nom_tracable::TracableInfo;
 
-pub type BoxError = Box<dyn std::error::Error + Send + Sync + 'static>;
-pub type BoxResult<T> = Result<T, BoxError>;
-pub type Span<'a> = LocatedSpan<&'a str>;
+pub type Span<'a> = LocatedSpan<&'a str, TracableInfo>;
 pub type Res<'a, U> = IResult<Span<'a>, U, VerboseError<Span<'a>>>;

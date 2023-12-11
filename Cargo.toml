@@ -7,6 +7,7 @@ members = [
     "crates/gdpm-types",
     "crates/gdsettings-parser",
 ]
+resolver = "2"
 
 [profile.dev.package.backtrace]
 opt-level = 3

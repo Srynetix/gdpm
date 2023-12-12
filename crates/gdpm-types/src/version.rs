@@ -4,7 +4,14 @@ use std::{fmt::Display, str::FromStr};
 
 use gdsettings_parser::GdValue;
 
-use crate::TypeError;
+#[derive(Debug, thiserror::Error)]
+pub enum Error {
+    #[error("Wrong version: {0}")]
+    WrongVersion(String),
+
+    #[error("Wrong version kind: {0}")]
+    WrongVersionKind(String),
+}
 
 /// System version.
 #[derive(Debug, Clone)]
@@ -234,7 +241,7 @@ impl Display for GodotVersion {
 }
 
 impl FromStr for GodotVersion {
-    type Err = TypeError;
+    type Err = Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let mut parts: Vec<_> = s.split('.').collect();
@@ -278,7 +285,7 @@ impl Display for GodotVersionKind {
 }
 
 impl FromStr for GodotVersionKind {
-    type Err = TypeError;
+    type Err = Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         if s == "stable" {
@@ -293,7 +300,7 @@ impl FromStr for GodotVersionKind {
             let number = s.chars().skip(4).collect::<String>().parse().unwrap_or(0);
             Ok(Self::Beta(number))
         } else {
-            Err(TypeError::WrongVersionKind(s.to_string()))
+            Err(Error::WrongVersionKind(s.to_string()))
         }
     }
 }

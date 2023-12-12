@@ -6,8 +6,8 @@ use std::{
 };
 
 use colored::Colorize;
-use gdpm_io::{IoAdapter, IoError};
-use gdpm_types::{GodotVersion, SystemVersion};
+use gdpm_io::{Error, IoAdapter};
+use gdpm_types::version::{GodotVersion, SystemVersion};
 use gdsettings_parser::{
     parse_gdsettings_file, GdSettings, GdSettingsMap, GdSettingsType, GdValue,
 };
@@ -263,7 +263,7 @@ impl<'a, I: IoAdapter> EngineHandler<'a, I> {
             .arg(path)
             .arg("-e")
             .status()
-            .map_err(IoError::CommandExecutionError)?;
+            .map_err(|e| Error::CommandExecutionError(e.to_string()))?;
 
         Ok(())
     }
@@ -281,7 +281,7 @@ impl<'a, I: IoAdapter> EngineHandler<'a, I> {
             .arg(path)
             .args(args)
             .status()
-            .map_err(IoError::CommandExecutionError)?;
+            .map_err(|e| Error::CommandExecutionError(e.to_string()))?;
 
         Ok(())
     }
@@ -338,7 +338,7 @@ impl<'a, I: IoAdapter> EngineHandler<'a, I> {
         let temp_name = "temp";
         let version_path = udir.get_or_create_directory(&engine_path.join(&version_name))?;
         let extraction_path =
-            udir.get_or_create_directory(&engine_path.join(&version_name).join(&temp_name))?;
+            udir.get_or_create_directory(&engine_path.join(&version_name).join(temp_name))?;
         let zip_path = version_path.join("download").with_extension("zip");
         self.io_adapter.write_bytes_to_file(&zip_path, &zip_data)?;
 
@@ -358,13 +358,13 @@ impl<'a, I: IoAdapter> EngineHandler<'a, I> {
         // Mono versions have an additional folder
         let zip_exec_path = if version.mono() {
             let zip_exec_name = format!("{}.{}", &zip_folder_name, system.get_extension());
-            extraction_path.join(&zip_folder_name).join(&zip_exec_name)
+            extraction_path.join(&zip_folder_name).join(zip_exec_name)
         } else {
             zip_folder_path.with_extension(system.get_extension())
         };
 
         let zip_exec_target = Path::new(&version_path)
-            .join(&GODOT_EXECUTABLE_NAME)
+            .join(GODOT_EXECUTABLE_NAME)
             .with_extension(system.get_extension());
 
         // Copy to current dir

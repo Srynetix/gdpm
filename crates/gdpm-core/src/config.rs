@@ -2,7 +2,7 @@
 
 use std::path::{Path, PathBuf};
 
-use gdpm_io::{IoAdapter, IoError};
+use gdpm_io::{Error, IoAdapter};
 use gdsettings_parser::{parse_gdsettings_file, GdSettings};
 
 use crate::error::{ConfigError, ProjectError};
@@ -28,7 +28,7 @@ impl<'a, I: IoAdapter> UserDir<'a, I> {
     }
 
     /// Get or create global directory.
-    pub fn get_or_create_global_directory(&self) -> Result<PathBuf, IoError> {
+    pub fn get_or_create_global_directory(&self) -> Result<PathBuf, Error> {
         let config_directory = self
             .io_adapter
             .get_user_configuration_directory()?
@@ -41,7 +41,7 @@ impl<'a, I: IoAdapter> UserDir<'a, I> {
     }
 
     /// Get or create directory in global directory.
-    pub fn get_or_create_directory(&self, path: &Path) -> Result<PathBuf, IoError> {
+    pub fn get_or_create_directory(&self, path: &Path) -> Result<PathBuf, Error> {
         let path = self.get_or_create_global_directory()?.join(path);
         if !self.io_adapter.path_exists(&path) {
             self.io_adapter.create_dir(&path)?;
@@ -51,7 +51,7 @@ impl<'a, I: IoAdapter> UserDir<'a, I> {
     }
 
     /// Get or create file in global directory.
-    pub fn get_or_create_file(&self, path: &Path) -> Result<PathBuf, IoError> {
+    pub fn get_or_create_file(&self, path: &Path) -> Result<PathBuf, Error> {
         let path = self.get_or_create_global_directory()?.join(path);
         if !self.io_adapter.path_exists(&path) {
             self.io_adapter.create_file(&path)?;
@@ -61,17 +61,17 @@ impl<'a, I: IoAdapter> UserDir<'a, I> {
     }
 
     /// Get file in global directory.
-    pub fn get_file(&self, path: &Path) -> Result<PathBuf, IoError> {
+    pub fn get_file(&self, path: &Path) -> Result<PathBuf, Error> {
         Ok(self.get_or_create_global_directory()?.join(path))
     }
 
     /// Read file to string from global directory.
-    pub fn read_file_to_string(&self, path: &Path) -> Result<String, IoError> {
+    pub fn read_file_to_string(&self, path: &Path) -> Result<String, Error> {
         self.io_adapter.read_file_to_string(&self.get_file(path)?)
     }
 
     /// Write string to file in global directory.
-    pub fn write_string_to_file(&self, path: &Path, contents: &str) -> Result<(), IoError> {
+    pub fn write_string_to_file(&self, path: &Path, contents: &str) -> Result<(), Error> {
         self.io_adapter
             .write_string_to_file(&self.get_file(path)?, contents)
             .map(|_| ())

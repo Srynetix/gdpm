@@ -11,7 +11,7 @@ use gdpm_core::{
     engine::{EngineHandler, EngineInfo},
     error::EngineError,
     io::IoAdapter,
-    types::{GodotVersion, SystemVersion},
+    types::version::{GodotVersion, SystemVersion},
 };
 use tracing::info;
 

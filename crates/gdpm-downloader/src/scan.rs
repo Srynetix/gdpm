@@ -3,7 +3,7 @@ use soup::prelude::*;
 use tracing::debug;
 
 use crate::{error::DownloadError, DownloadAdapter};
-use gdpm_types::{GodotVersion, GodotVersionKind};
+use gdpm_types::version::{GodotVersion, GodotVersionKind};
 
 /// Godot mirror scanner.
 pub struct GodotMirrorScanner<'a, D: DownloadAdapter> {

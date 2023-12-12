@@ -5,7 +5,7 @@ _default:
 
 # Check code style
 fmt:
-	cargo fmt --all
+	@cargo fmt --all
 
 # Check code style and error if changes are needed
 fmt-check:

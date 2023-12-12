@@ -12,5 +12,10 @@ resolver = "2"
 [profile.dev.package.backtrace]
 opt-level = 3
 
+[workspace.dependencies]
+colored = "2.1.0"
+thiserror = "1.0.50"
+tracing = "0.1.40"
+
 [profile.release]
 debug = 1

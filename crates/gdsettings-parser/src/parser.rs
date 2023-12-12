@@ -60,10 +60,7 @@ impl GdSettings {
     /// * `property` - Property name
     ///
     pub fn set_property(&mut self, section: &str, property: &str, value: GdValue) {
-        let section_entry = self
-            .0
-            .entry(section.to_string())
-            .or_insert_with(GdSettingsMap::new);
+        let section_entry = self.0.entry(section.to_string()).or_default();
         section_entry.insert(property.to_string(), value);
     }
 

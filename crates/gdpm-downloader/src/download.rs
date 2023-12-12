@@ -3,7 +3,7 @@
 use reqwest::Url;
 
 use crate::{error::DownloadError, DownloadAdapter};
-use gdpm_types::{GodotVersion, GodotVersionKind, SystemVersion};
+use gdpm_types::version::{GodotVersion, GodotVersionKind, SystemVersion};
 
 /// Downloader.
 pub struct Downloader;
@@ -62,7 +62,7 @@ impl Downloader {
 #[cfg(test)]
 mod tests {
     use crate::download::Downloader;
-    use gdpm_types::{GodotVersion, GodotVersionKind, SystemVersion};
+    use gdpm_types::version::{GodotVersion, GodotVersionKind, SystemVersion};
 
     #[test]
     fn test_get_download_url_for_version() {

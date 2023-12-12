@@ -6,14 +6,16 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-colored = "2.1.0"
 gdpm-downloader = { path = "../gdpm-downloader" }
-gdpm-types = { path = "../gdpm-types" }
 gdpm-io = { path = "../gdpm-io" }
+gdpm-types = { path = "../gdpm-types" }
 gdsettings-parser = { path = "../gdsettings-parser" }
+
 slugify = "0.1.0"
-thiserror = "1.0.50"
-tracing = "0.1.40"
+
+colored = { workspace = true }
+thiserror = { workspace = true }
+tracing = { workspace = true }
 
 [dev-dependencies]
 indoc = "2.0.4"

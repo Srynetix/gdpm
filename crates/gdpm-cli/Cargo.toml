@@ -12,9 +12,10 @@ path = "src/main.rs"
 [dependencies]
 clap = { version = "4.4.11", features = ["derive"] }
 color-eyre = "0.6.2"
-colored = "2.1.0"
 gdpm-core = { path = "../gdpm-core" }
 question = "0.2.2"
 tokio = { version = "1.35.0", features = ["rt", "rt-multi-thread", "macros"] }
-tracing = "0.1.40"
 tracing-subscriber = { version = "0.3.18", features = ["env-filter"] }
+
+colored = { workspace = true }
+tracing = { workspace = true }

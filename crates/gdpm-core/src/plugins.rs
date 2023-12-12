@@ -6,7 +6,7 @@ use std::{
 };
 
 use colored::Colorize;
-use gdpm_io::{IoAdapter, IoError};
+use gdpm_io::{Error, IoAdapter};
 use gdsettings_parser::{parse_gdsettings_file, GdValue};
 use slugify::slugify;
 use tracing::{info, warn};
@@ -314,7 +314,7 @@ impl<'a, I: IoAdapter> DependencyHandler<'a, I> {
                         .arg(&dependency.name)
                         .current_dir(&gdpm_path)
                         .output()
-                        .map_err(IoError::CommandExecutionError)?;
+                        .map_err(|e| Error::CommandExecutionError(e.to_string()))?;
                 }
 
                 let project_addons = project_path.join(ADDONS_FOLDER);
@@ -376,8 +376,8 @@ impl<'a, I: IoAdapter> DependencyHandler<'a, I> {
 
         if self.io_adapter.path_exists(&addons_path) {
             for entry in self.io_adapter.read_dir(&addons_path)? {
-                let entry =
-                    entry.map_err(|e| IoError::ReadDirEntryError(addons_path.to_owned(), e))?;
+                let entry = entry
+                    .map_err(|e| Error::ReadDirEntryError(addons_path.to_owned(), e.to_string()))?;
                 let path = entry.path();
 
                 // Check for plugin.cfg

@@ -33,7 +33,7 @@ test:
 
 # Set crates version
 set-version v:
-	ls -d crates/gdpm-*/Cargo.toml | xargs sed -i "s/^version = \"\(.*\)\"/version = \"{{ v }}\"/"
+	ls -d crates/gdpm-cli/Cargo.toml | xargs sed -i "s/^version = \"\(.*\)\"/version = \"{{ v }}\"/"
 
 # Show version
 show-version:

@@ -51,6 +51,8 @@ pub enum GodotVersionKind {
     Alpha(u16),
     /// Beta release.
     Beta(u16),
+    /// Custom release.
+    Custom(String),
 }
 
 impl SystemVersion {
@@ -280,6 +282,7 @@ impl Display for GodotVersionKind {
             Self::Alpha(n) => write!(f, "alpha{}", n),
             Self::Beta(n) if *n == 0 => write!(f, "beta"),
             Self::Beta(n) => write!(f, "beta{}", n),
+            Self::Custom(c) => write!(f, "custom.{c}"),
         }
     }
 }
@@ -299,6 +302,9 @@ impl FromStr for GodotVersionKind {
         } else if s.starts_with("beta") {
             let number = s.chars().skip(4).collect::<String>().parse().unwrap_or(0);
             Ok(Self::Beta(number))
+        } else if s.starts_with("custom.") {
+            let custom_string = s.chars().skip(7).collect::<String>();
+            Ok(Self::Custom(custom_string))
         } else {
             Err(Error::WrongVersionKind(s.to_string()))
         }

@@ -29,10 +29,6 @@ pub struct EngineInfo {
     pub version: String,
     /// Path to engine
     pub path: PathBuf,
-    /// Mono compatible?
-    pub has_mono: bool,
-    /// Built from source?
-    pub from_source: bool,
 }
 
 impl EngineInfo {
@@ -41,20 +37,13 @@ impl EngineInfo {
         io_adapter: &I,
         version: String,
         path: PathBuf,
-        has_mono: bool,
-        from_source: bool,
     ) -> Result<Self, EngineError> {
         if !io_adapter.path_is_file(&path) {
             Err(EngineError::EngineNotFound(
                 path.to_string_lossy().to_string(),
             ))
         } else {
-            Ok(Self {
-                version,
-                path,
-                has_mono,
-                from_source,
-            })
+            Ok(Self { version, path })
         }
     }
 
@@ -91,8 +80,6 @@ impl EngineInfo {
                 GdValue::String(self.path.to_string_lossy().to_string()),
             ),
             ("version".into(), GdValue::String(self.version.clone())),
-            ("has_mono".into(), GdValue::Boolean(self.has_mono)),
-            ("from_source".into(), GdValue::Boolean(self.from_source)),
         ])
     }
 
@@ -108,24 +95,16 @@ impl EngineInfo {
                 .get("version")
                 .and_then(|x| x.to_str())
                 .unwrap_or_else(|| String::from("unknown"));
-            let has_mono = map
-                .get("has_mono")
-                .and_then(|x| x.to_bool())
-                .unwrap_or(false);
-            let from_source = map
-                .get("from_source")
-                .and_then(|x| x.to_bool())
-                .unwrap_or(false);
 
-            Some(Self {
-                path,
-                version,
-                has_mono,
-                from_source,
-            })
+            Some(Self { path, version })
         } else {
             None
         }
+    }
+
+    /// Check if version is version 4.
+    pub fn is_version_4(&self) -> bool {
+        self.version.starts_with("4.")
     }
 
     /// Show
@@ -135,23 +114,10 @@ impl EngineInfo {
 
     /// Show verbose
     pub fn get_verbose_name(&self) -> String {
-        let mono_str = if self.has_mono {
-            "Yes".color("green")
-        } else {
-            "No".color("red")
-        };
-        let source_str = if self.from_source {
-            "Yes".color("green")
-        } else {
-            "No".color("red")
-        };
-
         format!(
-            "{} ({}) [mono: {} - built from source: {}]",
+            "{} ({})",
             self.version.color("green"),
             self.path.to_string_lossy().color("yellow"),
-            mono_str,
-            source_str
         )
     }
 }
@@ -262,6 +228,22 @@ impl<'a, I: IoAdapter> EngineHandler<'a, I> {
             .arg("--path")
             .arg(path)
             .arg("-e")
+            .status()
+            .map_err(|e| Error::CommandExecutionError(e.to_string()))?;
+
+        Ok(())
+    }
+
+    /// Run engine version for project, no editor.
+    pub fn run_version_for_project_no_editor(
+        &self,
+        version: &str,
+        path: &Path,
+    ) -> Result<(), EngineError> {
+        let engine = self.get_version(version)?;
+        Command::new(engine.path)
+            .arg("--path")
+            .arg(path)
             .status()
             .map_err(|e| Error::CommandExecutionError(e.to_string()))?;
 
@@ -386,8 +368,6 @@ impl<'a, I: IoAdapter> EngineHandler<'a, I> {
             self.io_adapter,
             version_name,
             zip_exec_target.clone(),
-            version.mono(),
-            false,
         )?)?;
 
         Ok(zip_exec_target)
@@ -477,7 +457,7 @@ mod tests {
                 .return_const(true);
 
             assert!(
-                EngineInfo::new(&adapter, "1.0.0".into(), PathBuf::from("/"), false, false).is_ok(),
+                EngineInfo::new(&adapter, "1.0.0".into(), PathBuf::from("/")).is_ok(),
                 "engine info retrieving should work if file exists"
             );
 
@@ -488,8 +468,7 @@ mod tests {
                 .return_const(false);
 
             assert!(
-                EngineInfo::new(&adapter, "1.0.0".into(), PathBuf::from("/"), false, false)
-                    .is_err(),
+                EngineInfo::new(&adapter, "1.0.0".into(), PathBuf::from("/")).is_err(),
                 "engine info retrieving should NOT work if file does not exist"
             );
         }
@@ -499,7 +478,7 @@ mod tests {
             let settings = indoc::indoc! {r#"
                 [engines]
                 1-0-0 = { "path": "/hello", "version": "1.0.0" }
-                2-0-0 = { "path": "/hi", "version": "2.0.0", "has_mono": true }
+                2-0-0 = { "path": "/hi", "version": "2.0.0" }
             "#};
 
             let settings = GdSettings::from_str(settings).unwrap();
@@ -510,14 +489,10 @@ mod tests {
                 vec![
                     EngineInfo {
                         path: PathBuf::from("/hello"),
-                        from_source: false,
-                        has_mono: false,
                         version: "1.0.0".to_string()
                     },
                     EngineInfo {
                         path: PathBuf::from("/hi"),
-                        from_source: false,
-                        has_mono: true,
                         version: "2.0.0".to_string()
                     }
                 ]

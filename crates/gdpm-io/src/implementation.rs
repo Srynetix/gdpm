@@ -10,9 +10,9 @@ use tracing::debug;
 use zip::ZipArchive;
 
 /// IO adapter implementation.
-pub struct IoImpl;
+pub struct DefaultIoAdapter;
 
-impl IoImpl {
+impl DefaultIoAdapter {
     fn open_file_read(&self, path: &Path) -> Result<File, Error> {
         File::open(path).map_err(|e| Error::OpenFileError(path.to_owned(), e.to_string()))
     }
@@ -26,7 +26,7 @@ impl IoImpl {
     }
 }
 
-impl IoAdapter for IoImpl {
+impl IoAdapter for DefaultIoAdapter {
     fn get_user_configuration_directory(&self) -> Result<PathBuf, Error> {
         dirs::config_dir().ok_or(Error::UnavailableUserDirError)
     }

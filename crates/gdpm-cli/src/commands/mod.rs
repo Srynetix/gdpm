@@ -5,16 +5,23 @@ use tracing_subscriber::EnvFilter;
 
 use crate::context::Context;
 
-mod dependency;
+mod add;
+mod edit;
 mod engine;
-mod project;
+mod info;
+mod new;
+mod remove;
+mod run;
+mod set_engine;
+mod sync;
+mod unset_engine;
 
-/// manage Godot versions and project dependencies
+/// Manage Godot versions and project dependencies
 #[derive(Parser)]
 #[clap(author, version, about, long_about = None, name = "gdpm")]
 #[clap(propagate_version = true)]
 pub struct Args {
-    /// verbose mode
+    /// Verbose mode
     #[clap(short, long)]
     verbose: bool,
 
@@ -29,9 +36,26 @@ trait Execute {
 
 #[derive(Subcommand)]
 enum Command {
-    Project(project::Project),
-    Dependencies(dependency::Dependencies),
+    /// Manage engine versions
     Engine(engine::Engine),
+    /// Add dependency
+    Add(add::Add),
+    /// Edit project using associated engine version
+    Edit(edit::Edit),
+    /// Show project info
+    Info(info::Info),
+    /// Create a new project
+    New(new::New),
+    /// Remove dependency
+    Remove(remove::Remove),
+    /// Run project using associated engine version
+    Run(run::Run),
+    /// Set associated engine version
+    SetEngine(set_engine::SetEngine),
+    /// Sync installed dependencies
+    Sync(sync::Sync),
+    /// Unset associated engine version
+    UnsetEngine(unset_engine::UnsetEngine),
 }
 
 pub fn parse_args<I: IoAdapter, D: DownloadAdapter>(
@@ -56,8 +80,15 @@ pub fn parse_args<I: IoAdapter, D: DownloadAdapter>(
         .init();
 
     match args.command {
-        Command::Project(c) => c.execute(context),
-        Command::Dependencies(c) => c.execute(context),
+        Command::Add(c) => c.execute(context),
+        Command::Edit(c) => c.execute(context),
         Command::Engine(c) => c.execute(context),
+        Command::Info(c) => c.execute(context),
+        Command::New(c) => c.execute(context),
+        Command::Remove(c) => c.execute(context),
+        Command::Run(c) => c.execute(context),
+        Command::SetEngine(c) => c.execute(context),
+        Command::Sync(c) => c.execute(context),
+        Command::UnsetEngine(c) => c.execute(context),
     }
 }

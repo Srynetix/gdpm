@@ -4,6 +4,7 @@ members = [
     "crates/gdpm-cli",
     "crates/gdpm-core",
     "crates/gdpm-io",
+    "crates/gdpm-scaffolder",
     "crates/gdpm-types",
     "crates/gdsettings-parser",
 ]
@@ -14,6 +15,7 @@ opt-level = 3
 
 [workspace.dependencies]
 colored = "2.1.0"
+mockall = "0.12.0"
 thiserror = "1.0.50"
 tracing = "0.1.40"
 

@@ -7,7 +7,7 @@ use clap::{Parser, Subcommand};
 use color_eyre::Result;
 use colored::Colorize;
 use gdpm_core::{
-    downloader::{download::Downloader, error::DownloadError, DownloadAdapter, GodotMirrorScanner},
+    downloader::{download::Downloader, error::DownloadError, DownloadAdapter},
     engine::{EngineHandler, EngineInfo},
     error::EngineError,
     io::IoAdapter,
@@ -23,9 +23,7 @@ use crate::{
 
 const MIRROR_URL: &str = "https://downloads.tuxfamily.org/godotengine/";
 
-/// engine management
 #[derive(Parser)]
-#[clap(name = "engine")]
 pub struct Engine {
     #[clap(subcommand)]
     cmd: Command,
@@ -34,117 +32,65 @@ pub struct Engine {
 #[derive(Subcommand)]
 pub enum Command {
     List(List),
-    ListRemote(ListRemote),
-    Register(Register),
-    Unregister(Unregister),
-    Start(Start),
-    Cmd(Cmd),
-    SetDefault(SetDefault),
-    GetDefault(GetDefault),
-    Install(Install),
-    Uninstall(Uninstall),
+    Run(Run),
+    Default(Default),
+    Add(Add),
+    Remove(Remove),
 }
 
-/// list engines
+/// List engines
 #[derive(Parser)]
 #[clap(name = "list")]
 pub struct List;
 
-/// list available engines on official mirror
+/// Run command on engine
 #[derive(Parser)]
-#[clap(name = "list-remote")]
-pub struct ListRemote {
-    /// no cache
-    #[clap(long)]
-    no_cache: bool,
-}
-
-/// register engine
-#[derive(Parser)]
-#[clap(name = "register")]
-pub struct Register {
-    /// version
-    version: String,
-    /// engine path
-    path: PathBuf,
-    /// mono edition?
-    #[clap(long)]
-    mono: bool,
-    /// built from source?
-    #[clap(long)]
-    source: bool,
-}
-
-/// unregister engine
-#[derive(Parser)]
-#[clap(name = "unregister")]
-pub struct Unregister {
-    /// version
-    version: String,
-}
-
-/// start engine
-#[derive(Parser)]
-#[clap(name = "start")]
-pub struct Start {
-    /// version
-    version: Option<String>,
-}
-
-/// execute command on engine
-#[derive(Parser)]
-#[clap(name = "cmd")]
-pub struct Cmd {
-    /// version
+pub struct Run {
+    /// Engine version
     #[clap(short, long)]
-    version: Option<String>,
-    /// arguments
+    engine: Option<String>,
+    /// Arguments
     args: Vec<String>,
 }
 
-/// set engine as default
+/// Show or set default engine
 #[derive(Parser)]
-#[clap(name = "set-default")]
-pub struct SetDefault {
-    /// version
-    version: String,
+pub struct Default {
+    /// Engine verion
+    engine: Option<String>,
 }
 
-/// get default engine
+/// Download and install engine from official mirror or specific URL / path (e.g. 3.3.4, 3.3.4.mono, 3.5.rc1, 3.5.rc1.mono)
 #[derive(Parser)]
-#[clap(name = "get-default")]
-pub struct GetDefault;
-
-/// download and install engine from official mirror or specific URL (e.g. 3.3.4, 3.3.4.mono, 3.5.rc1, 3.5.rc1.mono)
-#[derive(Parser)]
-#[clap(name = "install")]
-pub struct Install {
-    /// version
-    version: String,
-    /// headless?
+pub struct Add {
+    /// Engine version
+    engine: String,
+    /// Headless?
     #[clap(long)]
     headless: bool,
-    /// server?
+    /// Server?
     #[clap(long)]
     server: bool,
-    /// target URL
+    /// Target URL
     #[clap(long)]
     target_url: Option<String>,
-    /// allow overwrite
+    /// Target path
+    #[clap(long)]
+    target_path: Option<PathBuf>,
+    /// Allow overwrite
     #[clap(long)]
     overwrite: bool,
 }
 
-/// uninstall engine
+/// Uninstall engine
 #[derive(Parser)]
-#[clap(name = "uninstall")]
-pub struct Uninstall {
-    /// version
+pub struct Remove {
+    /// Engine version
     version: String,
-    /// headless?
+    /// Headless?
     #[clap(long)]
     headless: bool,
-    /// server?
+    /// Server?
     #[clap(long)]
     server: bool,
 }
@@ -159,15 +105,10 @@ impl Execute for Command {
     fn execute<I: IoAdapter, D: DownloadAdapter>(self, context: Context<I, D>) -> Result<()> {
         match self {
             Self::List(c) => c.execute(context),
-            Self::ListRemote(c) => c.execute(context),
-            Self::Register(c) => c.execute(context),
-            Self::Unregister(c) => c.execute(context),
-            Self::Start(c) => c.execute(context),
-            Self::Cmd(c) => c.execute(context),
-            Self::SetDefault(c) => c.execute(context),
-            Self::GetDefault(c) => c.execute(context),
-            Self::Install(c) => c.execute(context),
-            Self::Uninstall(c) => c.execute(context),
+            Self::Run(c) => c.execute(context),
+            Self::Default(c) => c.execute(context),
+            Self::Add(c) => c.execute(context),
+            Self::Remove(c) => c.execute(context),
         }
     }
 }
@@ -204,101 +145,35 @@ impl Execute for List {
     }
 }
 
-impl ListRemote {
-    async fn list_remote_engines<I: IoAdapter, D: DownloadAdapter>(
-        context: &Context<I, D>,
-        no_cache: bool,
-    ) -> Result<()> {
+impl Execute for Run {
+    fn execute<I: IoAdapter, D: DownloadAdapter>(self, context: Context<I, D>) -> Result<()> {
         let ehandler = EngineHandler::new(context.io());
-        let scanner = GodotMirrorScanner::new(context.download());
+        if let Some(v) = self.engine {
+            validate_engine_version_or_exit(context.io(), &v)?;
 
-        let should_scan = {
-            if !no_cache {
-                let cached_values = ehandler.read_versions_from_cache()?;
-                if !cached_values.is_empty() {
-                    info!("Reading versions from cache ...");
-                    for version in cached_values {
-                        println!("- {}", version);
-                    }
-
-                    false
-                } else {
-                    true
-                }
+            if self.args.is_empty() {
+                println!("Running Godot Engine v{} ...", v.color("green"));
+                ehandler.run_version_for_project(&v, Path::new("."))?;
             } else {
-                true
+                println!(
+                    "Executing command {} Godot Engine v{} ...",
+                    self.args.join(" ").color("blue"),
+                    v.color("green")
+                );
+                ehandler.exec_version_for_project(&v, &self.args, Path::new("."))?;
             }
-        };
-
-        if should_scan {
-            info!("Fetching remote versions ...");
-
-            let versions = scanner.scan(MIRROR_URL).await?;
-            for version in &versions {
-                println!("- {}", version);
+        } else if let Some(e) = ehandler.get_default()? {
+            if self.args.is_empty() {
+                println!(
+                    "Executing command {} on Godot Engine v{} ...",
+                    self.args.join(" ").color("blue"),
+                    e.color("green")
+                );
+                ehandler.exec_version_for_project(&e, &self.args, Path::new("."))?;
+            } else {
+                println!("Running Godot Engine v{} ...", e.color("green"));
+                ehandler.run_version_for_project(&e, Path::new("."))?;
             }
-
-            ehandler.write_versions_in_cache(versions)?;
-        }
-
-        Ok(())
-    }
-}
-
-impl Execute for ListRemote {
-    fn execute<I: IoAdapter, D: DownloadAdapter>(self, context: Context<I, D>) -> Result<()> {
-        let rt = tokio::runtime::Builder::new_multi_thread()
-            .enable_all()
-            .build()
-            .unwrap();
-        rt.block_on(Self::list_remote_engines(&context, self.no_cache))?;
-
-        Ok(())
-    }
-}
-
-impl Execute for Register {
-    fn execute<I: IoAdapter, D: DownloadAdapter>(self, context: Context<I, D>) -> Result<()> {
-        let engine_info = EngineInfo::new(
-            context.io(),
-            self.version,
-            self.path,
-            self.mono,
-            self.source,
-        )?;
-        let verbose_name = engine_info.get_verbose_name();
-        let ehandler = EngineHandler::new(context.io());
-        ehandler.register(engine_info)?;
-
-        println!("{} is registered.", verbose_name);
-        Ok(())
-    }
-}
-
-impl Execute for Unregister {
-    fn execute<I: IoAdapter, D: DownloadAdapter>(self, context: Context<I, D>) -> Result<()> {
-        validate_engine_version_or_exit(context.io(), &self.version)?;
-        let ehandler = EngineHandler::new(context.io());
-        ehandler.unregister(&self.version)?;
-
-        println!(
-            "Godot Engine v{} unregistered.",
-            self.version.color("green")
-        );
-        Ok(())
-    }
-}
-
-impl Execute for Start {
-    fn execute<I: IoAdapter, D: DownloadAdapter>(self, context: Context<I, D>) -> Result<()> {
-        let ehandler = EngineHandler::new(context.io());
-        if let Some(v) = self.version {
-            validate_engine_version_or_exit(context.io(), &v)?;
-            println!("Running Godot Engine v{} ...", v.color("green"));
-            ehandler.run_version_for_project(&v, Path::new("."))?;
-        } else if let Some(e) = ehandler.get_default()? {
-            println!("Running Godot Engine v{} ...", e.color("green"));
-            ehandler.run_version_for_project(&e, Path::new("."))?;
         } else {
             print_missing_default_engine_message();
         }
@@ -307,62 +182,27 @@ impl Execute for Start {
     }
 }
 
-impl Execute for Cmd {
+impl Execute for Default {
     fn execute<I: IoAdapter, D: DownloadAdapter>(self, context: Context<I, D>) -> Result<()> {
-        let ehandler = EngineHandler::new(context.io());
-        if self.args.is_empty() {
-            println!("{}", "You need to pass arguments. If you only want to start the engine, use `engine start`.".color("yellow"));
-        } else if let Some(v) = self.version {
-            validate_engine_version_or_exit(context.io(), &v)?;
-            println!(
-                "Executing command {} Godot Engine v{} ...",
-                self.args.join(" ").color("blue"),
-                v.color("green")
-            );
-            ehandler.exec_version_for_project(&v, &self.args, Path::new("."))?;
-        } else if let Some(e) = ehandler.get_default()? {
-            println!(
-                "Executing command {} on Godot Engine v{} ...",
-                self.args.join(" ").color("blue"),
-                e.color("green")
-            );
-            ehandler.exec_version_for_project(&e, &self.args, Path::new("."))?;
+        if let Some(version) = self.engine {
+            validate_engine_version_or_exit(context.io(), &version)?;
+            let ehandler = EngineHandler::new(context.io());
+            ehandler.set_as_default(&version)?;
+            println!("Godot Engine v{} set as default.", version.color("green"));
         } else {
-            print_missing_default_engine_message();
+            let ehandler = EngineHandler::new(context.io());
+            if let Some(e) = ehandler.get_default()? {
+                println!("{} {}", "*".color("green"), e.color("green"));
+            } else {
+                print_missing_default_engine_message();
+            }
         }
 
         Ok(())
     }
 }
 
-impl Execute for SetDefault {
-    fn execute<I: IoAdapter, D: DownloadAdapter>(self, context: Context<I, D>) -> Result<()> {
-        validate_engine_version_or_exit(context.io(), &self.version)?;
-        let ehandler = EngineHandler::new(context.io());
-        ehandler.set_as_default(&self.version)?;
-        println!(
-            "Godot Engine v{} set as default.",
-            self.version.color("green")
-        );
-
-        Ok(())
-    }
-}
-
-impl Execute for GetDefault {
-    fn execute<I: IoAdapter, D: DownloadAdapter>(self, context: Context<I, D>) -> Result<()> {
-        let ehandler = EngineHandler::new(context.io());
-        if let Some(e) = ehandler.get_default()? {
-            println!("{} {}", "*".color("green"), e.color("green"));
-        } else {
-            print_missing_default_engine_message();
-        }
-
-        Ok(())
-    }
-}
-
-impl Install {
+impl Add {
     async fn download_file_at_url<I: IoAdapter, D: DownloadAdapter>(
         context: &Context<I, D>,
         url: &str,
@@ -412,10 +252,10 @@ impl Install {
     }
 }
 
-impl Execute for Install {
+impl Execute for Add {
     fn execute<I: IoAdapter, D: DownloadAdapter>(self, context: Context<I, D>) -> Result<()> {
         let ehandler = EngineHandler::new(context.io());
-        let (version, system) = parse_godot_version_args(&self.version, self.headless, self.server);
+        let (version, system) = parse_godot_version_args(&self.engine, self.headless, self.server);
 
         let version_name = format!("{}", version);
         let existing_version = ehandler.has_version(&version_name)?;
@@ -433,6 +273,16 @@ impl Execute for Install {
             }
         }
 
+        if let Some(path) = self.target_path {
+            let engine_info = EngineInfo::new(context.io(), self.engine, path)?;
+            let verbose_name = engine_info.get_verbose_name();
+            let ehandler = EngineHandler::new(context.io());
+            ehandler.register(engine_info)?;
+
+            println!("{} is registered.", verbose_name);
+            return Ok(());
+        }
+
         let url = self.target_url.unwrap_or_else(|| {
             Downloader::get_official_url_for_version(version.clone(), system.clone(), MIRROR_URL)
         });
@@ -447,7 +297,7 @@ impl Execute for Install {
     }
 }
 
-impl Execute for Uninstall {
+impl Execute for Remove {
     fn execute<I: IoAdapter, D: DownloadAdapter>(self, context: Context<I, D>) -> Result<()> {
         let (version, _system) =
             parse_godot_version_args(&self.version, self.headless, self.server);
@@ -472,8 +322,7 @@ impl Execute for Uninstall {
                     std::process::exit(1);
                 }
                 EngineError::EngineNotInstalled(_) => {
-                    println!("{}", format!("Engine version '{0}' was not downloaded through gdpm. Use 'unregister {0}' instead.", version_name).color("yellow"));
-                    std::process::exit(1);
+                    ehandler.unregister(&version_name)?;
                 }
                 e => return Err(e.into()),
             },

@@ -7,10 +7,10 @@ use futures_util::StreamExt;
 use indicatif::{ProgressBar, ProgressStyle};
 use reqwest::{Client, Response, StatusCode};
 
-/// Download impl.
-pub struct DownloadImpl;
+/// Default download adapter.
+pub struct DefaultDownloadAdapter;
 
-impl DownloadImpl {
+impl DefaultDownloadAdapter {
     async fn download_file_at_url_async(url: &str) -> Result<Vec<u8>, DownloadError> {
         let client = Client::new();
         let res = client
@@ -55,7 +55,7 @@ impl DownloadImpl {
 }
 
 #[async_trait]
-impl DownloadAdapter for DownloadImpl {
+impl DownloadAdapter for DefaultDownloadAdapter {
     async fn download_file_at_url(&self, url: &str) -> Result<Vec<u8>, DownloadError> {
         Self::download_file_at_url_async(url).await
     }

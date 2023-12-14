@@ -1,6 +1,6 @@
 [package]
 name = "gdsettings-parser"
-version = "0.1.0"
+version = "0.0.0"
 authors = ["Denis Bourge <denis.bourge@sharingcloud.com>"]
 edition = "2021"
 

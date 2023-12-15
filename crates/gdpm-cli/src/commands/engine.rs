@@ -1,7 +1,4 @@
-use std::{
-    path::{Path, PathBuf},
-    str::FromStr,
-};
+use std::path::{Path, PathBuf};
 
 use clap::{Parser, Subcommand};
 use color_eyre::Result;
@@ -17,11 +14,14 @@ use tracing::info;
 
 use super::Execute;
 use crate::{
-    common::{print_missing_default_engine_message, validate_engine_version_or_exit},
+    common::{
+        parse_godot_version_args, print_missing_default_engine_message,
+        validate_engine_version_or_exit,
+    },
     context::Context,
 };
 
-const MIRROR_URL: &str = "https://downloads.tuxfamily.org/godotengine/";
+pub(crate) const MIRROR_URL: &str = "https://downloads.tuxfamily.org/godotengine/";
 
 #[derive(Parser)]
 pub struct Engine {
@@ -62,31 +62,31 @@ pub struct Default {
 
 /// Download and install engine from official mirror or specific URL / path (e.g. 3.3.4, 3.3.4.mono, 3.5.rc1, 3.5.rc1.mono)
 #[derive(Parser)]
-pub struct Add {
+pub(crate) struct Add {
     /// Engine version
-    engine: String,
+    pub(crate) engine: String,
     /// Headless?
     #[clap(long)]
-    headless: bool,
+    pub(crate) headless: bool,
     /// Server?
     #[clap(long)]
-    server: bool,
+    pub(crate) server: bool,
     /// Target URL
     #[clap(long)]
-    target_url: Option<String>,
+    pub(crate) target_url: Option<String>,
     /// Target path
     #[clap(long)]
-    target_path: Option<PathBuf>,
+    pub(crate) target_path: Option<PathBuf>,
     /// Allow overwrite
     #[clap(long)]
-    overwrite: bool,
+    pub(crate) overwrite: bool,
 }
 
 /// Uninstall engine
 #[derive(Parser)]
 pub struct Remove {
     /// Engine version
-    version: String,
+    engine: String,
     /// Headless?
     #[clap(long)]
     headless: bool,
@@ -96,13 +96,13 @@ pub struct Remove {
 }
 
 impl Execute for Engine {
-    fn execute<I: IoAdapter, D: DownloadAdapter>(self, context: Context<I, D>) -> Result<()> {
+    fn execute<I: IoAdapter, D: DownloadAdapter>(self, context: &Context<I, D>) -> Result<()> {
         self.cmd.execute(context)
     }
 }
 
 impl Execute for Command {
-    fn execute<I: IoAdapter, D: DownloadAdapter>(self, context: Context<I, D>) -> Result<()> {
+    fn execute<I: IoAdapter, D: DownloadAdapter>(self, context: &Context<I, D>) -> Result<()> {
         match self {
             Self::List(c) => c.execute(context),
             Self::Run(c) => c.execute(context),
@@ -114,7 +114,7 @@ impl Execute for Command {
 }
 
 impl Execute for List {
-    fn execute<I: IoAdapter, D: DownloadAdapter>(self, context: Context<I, D>) -> Result<()> {
+    fn execute<I: IoAdapter, D: DownloadAdapter>(self, context: &Context<I, D>) -> Result<()> {
         let ehandler = EngineHandler::new(context.io());
         let entries = ehandler.list()?;
         let default_entry = ehandler.get_default()?;
@@ -146,7 +146,7 @@ impl Execute for List {
 }
 
 impl Execute for Run {
-    fn execute<I: IoAdapter, D: DownloadAdapter>(self, context: Context<I, D>) -> Result<()> {
+    fn execute<I: IoAdapter, D: DownloadAdapter>(self, context: &Context<I, D>) -> Result<()> {
         let ehandler = EngineHandler::new(context.io());
         if let Some(v) = self.engine {
             validate_engine_version_or_exit(context.io(), &v)?;
@@ -183,7 +183,7 @@ impl Execute for Run {
 }
 
 impl Execute for Default {
-    fn execute<I: IoAdapter, D: DownloadAdapter>(self, context: Context<I, D>) -> Result<()> {
+    fn execute<I: IoAdapter, D: DownloadAdapter>(self, context: &Context<I, D>) -> Result<()> {
         if let Some(version) = self.engine {
             validate_engine_version_or_exit(context.io(), &version)?;
             let ehandler = EngineHandler::new(context.io());
@@ -203,7 +203,7 @@ impl Execute for Default {
 }
 
 impl Add {
-    async fn download_file_at_url<I: IoAdapter, D: DownloadAdapter>(
+    pub(crate) async fn download_file_at_url<I: IoAdapter, D: DownloadAdapter>(
         context: &Context<I, D>,
         url: &str,
         version: GodotVersion,
@@ -250,10 +250,55 @@ impl Add {
 
         Ok(())
     }
+
+    pub(crate) async fn download_and_install_export_templates<I: IoAdapter, D: DownloadAdapter>(
+        context: &Context<I, D>,
+        url: &str,
+        version: GodotVersion,
+    ) -> Result<()> {
+        let ehandler = EngineHandler::new(context.io());
+
+        match Downloader::download_file_at_url(context.download(), url).await {
+            Ok(c) => {
+                let path = ehandler.install_export_templates(c, version.clone())?;
+                println!(
+                    "{}",
+                    format!(
+                        "Export templates for version '{}' installed at path '{}'",
+                        version,
+                        path.display()
+                    )
+                    .color("green")
+                );
+            }
+            Err(DownloadError::NotFound(u)) => {
+                println!(
+                    "{}",
+                    format!(
+                        "Export templates for version '{}' does not exist (or wrong url: {})",
+                        version, u
+                    )
+                    .color("red")
+                );
+            }
+            Err(e) => {
+                println!(
+                    "{}",
+                    format!(
+                        "Unexpected error while trying to download file at url '{}'\n    | {}",
+                        url, e
+                    )
+                    .color("red")
+                )
+            }
+        }
+
+        Ok(())
+    }
 }
 
 impl Execute for Add {
-    fn execute<I: IoAdapter, D: DownloadAdapter>(self, context: Context<I, D>) -> Result<()> {
+    fn execute<I: IoAdapter, D: DownloadAdapter>(self, context: &Context<I, D>) -> Result<()> {
         let ehandler = EngineHandler::new(context.io());
         let (version, system) = parse_godot_version_args(&self.engine, self.headless, self.server);
 
@@ -283,24 +328,49 @@ impl Execute for Add {
             return Ok(());
         }
 
-        let url = self.target_url.unwrap_or_else(|| {
-            Downloader::get_official_url_for_version(version.clone(), system.clone(), MIRROR_URL)
-        });
+        if let Some(url) = self.target_url {
+            let rt = tokio::runtime::Builder::new_multi_thread()
+                .enable_all()
+                .build()
+                .unwrap();
+            rt.block_on(Self::download_file_at_url(context, &url, version, system))?;
 
-        let rt = tokio::runtime::Builder::new_multi_thread()
-            .enable_all()
-            .build()
-            .unwrap();
-        rt.block_on(Self::download_file_at_url(&context, &url, version, system))?;
+            println!("Cannot fetch export templates, missing URL.");
+        } else {
+            let editor_url = Downloader::get_official_editor_url_for_version(
+                version.clone(),
+                system.clone(),
+                MIRROR_URL,
+            );
+            let templates_url = Downloader::get_official_export_templates_url_for_version(
+                version.clone(),
+                MIRROR_URL,
+            );
+
+            let rt = tokio::runtime::Builder::new_multi_thread()
+                .enable_all()
+                .build()
+                .unwrap();
+            rt.block_on(Self::download_file_at_url(
+                context,
+                &editor_url,
+                version.clone(),
+                system,
+            ))?;
+            rt.block_on(Self::download_and_install_export_templates(
+                context,
+                &templates_url,
+                version,
+            ))?;
+        }
 
         Ok(())
     }
 }
 
 impl Execute for Remove {
-    fn execute<I: IoAdapter, D: DownloadAdapter>(self, context: Context<I, D>) -> Result<()> {
-        let (version, _system) =
-            parse_godot_version_args(&self.version, self.headless, self.server);
+    fn execute<I: IoAdapter, D: DownloadAdapter>(self, context: &Context<I, D>) -> Result<()> {
+        let (version, _system) = parse_godot_version_args(&self.engine, self.headless, self.server);
 
         let ehandler = EngineHandler::new(context.io());
         let version_name = format!("{}", version);
@@ -330,30 +400,4 @@ impl Execute for Remove {
 
         Ok(())
     }
-}
-
-pub fn parse_godot_version_args(
-    version: &str,
-    headless: bool,
-    server: bool,
-) -> (GodotVersion, SystemVersion) {
-    let system = SystemVersion::determine_system_kind();
-
-    if !system.is_linux() && headless {
-        println!(
-            "{}",
-            "You can not install an headless version of Godot Engine on a non-Linux platform."
-                .color("red")
-        );
-        std::process::exit(1);
-    } else if !system.is_linux() && server {
-        println!(
-            "{}",
-            "You can not install an server version of Godot Engine on a non-Linux platform."
-                .color("red")
-        );
-        std::process::exit(1);
-    }
-
-    (GodotVersion::from_str(version).unwrap(), system)
 }

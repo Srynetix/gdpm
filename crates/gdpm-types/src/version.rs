@@ -1,6 +1,9 @@
 //! Versions.
 
-use std::{fmt::Display, str::FromStr};
+use std::{
+    fmt::{Display, Write},
+    str::FromStr,
+};
 
 use gdsettings_parser::GdValue;
 
@@ -224,6 +227,19 @@ impl GodotVersion {
             None
         }
     }
+
+    /// Get export template name
+    pub fn get_export_template_name(&self) -> String {
+        let mut output = String::new();
+        output.write_str(&self.version).unwrap();
+        output.write_fmt(format_args!(".{}", self.kind)).unwrap();
+
+        if self.mono {
+            output.write_str(".mono").unwrap();
+        }
+
+        output
+    }
 }
 
 impl Display for GodotVersion {
@@ -372,6 +388,22 @@ mod tests {
         assert_eq!(
             GodotVersion::from_str("3.1.2.mono").unwrap(),
             GodotVersion::new("3.1.2", GodotVersionKind::Stable, true)
+        );
+    }
+
+    #[test]
+    fn test_export_template_name() {
+        assert_eq!(
+            GodotVersion::from_str("3.1.2")
+                .unwrap()
+                .get_export_template_name(),
+            "3.1.2.stable"
+        );
+        assert_eq!(
+            GodotVersion::from_str("3.1.2.mono")
+                .unwrap()
+                .get_export_template_name(),
+            "3.1.2.stable.mono"
         );
     }
 }

@@ -16,6 +16,7 @@ slugify = "0.1.0"
 
 colored = { workspace = true }
 thiserror = { workspace = true }
+tokio = { workspace = true }
 tracing = { workspace = true }
 
 [dev-dependencies]

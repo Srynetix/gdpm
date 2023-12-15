@@ -6,7 +6,10 @@ use color_eyre::Result;
 use colored::Colorize;
 use gdpm_core::{downloader::DownloadAdapter, io::IoAdapter, project::ProjectHandler};
 
-use crate::common::{get_project_info_or_exit, validate_engine_version_or_exit};
+use crate::{
+    common::{get_project_info_or_exit, validate_engine_version_or_exit},
+    context::Context,
+};
 
 use super::Execute;
 
@@ -21,10 +24,7 @@ pub struct SetEngine {
 }
 
 impl Execute for SetEngine {
-    fn execute<I: IoAdapter, D: DownloadAdapter>(
-        self,
-        context: crate::context::Context<I, D>,
-    ) -> Result<()> {
+    fn execute<I: IoAdapter, D: DownloadAdapter>(self, context: &Context<I, D>) -> Result<()> {
         let info = get_project_info_or_exit(context.io(), &self.path);
         let phandler = ProjectHandler::new(context.io());
         validate_engine_version_or_exit(context.io(), &self.engine)?;

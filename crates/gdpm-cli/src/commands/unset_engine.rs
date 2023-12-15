@@ -6,7 +6,7 @@ use color_eyre::Result;
 use colored::Colorize;
 use gdpm_core::{downloader::DownloadAdapter, io::IoAdapter, project::ProjectHandler};
 
-use crate::common::get_project_info_or_exit;
+use crate::{common::get_project_info_or_exit, context::Context};
 
 use super::Execute;
 
@@ -18,10 +18,7 @@ pub struct UnsetEngine {
 }
 
 impl Execute for UnsetEngine {
-    fn execute<I: IoAdapter, D: DownloadAdapter>(
-        self,
-        context: crate::context::Context<I, D>,
-    ) -> Result<()> {
+    fn execute<I: IoAdapter, D: DownloadAdapter>(self, context: &Context<I, D>) -> Result<()> {
         let phandler = ProjectHandler::new(context.io());
         phandler.unset_project_engine(&self.path)?;
         let info = get_project_info_or_exit(context.io(), &self.path);

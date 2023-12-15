@@ -10,7 +10,10 @@ use gdpm_core::{
     scaffolder::{ProjectInfo, ProjectRenderer, Scaffolder},
 };
 
-use crate::common::{print_missing_default_engine_message, validate_engine_version_or_exit};
+use crate::{
+    common::{print_missing_default_engine_message, validate_engine_version_or_exit},
+    context::Context,
+};
 
 use super::Execute;
 
@@ -32,10 +35,7 @@ pub struct New {
 }
 
 impl Execute for New {
-    fn execute<I: IoAdapter, D: DownloadAdapter>(
-        self,
-        context: crate::context::Context<I, D>,
-    ) -> Result<()> {
+    fn execute<I: IoAdapter, D: DownloadAdapter>(self, context: &Context<I, D>) -> Result<()> {
         let ehandler = EngineHandler::new(context.io());
         let engine = if let Some(v) = self.engine {
             validate_engine_version_or_exit(context.io(), &v)?

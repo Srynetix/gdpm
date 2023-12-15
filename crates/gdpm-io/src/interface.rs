@@ -47,4 +47,22 @@ pub trait IoAdapter {
 
     /// Open and extract ZIP file.
     fn open_and_extract_zip(&self, source: &Path, destination: &Path) -> Result<(), Error>;
+
+    /// Move files in parent folder.
+    fn move_files_in_parent_folder(&self, source: &Path) -> Result<(), Error> {
+        let top_level_folder = source
+            .parent()
+            .ok_or_else(|| Error::NoParentFolder(source.to_owned()))?;
+        for file in self.read_dir(source)? {
+            let file =
+                file.map_err(|e| Error::ReadDirEntryError(source.to_owned(), e.to_string()))?;
+            let dest_path = top_level_folder.join(file.file_name());
+            self.copy_file(&file.path(), &dest_path)?;
+        }
+
+        // Remove source
+        self.remove_dir_all(source)?;
+
+        Ok(())
+    }
 }

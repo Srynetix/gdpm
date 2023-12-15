@@ -6,7 +6,7 @@ use color_eyre::Result;
 use colored::Colorize;
 use gdpm_core::{downloader::DownloadAdapter, io::IoAdapter, plugins::DependencyHandler};
 
-use crate::common::get_project_info_or_exit;
+use crate::{common::get_project_info_or_exit, context::Context};
 
 use super::Execute;
 
@@ -18,10 +18,7 @@ pub struct Info {
 }
 
 impl Execute for Info {
-    fn execute<I: IoAdapter, D: DownloadAdapter>(
-        self,
-        context: crate::context::Context<I, D>,
-    ) -> Result<()> {
+    fn execute<I: IoAdapter, D: DownloadAdapter>(self, context: &Context<I, D>) -> Result<()> {
         let info = get_project_info_or_exit(context.io(), &self.path);
         info.show();
 

@@ -44,6 +44,9 @@ pub enum Error {
     #[error("Failed to execute command: {0}")]
     CommandExecutionError(String),
 
+    #[error("Cannot get parent path for '{0}'")]
+    NoParentFolder(PathBuf),
+
     #[error("Could not open zip file '{0}': {1}")]
     OpenZipError(PathBuf, String),
 

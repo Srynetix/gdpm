@@ -6,7 +6,7 @@ use color_eyre::Result;
 use colored::Colorize;
 use gdpm_core::{downloader::DownloadAdapter, io::IoAdapter, plugins::DependencyHandler};
 
-use crate::common::get_project_info_or_exit;
+use crate::{common::get_project_info_or_exit, context::Context};
 
 use super::Execute;
 
@@ -20,10 +20,7 @@ pub struct Remove {
 }
 
 impl Execute for Remove {
-    fn execute<I: IoAdapter, D: DownloadAdapter>(
-        self,
-        context: crate::context::Context<I, D>,
-    ) -> Result<()> {
+    fn execute<I: IoAdapter, D: DownloadAdapter>(self, context: &Context<I, D>) -> Result<()> {
         let info = get_project_info_or_exit(context.io(), &self.path);
         let dhandler = DependencyHandler::new(context.io());
         dhandler.remove_dependency(&self.path, &self.name)?;

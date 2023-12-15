@@ -31,7 +31,7 @@ pub struct Args {
 
 trait Execute {
     /// Execute!
-    fn execute<I: IoAdapter, D: DownloadAdapter>(self, context: Context<I, D>) -> Result<()>;
+    fn execute<I: IoAdapter, D: DownloadAdapter>(self, context: &Context<I, D>) -> Result<()>;
 }
 
 #[derive(Subcommand)]
@@ -80,15 +80,15 @@ pub fn parse_args<I: IoAdapter, D: DownloadAdapter>(
         .init();
 
     match args.command {
-        Command::Add(c) => c.execute(context),
-        Command::Edit(c) => c.execute(context),
-        Command::Engine(c) => c.execute(context),
-        Command::Info(c) => c.execute(context),
-        Command::New(c) => c.execute(context),
-        Command::Remove(c) => c.execute(context),
-        Command::Run(c) => c.execute(context),
-        Command::SetEngine(c) => c.execute(context),
-        Command::Sync(c) => c.execute(context),
-        Command::UnsetEngine(c) => c.execute(context),
+        Command::Add(c) => c.execute(&context),
+        Command::Edit(c) => c.execute(&context),
+        Command::Engine(c) => c.execute(&context),
+        Command::Info(c) => c.execute(&context),
+        Command::New(c) => c.execute(&context),
+        Command::Remove(c) => c.execute(&context),
+        Command::Run(c) => c.execute(&context),
+        Command::SetEngine(c) => c.execute(&context),
+        Command::Sync(c) => c.execute(&context),
+        Command::UnsetEngine(c) => c.execute(&context),
     }
 }

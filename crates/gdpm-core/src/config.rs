@@ -16,6 +16,43 @@ pub const ENGINES_SECTION: &str = "engines";
 /// Project config filename.
 pub const PROJECT_CONFIG_FILENAME: &str = "project.godot";
 
+/// Godot directory handler.
+pub struct GodotDir<'a, I: IoAdapter> {
+    io_adapter: &'a I,
+}
+
+impl<'a, I: IoAdapter> GodotDir<'a, I> {
+    /// Creates a new GodotDir.
+    pub fn new(io_adapter: &'a I) -> Self {
+        Self { io_adapter }
+    }
+
+    /// Get or create global directory.
+    pub fn get_or_create_global_directory(&self) -> Result<PathBuf, Error> {
+        let config_directory = self
+            .io_adapter
+            .get_user_configuration_directory()?
+            .join("Godot");
+        if !self.io_adapter.path_exists(&config_directory) {
+            self.io_adapter.create_dir(&config_directory)?;
+        }
+
+        Ok(config_directory)
+    }
+
+    /// Get or create export templates directory.
+    pub fn get_or_create_export_templates_directory(&self) -> Result<PathBuf, Error> {
+        let export_templates_directory = self
+            .get_or_create_global_directory()?
+            .join("export_templates");
+        if !self.io_adapter.path_exists(&export_templates_directory) {
+            self.io_adapter.create_dir(&export_templates_directory)?;
+        }
+
+        Ok(export_templates_directory)
+    }
+}
+
 /// User directory handler.
 pub struct UserDir<'a, I: IoAdapter> {
     io_adapter: &'a I,

@@ -9,9 +9,14 @@ use gdpm_core::{
 };
 use question::{Answer, Question};
 
-use crate::common::{
-    get_project_info_or_exit, print_missing_default_engine_message,
-    print_missing_project_engine_message, validate_engine_version_or_exit,
+use crate::{
+    commands::engine,
+    common::{
+        check_engine_version_or_ask_default, get_project_info_or_exit,
+        print_missing_default_engine_message, print_missing_project_engine_message,
+        validate_engine_version_or_exit, CheckEngineResponse,
+    },
+    context::Context,
 };
 
 use super::Execute;
@@ -28,10 +33,7 @@ pub struct Edit {
 }
 
 impl Execute for Edit {
-    fn execute<I: IoAdapter, D: DownloadAdapter>(
-        self,
-        context: crate::context::Context<I, D>,
-    ) -> Result<()> {
+    fn execute<I: IoAdapter, D: DownloadAdapter>(self, context: &Context<I, D>) -> Result<()> {
         let info = get_project_info_or_exit(context.io(), &self.path);
         let ehandler = EngineHandler::new(context.io());
         let phandler = ProjectHandler::new(context.io());
@@ -45,12 +47,36 @@ impl Execute for Edit {
             );
             ehandler.run_version_for_project(&v, &self.path)?;
         } else if let Some(e) = info.get_engine_version() {
+            let engine_response = check_engine_version_or_ask_default(context.io(), e)?;
+            let engine_version = match engine_response {
+                CheckEngineResponse::Found(v) => v,
+                CheckEngineResponse::UseDefault(v) => v,
+                CheckEngineResponse::Abort => {
+                    println!("Aborting.");
+                    std::process::exit(1);
+                }
+                CheckEngineResponse::Download(v) => {
+                    let cmd = engine::Add {
+                        engine: v.clone(),
+                        headless: false,
+                        overwrite: false,
+                        server: false,
+                        target_path: None,
+                        target_url: None,
+                    };
+
+                    cmd.execute(context)?;
+
+                    ehandler.get_version(&v).unwrap()
+                }
+            };
+
             println!(
                 "Running Godot Engine v{} for project {} ...",
-                e.color("green"),
+                engine_version.get_name(),
                 info.get_versioned_name().color("green")
             );
-            ehandler.run_version_for_project(e, &self.path)?;
+            ehandler.run_version_for_project(&engine_version.version, &self.path)?;
         } else if let Some(e) = ehandler.get_default()? {
             print_missing_project_engine_message();
             match Question::new(&format!(

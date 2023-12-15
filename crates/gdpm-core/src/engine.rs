@@ -15,7 +15,7 @@ use slugify::slugify;
 use tracing::{debug, info};
 
 use crate::{
-    config::{GlobalConfig, UserDir, ENGINES_SECTION},
+    config::{GlobalConfig, GodotDir, UserDir, ENGINES_SECTION},
     error::{ConfigError, EngineError},
 };
 
@@ -371,6 +371,38 @@ impl<'a, I: IoAdapter> EngineHandler<'a, I> {
         )?)?;
 
         Ok(zip_exec_target)
+    }
+
+    /// Install export templates.
+    pub fn install_export_templates(
+        &self,
+        templates_data: Vec<u8>,
+        version: GodotVersion,
+    ) -> Result<PathBuf, EngineError> {
+        let gdir = GodotDir::new(self.io_adapter);
+        let templates_directory = gdir.get_or_create_export_templates_directory()?;
+        let templates_path_for_version =
+            templates_directory.join(version.get_export_template_name());
+
+        if !self.io_adapter.path_exists(&templates_path_for_version) {
+            self.io_adapter.create_dir(&templates_path_for_version)?;
+        }
+
+        // Unzip
+        let zip_path = templates_path_for_version.join("templates.tpz");
+        self.io_adapter
+            .write_bytes_to_file(&zip_path, &templates_data)?;
+        self.io_adapter
+            .open_and_extract_zip(&zip_path, &templates_path_for_version)?;
+
+        // Remove templates.tpz
+        self.io_adapter.remove_file(&zip_path)?;
+
+        // Move files in top-level folder
+        self.io_adapter
+            .move_files_in_parent_folder(&templates_path_for_version.join("templates"))?;
+
+        Ok(templates_path_for_version)
     }
 
     /// Uninstall version.

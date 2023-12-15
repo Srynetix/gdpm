@@ -59,16 +59,4 @@ impl DownloadAdapter for DefaultDownloadAdapter {
     async fn download_file_at_url(&self, url: &str) -> Result<Vec<u8>, DownloadError> {
         Self::download_file_at_url_async(url).await
     }
-
-    async fn get_url_contents(&self, url: &str) -> Result<String, DownloadError> {
-        let client = Client::new();
-        let res = client
-            .get(url)
-            .send()
-            .await
-            .map_err(|e| DownloadError::ReqwestError(url.into(), e))?;
-        res.text()
-            .await
-            .map_err(|e| DownloadError::ReqwestError(url.into(), e))
-    }
 }

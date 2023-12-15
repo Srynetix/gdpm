@@ -12,7 +12,6 @@ async-trait = "0.1.74"
 futures-util = "0.3.29"
 indicatif = "0.17.7"
 reqwest = { version = "0.11.22", features = ["stream"] }
-soup = "0.5.1"
 tokio = { version = "1.35.0", features = ["rt", "macros"] }
 
 mockall = { workspace = true }

@@ -48,7 +48,7 @@ pub struct List;
 pub struct Run {
     /// Engine version
     #[clap(short, long)]
-    engine: Option<String>,
+    engine: Option<GodotVersion>,
     /// Arguments
     args: Vec<String>,
 }
@@ -57,14 +57,14 @@ pub struct Run {
 #[derive(Parser)]
 pub struct Default {
     /// Engine verion
-    engine: Option<String>,
+    engine: Option<GodotVersion>,
 }
 
 /// Download and install engine from official mirror or specific URL / path (e.g. 3.3.4, 3.3.4.mono, 3.5.rc1, 3.5.rc1.mono)
 #[derive(Parser)]
 pub(crate) struct Add {
     /// Engine version
-    pub(crate) engine: String,
+    pub(crate) engine: GodotVersion,
     /// Headless?
     #[clap(long)]
     pub(crate) headless: bool,
@@ -86,7 +86,7 @@ pub(crate) struct Add {
 #[derive(Parser)]
 pub struct Remove {
     /// Engine version
-    engine: String,
+    engine: GodotVersion,
     /// Headless?
     #[clap(long)]
     headless: bool,
@@ -152,13 +152,13 @@ impl Execute for Run {
             validate_engine_version_or_exit(context.io(), &v)?;
 
             if self.args.is_empty() {
-                println!("Running Godot Engine v{} ...", v.color("green"));
+                println!("Running Godot Engine v{} ...", v.to_string().color("green"));
                 ehandler.run_version_for_project(&v, Path::new("."))?;
             } else {
                 println!(
                     "Executing command {} Godot Engine v{} ...",
                     self.args.join(" ").color("blue"),
-                    v.color("green")
+                    v.to_string().color("green")
                 );
                 ehandler.exec_version_for_project(&v, &self.args, Path::new("."))?;
             }
@@ -167,11 +167,11 @@ impl Execute for Run {
                 println!(
                     "Executing command {} on Godot Engine v{} ...",
                     self.args.join(" ").color("blue"),
-                    e.color("green")
+                    e.to_string().color("green")
                 );
                 ehandler.exec_version_for_project(&e, &self.args, Path::new("."))?;
             } else {
-                println!("Running Godot Engine v{} ...", e.color("green"));
+                println!("Running Godot Engine v{} ...", e.to_string().color("green"));
                 ehandler.run_version_for_project(&e, Path::new("."))?;
             }
         } else {
@@ -188,11 +188,14 @@ impl Execute for Default {
             validate_engine_version_or_exit(context.io(), &version)?;
             let ehandler = EngineHandler::new(context.io());
             ehandler.set_as_default(&version)?;
-            println!("Godot Engine v{} set as default.", version.color("green"));
+            println!(
+                "Godot Engine v{} set as default.",
+                version.to_string().color("green")
+            );
         } else {
             let ehandler = EngineHandler::new(context.io());
             if let Some(e) = ehandler.get_default()? {
-                println!("{} {}", "*".color("green"), e.color("green"));
+                println!("{} {}", "*".color("green"), e.to_string().color("green"));
             } else {
                 print_missing_default_engine_message();
             }
@@ -302,18 +305,17 @@ impl Execute for Add {
         let ehandler = EngineHandler::new(context.io());
         let (version, system) = parse_godot_version_args(&self.engine, self.headless, self.server);
 
-        let version_name = format!("{}", version);
-        let existing_version = ehandler.has_version(&version_name)?;
+        let existing_version = ehandler.has_version(&version)?;
         if existing_version.is_some() {
             if !self.overwrite {
                 println!("{}",
-                    format!("Engine version '{}' is already installed. Use '--overwrite' to force installation.", version_name).color("yellow")
+                    format!("Engine version '{}' is already installed. Use '--overwrite' to force installation.", version).color("yellow")
                 );
                 std::process::exit(1);
             } else {
                 info!(
                     "Will overwrite existing engine version '{}'.",
-                    version_name.color("green")
+                    version.to_string().color("green")
                 );
             }
         }
@@ -373,26 +375,22 @@ impl Execute for Remove {
         let (version, _system) = parse_godot_version_args(&self.engine, self.headless, self.server);
 
         let ehandler = EngineHandler::new(context.io());
-        let version_name = format!("{}", version);
-        match ehandler.uninstall(version) {
+        match ehandler.uninstall(&version) {
             Ok(()) => println!(
                 "{}",
-                format!(
-                    "Engine version '{}' was successfully uninstalled.",
-                    version_name
-                )
-                .color("green")
+                format!("Engine version '{}' was successfully uninstalled.", version)
+                    .color("green")
             ),
             Err(e) => match e {
                 EngineError::EngineNotFound(_) => {
                     println!(
                         "{}",
-                        format!("Unknown engine version '{}'.", version_name).color("red")
+                        format!("Unknown engine version '{}'.", version).color("red")
                     );
                     std::process::exit(1);
                 }
                 EngineError::EngineNotInstalled(_) => {
-                    ehandler.unregister(&version_name)?;
+                    ehandler.unregister(&version)?;
                 }
                 e => return Err(e.into()),
             },

@@ -4,7 +4,9 @@ use clap::Parser;
 use color_eyre::Result;
 
 use colored::Colorize;
-use gdpm_core::{downloader::DownloadAdapter, engine::EngineHandler, io::IoAdapter};
+use gdpm_core::{
+    downloader::DownloadAdapter, engine::EngineHandler, io::IoAdapter, types::version::GodotVersion,
+};
 
 use crate::{
     common::{print_missing_default_engine_message, validate_engine_version_or_exit},
@@ -20,7 +22,7 @@ pub struct Run {
     path: PathBuf,
 
     /// Engine version
-    engine: Option<String>,
+    engine: Option<GodotVersion>,
 }
 
 impl Execute for Run {
@@ -30,13 +32,13 @@ impl Execute for Run {
             validate_engine_version_or_exit(context.io(), &v)?;
             println!(
                 "Running project using Godot Engine v{} ...",
-                v.color("green")
+                v.to_string().color("green")
             );
             ehandler.run_version_for_project_no_editor(&v, &self.path)?;
         } else if let Some(e) = ehandler.get_default()? {
             println!(
                 "Running project using Godot Engine v{} ...",
-                e.color("green")
+                e.to_string().color("green")
             );
             ehandler.run_version_for_project_no_editor(&e, &self.path)?;
         } else {

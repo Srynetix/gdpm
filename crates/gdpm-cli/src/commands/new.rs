@@ -8,6 +8,7 @@ use gdpm_core::{
     engine::EngineHandler,
     io::IoAdapter,
     scaffolder::{ProjectInfo, ProjectRenderer, Scaffolder},
+    types::version::GodotVersion,
 };
 
 use crate::{
@@ -31,7 +32,7 @@ pub struct New {
 
     /// Engine version
     #[clap(short, long)]
-    engine: Option<String>,
+    engine: Option<GodotVersion>,
 }
 
 impl Execute for New {

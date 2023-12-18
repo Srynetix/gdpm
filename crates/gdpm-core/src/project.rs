@@ -4,6 +4,7 @@ use std::path::Path;
 
 use colored::Colorize;
 use gdpm_io::IoAdapter;
+use gdpm_types::version::GodotVersion;
 use gdsettings_parser::{GdSettings, GdValue};
 
 use crate::{config::ProjectConfig, error::ProjectError};
@@ -14,7 +15,7 @@ pub struct GdProjectInfo {
     project_name: String,
     version: Option<String>,
     main_scene: Option<String>,
-    engine_version: Option<String>,
+    engine_version: Option<GodotVersion>,
 }
 
 impl GdProjectInfo {
@@ -32,7 +33,13 @@ impl GdProjectInfo {
             .and_then(|x| x.to_str());
         let engine_version = settings
             .get_property("engine", "version")
-            .and_then(|x| x.to_str());
+            .and_then(|x| x.to_str())
+            .map(|x| GodotVersion::try_from(&x[..]));
+
+        let engine_version = match engine_version {
+            Some(v) => Some(v?),
+            None => None,
+        };
 
         Ok(Self {
             project_name,
@@ -52,8 +59,8 @@ impl GdProjectInfo {
     }
 
     /// Get engine version
-    pub fn get_engine_version(&self) -> Option<&str> {
-        self.engine_version.as_deref()
+    pub fn get_engine_version(&self) -> Option<&GodotVersion> {
+        self.engine_version.as_ref()
     }
 
     /// Show project info
@@ -64,7 +71,7 @@ impl GdProjectInfo {
         }
 
         if let Some(v) = &self.engine_version {
-            println!("- Engine version: v{}", v.color("green"));
+            println!("- Engine version: v{}", v.to_string().color("green"));
         }
 
         if let Some(s) = &self.main_scene {
@@ -94,10 +101,14 @@ impl<'a, I: IoAdapter> ProjectHandler<'a, I> {
     }
 
     /// Set project engine
-    pub fn set_project_engine(&self, path: &Path, version: &str) -> Result<(), ProjectError> {
+    pub fn set_project_engine(
+        &self,
+        path: &Path,
+        version: &GodotVersion,
+    ) -> Result<(), ProjectError> {
         let pconf = ProjectConfig::new(self.io_adapter);
         let mut conf = pconf.load(path)?;
-        conf.set_property("engine", "version", GdValue::String(version.into()));
+        conf.set_property("engine", "version", GdValue::String(version.to_string()));
 
         pconf.save(path, conf)
     }

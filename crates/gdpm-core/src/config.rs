@@ -3,6 +3,7 @@
 use std::path::{Path, PathBuf};
 
 use gdpm_io::{Error, IoAdapter};
+use gdpm_types::version::GodotVersion;
 use gdsettings_parser::{parse_gdsettings_file, GdSettings};
 
 use crate::error::{ConfigError, ProjectError};
@@ -50,6 +51,15 @@ impl<'a, I: IoAdapter> GodotDir<'a, I> {
         }
 
         Ok(export_templates_directory)
+    }
+
+    /// Get specific export templates directory
+    pub fn get_specific_export_templates_directory(
+        &self,
+        version: &GodotVersion,
+    ) -> Result<PathBuf, Error> {
+        let parent = self.get_or_create_export_templates_directory()?;
+        Ok(parent.join(version.get_export_template_name()))
     }
 }
 

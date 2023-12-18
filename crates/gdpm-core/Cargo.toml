@@ -12,9 +12,8 @@ gdpm-scaffolder = { path = "../gdpm-scaffolder" }
 gdpm-types = { path = "../gdpm-types" }
 gdsettings-parser = { path = "../gdsettings-parser" }
 
-slugify = "0.1.0"
-
 colored = { workspace = true }
+slugify = { workspace = true }
 thiserror = { workspace = true }
 tokio = { workspace = true }
 tracing = { workspace = true }

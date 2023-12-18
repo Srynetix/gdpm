@@ -6,6 +6,7 @@ use color_eyre::Result;
 use colored::Colorize;
 use gdpm_core::{
     downloader::DownloadAdapter, engine::EngineHandler, io::IoAdapter, project::ProjectHandler,
+    types::version::GodotVersion,
 };
 use question::{Answer, Question};
 
@@ -29,7 +30,7 @@ pub struct Edit {
 
     /// Engine version
     #[clap(short, long)]
-    engine: Option<String>,
+    engine: Option<GodotVersion>,
 }
 
 impl Execute for Edit {
@@ -42,7 +43,7 @@ impl Execute for Edit {
             validate_engine_version_or_exit(context.io(), &v)?;
             println!(
                 "Running Godot Engine v{} for project {} ...",
-                v.color("green"),
+                v.to_string().color("green"),
                 info.get_versioned_name().color("green")
             );
             ehandler.run_version_for_project(&v, &self.path)?;
@@ -81,7 +82,7 @@ impl Execute for Edit {
             print_missing_project_engine_message();
             match Question::new(&format!(
                 "Do you want to associate the default engine (v{}) to project {} (y/n)?",
-                e.color("green"),
+                e.to_string().color("green"),
                 info.get_versioned_name().color("green")
             ))
             .confirm()
@@ -93,7 +94,7 @@ impl Execute for Edit {
 
             println!(
                 "Running Godot Engine v{} for project {} ...",
-                e.color("green"),
+                e.to_string().color("green"),
                 info.get_versioned_name().color("green")
             );
             ehandler.run_version_for_project(&e, &self.path)?;

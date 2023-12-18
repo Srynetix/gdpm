@@ -1,6 +1,7 @@
 use std::{path::Path, str::FromStr};
 
 use gdpm_io::IoAdapter;
+use gdpm_types::version::GodotVersion;
 use gdsettings_parser::{GdSettings, GdSettingsMap, GdSettingsType, GdValue};
 
 #[derive(thiserror::Error, Debug)]
@@ -64,12 +65,12 @@ impl ProjectInfo {
 }
 
 pub struct ProjectScaffoldV4 {
-    engine_version: String,
+    engine_version: GodotVersion,
     project_info: ProjectInfo,
 }
 
 impl ProjectScaffoldV4 {
-    pub fn new(engine_version: String, project_info: ProjectInfo) -> Self {
+    pub fn new(engine_version: GodotVersion, project_info: ProjectInfo) -> Self {
         Self {
             engine_version,
             project_info,
@@ -106,7 +107,7 @@ impl ProjectScaffoldV4 {
             GdValue::ClassInstance(
                 "PackedStringArray".into(),
                 vec![
-                    GdValue::String(self.engine_version.clone()),
+                    GdValue::String(self.engine_version.version().to_string()),
                     GdValue::String(self.project_info.renderer.to_full_name().to_owned()),
                 ],
                 vec![],
@@ -130,7 +131,7 @@ impl ProjectScaffoldV4 {
         let mut engine_map = GdSettingsMap::new();
         engine_map.insert(
             "version".into(),
-            GdValue::String(self.engine_version.clone()),
+            GdValue::String(self.engine_version.version().to_string()),
         );
 
         map.insert("".into(), global_map);
@@ -186,7 +187,7 @@ impl<'a, I: IoAdapter> Scaffolder<'a, I> {
 
     pub fn scaffold(
         &self,
-        engine_version: String,
+        engine_version: GodotVersion,
         project_info: ProjectInfo,
         path: impl AsRef<Path>,
     ) -> Result<(), Error> {

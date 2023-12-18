@@ -1,5 +1,8 @@
 //! Errors.
 
+use std::path::PathBuf;
+
+use gdpm_types::version::GodotVersion;
 use gdsettings_parser::{GdSettingsError, ParserError};
 
 /// Config error
@@ -19,13 +22,17 @@ pub enum ConfigError {
 #[allow(missing_docs)]
 pub enum EngineError {
     #[error("Engine version '{0}' is not found.")]
-    EngineNotFound(String),
+    EngineNotFound(GodotVersion),
+    #[error("Engine version '{0}' is missing from path '{1}'.")]
+    EngineMissingFromPath(GodotVersion, PathBuf),
     #[error("Engine version '{0}' is not installed.")]
-    EngineNotInstalled(String),
+    EngineNotInstalled(GodotVersion),
     #[error(transparent)]
     ConfigError(#[from] ConfigError),
     #[error(transparent)]
     IoError(#[from] gdpm_io::Error),
+    #[error(transparent)]
+    VersionError(#[from] gdpm_types::version::Error),
 }
 
 /// Project error
@@ -42,6 +49,8 @@ pub enum ProjectError {
     ConfigError(#[from] ConfigError),
     #[error(transparent)]
     IoError(#[from] gdpm_io::Error),
+    #[error(transparent)]
+    VersionError(#[from] gdpm_types::version::Error),
 }
 
 /// Plugin error

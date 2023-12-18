@@ -674,6 +674,7 @@ name = "gdpm-scaffolder"
 version = "0.0.0"
 dependencies = [
  "gdpm-io",
+ "gdpm-types",
  "gdsettings-parser",
  "thiserror",
 ]
@@ -683,6 +684,7 @@ name = "gdpm-types"
 version = "0.0.0"
 dependencies = [
  "gdsettings-parser",
+ "slugify",
  "thiserror",
 ]
 

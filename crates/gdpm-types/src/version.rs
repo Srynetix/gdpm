@@ -6,6 +6,7 @@ use std::{
 };
 
 use gdsettings_parser::GdValue;
+use slugify::slugify;
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
@@ -36,7 +37,7 @@ pub enum SystemVersion {
 }
 
 /// Godot version.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct GodotVersion {
     version: String,
     kind: GodotVersionKind,
@@ -44,7 +45,7 @@ pub struct GodotVersion {
 }
 
 /// Godot version kind.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub enum GodotVersionKind {
     /// Stable release.
     Stable,
@@ -195,6 +196,11 @@ impl GodotVersion {
         self.mono
     }
 
+    /// Get version slug.
+    pub fn slug(&self) -> String {
+        slugify!(&self.to_string())
+    }
+
     /// To GdValue.
     pub fn to_gdvalue(&self) -> GdValue {
         GdValue::Object(vec![
@@ -288,6 +294,14 @@ impl FromStr for GodotVersion {
     }
 }
 
+impl TryFrom<&str> for GodotVersion {
+    type Error = Error;
+
+    fn try_from(value: &str) -> Result<Self, Self::Error> {
+        Self::from_str(value)
+    }
+}
+
 impl Display for GodotVersionKind {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
@@ -324,6 +338,14 @@ impl FromStr for GodotVersionKind {
         } else {
             Err(Error::WrongVersionKind(s.to_string()))
         }
+    }
+}
+
+impl TryFrom<&str> for GodotVersionKind {
+    type Error = Error;
+
+    fn try_from(value: &str) -> Result<Self, Self::Error> {
+        Self::from_str(value)
     }
 }
 

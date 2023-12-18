@@ -1,4 +1,4 @@
-use std::{path::Path, str::FromStr};
+use std::path::Path;
 
 use color_eyre::Result;
 use colored::Colorize;
@@ -13,7 +13,7 @@ use question::{Answer, Question};
 pub enum CheckEngineResponse {
     Found(EngineInfo),
     UseDefault(EngineInfo),
-    Download(String),
+    Download(GodotVersion),
     Abort,
 }
 
@@ -56,7 +56,7 @@ pub(crate) fn get_project_info_or_exit<I: IoAdapter>(io_adapter: &I, p: &Path) -
 
 pub(crate) fn check_engine_version_or_ask_default<I: IoAdapter>(
     io_adapter: &I,
-    version: &str,
+    version: &GodotVersion,
 ) -> Result<CheckEngineResponse> {
     let ehandler = EngineHandler::new(io_adapter);
     match ehandler.get_version(version) {
@@ -86,7 +86,7 @@ pub(crate) fn check_engine_version_or_ask_default<I: IoAdapter>(
 
 pub(crate) fn validate_engine_version_or_exit<I: IoAdapter>(
     io_adapter: &I,
-    version: &str,
+    version: &GodotVersion,
 ) -> Result<EngineInfo> {
     let ehandler = EngineHandler::new(io_adapter);
     match ehandler.get_version(version) {
@@ -98,7 +98,7 @@ pub(crate) fn validate_engine_version_or_exit<I: IoAdapter>(
                 .map(|x| format!("- {}", x.get_verbose_name().color("green")))
                 .collect();
 
-            println!("{}", format!("Unknown engine with version `{}`. You need to `engine register` this version before using it.", version.color("green")).color("yellow"));
+            println!("{}", format!("Unknown engine with version `{}`. You need to `engine register` this version before using it.", version.to_string().color("green")).color("yellow"));
 
             if available_engine_names.is_empty() {
                 println!("{}", "No engine registered.".color("yellow"));
@@ -114,7 +114,7 @@ pub(crate) fn validate_engine_version_or_exit<I: IoAdapter>(
 }
 
 pub(crate) fn parse_godot_version_args(
-    version: &str,
+    version: &GodotVersion,
     headless: bool,
     server: bool,
 ) -> (GodotVersion, SystemVersion) {
@@ -136,5 +136,5 @@ pub(crate) fn parse_godot_version_args(
         std::process::exit(1);
     }
 
-    (GodotVersion::from_str(version).unwrap(), system)
+    (version.clone(), system)
 }

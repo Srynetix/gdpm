@@ -62,14 +62,18 @@ pub(crate) fn check_engine_version_or_ask_default<I: IoAdapter>(
     match ehandler.get_version(version) {
         Ok(v) => Ok(CheckEngineResponse::Found(v)),
         Err(_) => {
-            println!("Your project is associated with engine '{version}', which is not installed.");
-            if let Answer::YES = Question::new(&format!("Do you want to download and install engine version '{version}' using official repositories? [y/n]")).confirm() {
+            println!(
+                "Your project is associated with engine '{}', which is not installed.",
+                version.to_string().green()
+            );
+            if let Answer::YES = Question::new(&format!("Do you want to download and install engine version '{}' using official repositories? [y/n]", version.to_string().green())).confirm() {
                 return Ok(CheckEngineResponse::Download(version.to_owned()))
             }
 
             if let Some(v) = ehandler.get_default()? {
                 if let Answer::YES = Question::new(&format!(
-                    "Do you want to use the default engine version instead? (version '{v}') [y/n]"
+                    "Do you want to use the default engine version instead? (version '{}') [y/n]",
+                    v.to_string().green()
                 ))
                 .confirm()
                 {

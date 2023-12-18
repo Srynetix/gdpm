@@ -1,5 +1,6 @@
 use clap::Parser;
 use color_eyre::Result;
+use colored::Colorize;
 use commands::{parse_args, Args};
 use context::Context;
 use gdpm_core::{downloader::DefaultDownloadAdapter, io::DefaultIoAdapter};
@@ -13,5 +14,12 @@ fn main() -> Result<()> {
 
     let args: Args = Args::parse();
     let ctx = Context::new(DefaultIoAdapter, DefaultDownloadAdapter);
-    parse_args(ctx, args)
+
+    if let Err(e) = parse_args(ctx, args) {
+        eprintln!();
+        eprintln!("{}", "/!\\ The application crashed.".red());
+        eprintln!("{e:?}");
+    }
+
+    Ok(())
 }

@@ -67,8 +67,7 @@ impl Execute for Edit {
                     };
 
                     cmd.execute(context)?;
-
-                    ehandler.get_version(&v).unwrap()
+                    ehandler.get_version(&v)?
                 }
             };
 

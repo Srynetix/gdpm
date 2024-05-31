@@ -1,6 +1,6 @@
 [package]
 name = "gdpm-cli"
-version = "2.0.0-beta1"
+version = { workspace = true }
 edition = "2021"
 
 [[bin]]

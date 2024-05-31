@@ -27,14 +27,8 @@ impl Downloader {
         | GodotVersionKind::ReleaseCandidate(_)
         | GodotVersionKind::Alpha(_) = kind
         {
-            route.push('/');
+            route.push('-');
             route.push_str(&kind.to_string());
-        }
-
-        // Get mono version
-        if version.mono() {
-            route.push('/');
-            route.push_str("mono");
         }
 
         // Get name
@@ -67,14 +61,8 @@ impl Downloader {
         | GodotVersionKind::ReleaseCandidate(_)
         | GodotVersionKind::Alpha(_) = kind
         {
-            route.push('/');
+            route.push('-');
             route.push_str(&kind.to_string());
-        }
-
-        // Get mono version
-        if version.mono() {
-            route.push('/');
-            route.push_str("mono");
         }
 
         // Get name

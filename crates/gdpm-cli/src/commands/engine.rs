@@ -21,7 +21,8 @@ use crate::{
     context::Context,
 };
 
-pub(crate) const MIRROR_URL: &str = "https://downloads.tuxfamily.org/godotengine/";
+pub(crate) const MIRROR_URL: &str =
+    "https://github.com/godotengine/godot-builds/releases/download/";
 
 #[derive(Parser)]
 pub struct Engine {

@@ -56,14 +56,14 @@ impl DependencySource {
     }
 }
 
-impl std::string::ToString for DependencySource {
-    fn to_string(&self) -> String {
-        match &self {
+impl std::fmt::Display for DependencySource {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(&match &self {
             Self::Current => "Current".to_string(),
             Self::GitHttp(x) => format!("Git (HTTP): {}", x),
             Self::GitSsh(x) => format!("Git (SSH): {}", x),
             Self::Path(x) => x.to_string_lossy().to_string(),
-        }
+        })
     }
 }
 

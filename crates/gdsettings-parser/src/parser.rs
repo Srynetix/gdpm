@@ -7,6 +7,7 @@ use pest_derive::Parser;
 
 use crate::{GdSettingsError, GdValue, ParserError};
 
+/// Parser
 #[derive(Parser)]
 #[grammar = "gdsettings.pest"]
 struct GdSettingsParser;
@@ -95,9 +96,9 @@ impl GdSettings {
     }
 }
 
-impl ToString for GdSettings {
-    fn to_string(&self) -> String {
-        serialize_gdsettings(self)
+impl std::fmt::Display for GdSettings {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(&serialize_gdsettings(self))
     }
 }
 

@@ -3,3 +3,4 @@
 /.vscode
 /work
 *.profraw
+lcov.info

@@ -48,5 +48,4 @@ install:
 	cargo install --debug --path ./crates/gdpm
 
 test-cov:
-	CARGO_INCREMENTAL=0 RUSTFLAGS='-Cinstrument-coverage' LLVM_PROFILE_FILE='cargo-test-%p-%m.profraw' cargo test
-	grcov . --binary-path ./target/debug/deps/ -s . -t html --branch --ignore-not-existing --ignore '../*' --ignore "/*" -o target/coverage/html
+	cargo llvm-cov --all-features --workspace --lcov --output-path lcov.info

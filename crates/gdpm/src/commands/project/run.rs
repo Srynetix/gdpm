@@ -13,8 +13,6 @@ use crate::{
     context::Context,
 };
 
-use super::Execute;
-
 #[derive(Parser)]
 pub struct Run {
     /// Project path
@@ -25,8 +23,8 @@ pub struct Run {
     engine: Option<GodotVersion>,
 }
 
-impl Execute for Run {
-    fn execute<I: IoAdapter, D: DownloadAdapter>(self, context: &Context<I, D>) -> Result<()> {
+impl Run {
+    pub fn execute<I: IoAdapter, D: DownloadAdapter>(self, context: &Context<I, D>) -> Result<()> {
         let ehandler = EngineHandler::new(context.io());
         if let Some(v) = self.engine {
             validate_engine_version_or_exit(context.io(), &v)?;

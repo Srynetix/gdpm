@@ -14,8 +14,6 @@ use crate::{
     context::Context,
 };
 
-use super::Execute;
-
 #[derive(Parser)]
 pub struct SetEngine {
     /// Project path
@@ -26,8 +24,8 @@ pub struct SetEngine {
     engine: GodotVersion,
 }
 
-impl Execute for SetEngine {
-    fn execute<I: IoAdapter, D: DownloadAdapter>(self, context: &Context<I, D>) -> Result<()> {
+impl SetEngine {
+    pub fn execute<I: IoAdapter, D: DownloadAdapter>(self, context: &Context<I, D>) -> Result<()> {
         let info = get_project_info_or_exit(context.io(), &self.path);
         let phandler = ProjectHandler::new(context.io());
         validate_engine_version_or_exit(context.io(), &self.engine)?;

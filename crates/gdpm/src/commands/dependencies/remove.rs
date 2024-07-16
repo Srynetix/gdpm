@@ -8,8 +8,6 @@ use gdpm_core::{downloader::DownloadAdapter, io::IoAdapter, plugins::DependencyH
 
 use crate::{common::get_project_info_or_exit, context::Context};
 
-use super::Execute;
-
 #[derive(Parser)]
 pub struct Remove {
     /// Project path
@@ -19,8 +17,8 @@ pub struct Remove {
     name: String,
 }
 
-impl Execute for Remove {
-    fn execute<I: IoAdapter, D: DownloadAdapter>(self, context: &Context<I, D>) -> Result<()> {
+impl Remove {
+    pub fn execute<I: IoAdapter, D: DownloadAdapter>(self, context: &Context<I, D>) -> Result<()> {
         let info = get_project_info_or_exit(context.io(), &self.path);
         let dhandler = DependencyHandler::new(context.io());
         dhandler.remove_dependency(&self.path, &self.name)?;

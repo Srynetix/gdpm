@@ -11,7 +11,7 @@ use gdpm_core::{
 use question::{Answer, Question};
 
 use crate::{
-    commands::engine,
+    commands::engine::add::Add,
     common::{
         check_engine_version_or_ask_default, get_project_info_or_exit,
         print_missing_default_engine_message, print_missing_project_engine_message,
@@ -19,8 +19,6 @@ use crate::{
     },
     context::Context,
 };
-
-use super::Execute;
 
 #[derive(Parser)]
 pub struct Edit {
@@ -33,8 +31,8 @@ pub struct Edit {
     engine: Option<GodotVersion>,
 }
 
-impl Execute for Edit {
-    fn execute<I: IoAdapter, D: DownloadAdapter>(self, context: &Context<I, D>) -> Result<()> {
+impl Edit {
+    pub fn execute<I: IoAdapter, D: DownloadAdapter>(self, context: &Context<I, D>) -> Result<()> {
         let info = get_project_info_or_exit(context.io(), &self.path);
         let ehandler = EngineHandler::new(context.io());
         let phandler = ProjectHandler::new(context.io());
@@ -57,7 +55,7 @@ impl Execute for Edit {
                     std::process::exit(1);
                 }
                 CheckEngineResponse::Download(v) => {
-                    let cmd = engine::Add {
+                    let cmd = Add {
                         engine: v.clone(),
                         headless: false,
                         overwrite: false,

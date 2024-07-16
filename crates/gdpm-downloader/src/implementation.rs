@@ -1,11 +1,14 @@
 use crate::{error::DownloadError, DownloadAdapter};
 use async_trait::async_trait;
+use tracing::info;
 
 use std::io::Write;
 
 use futures_util::StreamExt;
 use indicatif::{ProgressBar, ProgressStyle};
 use reqwest::{Client, Response, StatusCode};
+
+static APP_USER_AGENT: &str = concat!(env!("CARGO_PKG_NAME"), "/", env!("CARGO_PKG_VERSION"),);
 
 /// Default download adapter.
 pub struct DefaultDownloadAdapter;
@@ -27,6 +30,8 @@ impl DefaultDownloadAdapter {
     }
 
     async fn download_file_inner(url: &str, res: Response) -> Result<Vec<u8>, DownloadError> {
+        info!(url = url, status = ?res.status(), "File found");
+
         let total_size = res.content_length().unwrap();
 
         let pb = ProgressBar::new(total_size);
@@ -58,5 +63,33 @@ impl DefaultDownloadAdapter {
 impl DownloadAdapter for DefaultDownloadAdapter {
     async fn download_file_at_url(&self, url: &str) -> Result<Vec<u8>, DownloadError> {
         Self::download_file_at_url_async(url).await
+    }
+
+    async fn lookup_remote_versions(&self) -> Result<Vec<String>, DownloadError> {
+        #[derive(serde::Deserialize, Debug)]
+        struct ApiRelease {
+            name: String,
+        }
+
+        let response = Client::builder()
+            .user_agent(APP_USER_AGENT)
+            .build()
+            .unwrap()
+            .get("https://api.github.com/repos/godotengine/godot-builds/releases")
+            .send()
+            .await
+            .unwrap()
+            .error_for_status()
+            .unwrap();
+
+        let releases: Vec<ApiRelease> = response.json().await.unwrap();
+
+        let mut releases: Vec<_> = releases
+            .into_iter()
+            .map(|r| r.name.replace("-stable", "").replace('-', "."))
+            .collect();
+
+        releases.sort();
+        Ok(releases)
     }
 }

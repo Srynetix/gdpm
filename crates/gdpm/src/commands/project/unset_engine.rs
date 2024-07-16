@@ -8,8 +8,6 @@ use gdpm_core::{downloader::DownloadAdapter, io::IoAdapter, project::ProjectHand
 
 use crate::{common::get_project_info_or_exit, context::Context};
 
-use super::Execute;
-
 #[derive(Parser)]
 pub struct UnsetEngine {
     /// Project path
@@ -17,8 +15,8 @@ pub struct UnsetEngine {
     path: PathBuf,
 }
 
-impl Execute for UnsetEngine {
-    fn execute<I: IoAdapter, D: DownloadAdapter>(self, context: &Context<I, D>) -> Result<()> {
+impl UnsetEngine {
+    pub fn execute<I: IoAdapter, D: DownloadAdapter>(self, context: &Context<I, D>) -> Result<()> {
         let phandler = ProjectHandler::new(context.io());
         phandler.unset_project_engine(&self.path)?;
         let info = get_project_info_or_exit(context.io(), &self.path);

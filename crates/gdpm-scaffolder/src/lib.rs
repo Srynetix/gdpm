@@ -3,6 +3,7 @@ use std::{path::Path, str::FromStr};
 use gdpm_io::IoAdapter;
 use gdpm_types::version::GodotVersion;
 use gdsettings_parser::{GdSettings, GdSettingsMap, GdSettingsType, GdValue};
+use tracing::info;
 
 #[derive(thiserror::Error, Debug)]
 pub enum ParseError {
@@ -24,9 +25,9 @@ impl FromStr for ProjectRenderer {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s {
-            "forward+" => Ok(Self::ForwardPlus),
+            "forward_plus" => Ok(Self::ForwardPlus),
             "mobile" => Ok(Self::Mobile),
-            "compatibility" => Ok(Self::Compatibility),
+            "gl_compatibility" => Ok(Self::Compatibility),
             other => Err(ParseError::UnknownProjectRenderer(other.into())),
         }
     }
@@ -35,7 +36,7 @@ impl FromStr for ProjectRenderer {
 impl ProjectRenderer {
     pub fn to_full_name(&self) -> &'static str {
         match self {
-            Self::ForwardPlus => "Forward+",
+            Self::ForwardPlus => "Forward Plus",
             Self::Compatibility => "GL Compatibility",
             Self::Mobile => "Mobile",
         }
@@ -43,7 +44,7 @@ impl ProjectRenderer {
 
     pub fn to_technical_name(&self) -> &'static str {
         match self {
-            Self::ForwardPlus => "forward+",
+            Self::ForwardPlus => "forward_plus",
             Self::Mobile => "mobile",
             Self::Compatibility => "gl_compatibility",
         }
@@ -80,6 +81,7 @@ impl ProjectScaffoldV4 {
     pub fn scaffold(&self, io: &impl IoAdapter, path: impl AsRef<Path>) -> Result<(), Error> {
         // Create folder
         if !io.path_exists(path.as_ref()) {
+            info!(path = ?path.as_ref(), "Creating project directory");
             io.create_dir(path.as_ref())?;
         }
 
@@ -139,22 +141,31 @@ impl ProjectScaffoldV4 {
         map.insert("rendering".into(), rendering_map);
         map.insert("engine".into(), engine_map);
 
+        let output_path = path.join("project.godot");
         let gdsettings = GdSettings::new(map);
-        io.write_string_to_file(&path.join("project.godot"), &gdsettings.to_string())?;
+        info!(path = ?output_path, "Writing godot.project file");
+        io.write_string_to_file(&output_path, &gdsettings.to_string())?;
+
         Ok(())
     }
 
     fn scaffold_icon(&self, io: &impl IoAdapter, path: &Path) -> Result<(), Error> {
         static ICON: &str = r###"<svg height="128" width="128" xmlns="http://www.w3.org/2000/svg"><rect x="2" y="2" width="124" height="124" rx="14" fill="#363d52" stroke="#212532" stroke-width="4"/><g transform="scale(.101) translate(122 122)"><g fill="#fff"><path d="M105 673v33q407 354 814 0v-33z"/><path fill="#478cbf" d="m105 673 152 14q12 1 15 14l4 67 132 10 8-61q2-11 15-15h162q13 4 15 15l8 61 132-10 4-67q3-13 15-14l152-14V427q30-39 56-81-35-59-83-108-43 20-82 47-40-37-88-64 7-51 8-102-59-28-123-42-26 43-46 89-49-7-98 0-20-46-46-89-64 14-123 42 1 51 8 102-48 27-88 64-39-27-82-47-48 49-83 108 26 42 56 81zm0 33v39c0 276 813 276 813 0v-39l-134 12-5 69q-2 10-14 13l-162 11q-12 0-16-11l-10-65H447l-10 65q-4 11-16 11l-162-11q-12-3-14-13l-5-69z"/><path d="M483 600c3 34 55 34 58 0v-86c-3-34-55-34-58 0z"/><circle cx="725" cy="526" r="90"/><circle cx="299" cy="526" r="90"/></g><g fill="#414042"><circle cx="307" cy="532" r="60"/><circle cx="717" cy="532" r="60"/></g></g></svg>"###;
 
-        io.write_string_to_file(&path.join("icon.svg"), ICON)?;
+        let output_path = path.join("icon.svg");
+        info!(path = ?output_path, "Writing icon.svg file");
+
+        io.write_string_to_file(&output_path, ICON)?;
         Ok(())
     }
 
     fn scaffold_gitignore(&self, io: &impl IoAdapter, path: &Path) -> Result<(), Error> {
         static DATA: &str = "# Godot 4+ specific ignores\n.godot/";
 
-        io.write_string_to_file(&path.join(".gitignore"), DATA)?;
+        let output_path = path.join(".gitignore");
+        info!(path = ?output_path, "Writing .gitignore file");
+
+        io.write_string_to_file(&output_path, DATA)?;
         Ok(())
     }
 
@@ -162,7 +173,10 @@ impl ProjectScaffoldV4 {
         static DATA: &str =
             "# Normalize EOL for all files that Git considers text files.\n* text=auto eol=lf";
 
-        io.write_string_to_file(&path.join(".gitattributes"), DATA)?;
+        let output_path = path.join(".gitattributes");
+        info!(path = ?output_path, "Writing .gitattributes file");
+
+        io.write_string_to_file(&output_path, DATA)?;
         Ok(())
     }
 }

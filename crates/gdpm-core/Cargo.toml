@@ -19,5 +19,5 @@ tokio = { workspace = true }
 tracing = { workspace = true }
 
 [dev-dependencies]
-indoc = "2.0.4"
-mockall = "0.12.0"
+indoc = "2.0.5"
+mockall = "0.12.1"

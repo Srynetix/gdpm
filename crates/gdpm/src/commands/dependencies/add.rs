@@ -8,8 +8,6 @@ use gdpm_core::{downloader::DownloadAdapter, io::IoAdapter, plugins::DependencyH
 
 use crate::{common::get_project_info_or_exit, context::Context};
 
-use super::Execute;
-
 #[derive(Parser)]
 pub struct Add {
     /// project path
@@ -26,8 +24,8 @@ pub struct Add {
     no_sync: bool,
 }
 
-impl Execute for Add {
-    fn execute<I: IoAdapter, D: DownloadAdapter>(self, context: &Context<I, D>) -> Result<()> {
+impl Add {
+    pub fn execute<I: IoAdapter, D: DownloadAdapter>(self, context: &Context<I, D>) -> Result<()> {
         let info = get_project_info_or_exit(context.io(), &self.path);
         let dhandler = DependencyHandler::new(context.io());
         dhandler.add_dependency(

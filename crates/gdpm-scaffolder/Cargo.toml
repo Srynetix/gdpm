@@ -10,4 +10,5 @@ gdpm-io = { path = "../gdpm-io" }
 gdpm-types = { path = "../gdpm-types" }
 gdsettings-parser = { path = "../gdsettings-parser" }
 
+tracing = { workspace = true }
 thiserror = { workspace = true }

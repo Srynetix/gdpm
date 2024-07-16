@@ -1,9 +1,10 @@
 //! Download module.
 
 use reqwest::Url;
+use tracing::info;
 
 use crate::{error::DownloadError, DownloadAdapter};
-use gdpm_types::version::{GodotVersion, GodotVersionKind, SystemVersion};
+use gdpm_types::version::{GodotVersion, SystemVersion};
 
 /// Downloader.
 pub struct Downloader;
@@ -21,15 +22,8 @@ impl Downloader {
 
         // Get version path
         route.push_str(version.version());
-
-        // Get special version
-        if let GodotVersionKind::Beta(_)
-        | GodotVersionKind::ReleaseCandidate(_)
-        | GodotVersionKind::Alpha(_) = kind
-        {
-            route.push('-');
-            route.push_str(&kind.to_string());
-        }
+        route.push('-');
+        route.push_str(&kind.to_string());
 
         // Get name
         let filename = format!(
@@ -55,15 +49,8 @@ impl Downloader {
 
         // Get version path
         route.push_str(version.version());
-
-        // Get special version
-        if let GodotVersionKind::Beta(_)
-        | GodotVersionKind::ReleaseCandidate(_)
-        | GodotVersionKind::Alpha(_) = kind
-        {
-            route.push('-');
-            route.push_str(&kind.to_string());
-        }
+        route.push('-');
+        route.push_str(&kind.to_string());
 
         // Get name
         let filename = format!(
@@ -83,6 +70,7 @@ impl Downloader {
         download_adapter: &I,
         url: &str,
     ) -> Result<Vec<u8>, DownloadError> {
+        info!(url = url, "Will download file at url");
         download_adapter.download_file_at_url(url).await
     }
 }
@@ -113,7 +101,7 @@ mod tests {
                 SystemVersion::Win64,
                 false,
             ),
-            "http://localhost/subdir/1.2.3/Godot_v1.2.3-stable_win64.exe.zip",
+            "http://localhost/subdir/1.2.3-stable/Godot_v1.2.3-stable_win64.exe.zip",
         );
 
         check(
@@ -123,7 +111,7 @@ mod tests {
                 SystemVersion::Win32,
                 false,
             ),
-            "http://localhost/subdir/1.2.3/beta1/Godot_v1.2.3-beta1_win32.exe.zip",
+            "http://localhost/subdir/1.2.3-beta1/Godot_v1.2.3-beta1_win32.exe.zip",
         );
 
         check(
@@ -133,7 +121,7 @@ mod tests {
                 SystemVersion::LinuxServer64,
                 false,
             ),
-            "http://localhost/subdir/1.2.3/rc2/Godot_v1.2.3-rc2_linux_server.64.zip",
+            "http://localhost/subdir/1.2.3-rc2/Godot_v1.2.3-rc2_linux_server.64.zip",
         );
 
         check(
@@ -143,7 +131,7 @@ mod tests {
                 SystemVersion::LinuxServer64,
                 true,
             ),
-            "http://localhost/subdir/1.2.3/rc2/mono/Godot_v1.2.3-rc2_mono_linux_server_64.zip",
+            "http://localhost/subdir/1.2.3-rc2/Godot_v1.2.3-rc2_mono_linux_server_64.zip",
         );
     }
 
@@ -162,22 +150,22 @@ mod tests {
 
         check(
             ("1.2.3", GodotVersionKind::Stable, false),
-            "http://localhost/subdir/1.2.3/Godot_v1.2.3-stable_export_templates.tpz",
+            "http://localhost/subdir/1.2.3-stable/Godot_v1.2.3-stable_export_templates.tpz",
         );
 
         check(
             ("1.2.3", GodotVersionKind::Beta(1), false),
-            "http://localhost/subdir/1.2.3/beta1/Godot_v1.2.3-beta1_export_templates.tpz",
+            "http://localhost/subdir/1.2.3-beta1/Godot_v1.2.3-beta1_export_templates.tpz",
         );
 
         check(
             ("1.2.3", GodotVersionKind::ReleaseCandidate(2), false),
-            "http://localhost/subdir/1.2.3/rc2/Godot_v1.2.3-rc2_export_templates.tpz",
+            "http://localhost/subdir/1.2.3-rc2/Godot_v1.2.3-rc2_export_templates.tpz",
         );
 
         check(
             ("1.2.3", GodotVersionKind::ReleaseCandidate(2), true),
-            "http://localhost/subdir/1.2.3/rc2/mono/Godot_v1.2.3-rc2_mono_export_templates.tpz",
+            "http://localhost/subdir/1.2.3-rc2/Godot_v1.2.3-rc2_mono_export_templates.tpz",
         );
     }
 }

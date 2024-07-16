@@ -1,4 +1,4 @@
-version := `cat ./crates/gdpm-cli/Cargo.toml | sed -n "s/^version = \"\(.*\)\"/\1/p"`
+version := `cat ./crates/gdpm/Cargo.toml | sed -n "s/^version = \"\(.*\)\"/\1/p"`
 
 _default:
 	@just -l
@@ -31,9 +31,13 @@ build-release:
 test:
 	cargo test --all
 
+# Run
+run *ARGS:
+	cargo run -- {{ARGS}}
+
 # Set crates version
 set-version v:
-	ls -d crates/gdpm-cli/Cargo.toml | xargs sed -i "s/^version = \"\(.*\)\"/version = \"{{ v }}\"/"
+	ls -d crates/gdpm/Cargo.toml | xargs sed -i "s/^version = \"\(.*\)\"/version = \"{{ v }}\"/"
 
 # Show version
 show-version:
@@ -41,7 +45,7 @@ show-version:
 
 # Install in path
 install:
-	cargo install --debug --path ./crates/gdpm-cli
+	cargo install --debug --path ./crates/gdpm
 
 test-cov:
 	CARGO_INCREMENTAL=0 RUSTFLAGS='-Cinstrument-coverage' LLVM_PROFILE_FILE='cargo-test-%p-%m.profraw' cargo test

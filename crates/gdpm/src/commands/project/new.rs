@@ -16,8 +16,6 @@ use crate::{
     context::Context,
 };
 
-use super::Execute;
-
 #[derive(Parser)]
 pub struct New {
     /// Game name
@@ -27,7 +25,7 @@ pub struct New {
     path: PathBuf,
 
     /// Renderer
-    #[clap(short, long, default_value = "forward+")]
+    #[clap(short, long, default_value = "forward_plus")]
     renderer: ProjectRenderer,
 
     /// Engine version
@@ -35,8 +33,8 @@ pub struct New {
     engine: Option<GodotVersion>,
 }
 
-impl Execute for New {
-    fn execute<I: IoAdapter, D: DownloadAdapter>(self, context: &Context<I, D>) -> Result<()> {
+impl New {
+    pub fn execute<I: IoAdapter, D: DownloadAdapter>(self, context: &Context<I, D>) -> Result<()> {
         let ehandler = EngineHandler::new(context.io());
         let engine = if let Some(v) = self.engine {
             validate_engine_version_or_exit(context.io(), &v)?
@@ -56,6 +54,8 @@ impl Execute for New {
             let scaffolder = Scaffolder::new(context.io());
             let project_info = ProjectInfo::new(self.game_name, self.renderer);
             scaffolder.scaffold(engine.version, project_info, &self.path)?;
+
+            println!("{}", "Project successfully generated".color("green"));
         }
 
         Ok(())

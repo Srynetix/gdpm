@@ -8,37 +8,34 @@ use gdpm_core::{downloader::DownloadAdapter, io::IoAdapter, plugins::DependencyH
 
 use crate::{common::get_project_info_or_exit, context::Context};
 
-use super::Execute;
-
 #[derive(Parser)]
-pub struct Sync {
+pub struct Info {
     /// Project path
     #[clap(short, long, default_value = ".")]
     path: PathBuf,
-    /// Name
-    name: Option<String>,
 }
 
-impl Execute for Sync {
-    fn execute<I: IoAdapter, D: DownloadAdapter>(self, context: &Context<I, D>) -> Result<()> {
+impl Info {
+    pub fn execute<I: IoAdapter, D: DownloadAdapter>(self, context: &Context<I, D>) -> Result<()> {
         let info = get_project_info_or_exit(context.io(), &self.path);
+        info.show();
+
         let dhandler = DependencyHandler::new(context.io());
-
-        if let Some(n) = self.name {
-            dhandler.sync_project_plugin(&self.path, &n)?;
-
+        let dependencies = dhandler.list_project_dependencies(&self.path)?;
+        if dependencies.is_empty() {
             println!(
-                "Dependency {} is now synchronized for project {}.",
-                n.color("green"),
+                "Project '{}' has no dependency.",
                 info.get_versioned_name().color("green")
-            )
+            );
         } else {
-            dhandler.sync_project_plugins(&self.path)?;
-
             println!(
-                "Dependencies are now synchronized for project {}.",
+                "Dependencies from project '{}':",
                 info.get_versioned_name().color("green")
-            )
+            );
+
+            for dep in dependencies {
+                println!("- {}", dep.get_verbose_name());
+            }
         }
 
         Ok(())

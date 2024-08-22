@@ -299,7 +299,7 @@ impl<'a, I: IoAdapter> DependencyHandler<'a, I> {
 
                 PluginInfo::from_project_addon(self.io_adapter, &full_path, &dependency.name)
             }
-            DependencySource::GitSsh(p) => {
+            DependencySource::GitSsh(p) | DependencySource::GitHttp(p) => {
                 // Clone in the project .gdpm folder
                 let gdpm_path = project_path.join(".gdpm");
                 if !self.io_adapter.path_exists(&gdpm_path) {
@@ -334,7 +334,6 @@ impl<'a, I: IoAdapter> DependencyHandler<'a, I> {
 
                 PluginInfo::from_project_addon(self.io_adapter, &plugin_path, &dependency.name)
             }
-            _ => unimplemented!(),
         }
     }
 
@@ -408,14 +407,13 @@ impl<'a, I: IoAdapter> DependencyHandler<'a, I> {
         &self,
         project_path: &Path,
         name: &str,
-        version: &str,
         source: &str,
         no_install: bool,
     ) -> Result<(), PluginError> {
         let dependency = Dependency {
             name: name.to_string(),
             checksum: "".to_string(),
-            version: version.to_string(),
+            version: "git".to_string(),
             source: DependencySource::from_value(source),
         };
 

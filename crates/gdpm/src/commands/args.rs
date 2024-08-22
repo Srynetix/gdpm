@@ -29,7 +29,7 @@ enum Command {
         #[clap(subcommand)]
         command: EngineCommand,
     },
-    /// Manage dependencies (WIP)
+    /// Manage dependencies (experimental)
     Deps {
         #[clap(subcommand)]
         command: DependenciesCommand,
@@ -44,11 +44,17 @@ enum Command {
 #[derive(Subcommand)]
 #[clap(disable_version_flag = true)]
 enum EngineCommand {
+    /// Download and install engine from official mirror or specific URL / path (e.g. 3.3.4, 3.3.4.mono, 3.5.rc1, 3.5.rc1.mono)
     Add(engine::add::Add),
+    /// Uninstall engine
     Remove(engine::remove::Remove),
+    /// Show or set default engine
     Default(engine::default::Default),
+    /// List engines
     List(engine::list::List),
+    /// List engines from remote
     ListRemote(engine::list_remote::ListRemote),
+    /// Run command on engine
     Run(engine::run::Run),
 }
 

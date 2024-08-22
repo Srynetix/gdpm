@@ -1,11 +1,12 @@
 //! Errors.
 
-use gdpm_io::IoError;
+use std::path::PathBuf;
+
+use gdpm_types::version::GodotVersion;
 use gdsettings_parser::{GdSettingsError, ParserError};
-use thiserror::Error;
 
 /// Config error
-#[derive(Debug, Error)]
+#[derive(Debug, thiserror::Error)]
 #[allow(missing_docs)]
 pub enum ConfigError {
     #[error("Incomplete settings.")]
@@ -13,25 +14,29 @@ pub enum ConfigError {
     #[error("Malformed settings.")]
     MalformedSettings(#[from] ParserError),
     #[error(transparent)]
-    IoError(#[from] IoError),
+    IoError(#[from] gdpm_io::Error),
 }
 
 /// Engine error
-#[derive(Debug, Error)]
+#[derive(Debug, thiserror::Error)]
 #[allow(missing_docs)]
 pub enum EngineError {
     #[error("Engine version '{0}' is not found.")]
-    EngineNotFound(String),
+    EngineNotFound(GodotVersion),
+    #[error("Engine version '{0}' is missing from path '{1}'.")]
+    EngineMissingFromPath(GodotVersion, PathBuf),
     #[error("Engine version '{0}' is not installed.")]
-    EngineNotInstalled(String),
+    EngineNotInstalled(GodotVersion),
     #[error(transparent)]
     ConfigError(#[from] ConfigError),
     #[error(transparent)]
-    IoError(#[from] IoError),
+    IoError(#[from] gdpm_io::Error),
+    #[error(transparent)]
+    VersionError(#[from] gdpm_types::version::Error),
 }
 
 /// Project error
-#[derive(Debug, Error)]
+#[derive(Debug, thiserror::Error)]
 #[allow(missing_docs)]
 pub enum ProjectError {
     #[error("Project not found at path '{0}'.")]
@@ -43,11 +48,13 @@ pub enum ProjectError {
     #[error(transparent)]
     ConfigError(#[from] ConfigError),
     #[error(transparent)]
-    IoError(#[from] IoError),
+    IoError(#[from] gdpm_io::Error),
+    #[error(transparent)]
+    VersionError(#[from] gdpm_types::version::Error),
 }
 
 /// Plugin error
-#[derive(Debug, Error)]
+#[derive(Debug, thiserror::Error)]
 #[allow(missing_docs)]
 pub enum PluginError {
     #[error("Missing property '{0}'.")]
@@ -63,7 +70,7 @@ pub enum PluginError {
     #[error(transparent)]
     ProjectError(#[from] ProjectError),
     #[error(transparent)]
-    IoError(#[from] IoError),
+    IoError(#[from] gdpm_io::Error),
 }
 
 impl From<GdSettingsError> for EngineError {

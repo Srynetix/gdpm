@@ -54,6 +54,7 @@ pub enum GdSettingsError {
     /// Missing section
     #[error("Missing section '{0}' in settings.")]
     MissingSection(String),
+
     /// Missing property
     #[error("Missing property '{0}' in settings.")]
     MissingProperty(String),

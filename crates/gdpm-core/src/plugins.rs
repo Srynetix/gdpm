@@ -6,7 +6,7 @@ use std::{
 };
 
 use colored::Colorize;
-use gdpm_io::{IoAdapter, IoError};
+use gdpm_io::{write_stdout, Error, IoAdapter};
 use gdsettings_parser::{parse_gdsettings_file, GdValue};
 use slugify::slugify;
 use tracing::{info, warn};
@@ -56,14 +56,14 @@ impl DependencySource {
     }
 }
 
-impl std::string::ToString for DependencySource {
-    fn to_string(&self) -> String {
-        match &self {
+impl std::fmt::Display for DependencySource {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(&match &self {
             Self::Current => "Current".to_string(),
             Self::GitHttp(x) => format!("Git (HTTP): {}", x),
             Self::GitSsh(x) => format!("Git (SSH): {}", x),
             Self::Path(x) => x.to_string_lossy().to_string(),
-        }
+        })
     }
 }
 
@@ -213,20 +213,24 @@ impl PluginInfo {
         }
     }
 
-    /// Show
-    pub fn show(&self) {
-        println!(
-            "- {} (v{}) ({})",
+    /// Write repr.
+    pub fn write_repr<I: IoAdapter>(&self, io: &I) -> Result<(), PluginError> {
+        write_stdout!(
+            io,
+            "- {} (v{}) ({})\n",
             self.name.color("green"),
             self.version.color("green"),
             self.script.color("yellow")
-        );
-        println!(
-            "  from {}: {}",
+        )?;
+        write_stdout!(
+            io,
+            "  from {}: {}\n",
             self.author.color("green"),
             self.description.color("yellow")
-        );
-        println!("  in folder {}", self.folder_name.color("blue"));
+        )?;
+        write_stdout!(io, "  in folder {}\n", self.folder_name.color("blue"))?;
+
+        Ok(())
     }
 }
 
@@ -295,7 +299,7 @@ impl<'a, I: IoAdapter> DependencyHandler<'a, I> {
 
                 PluginInfo::from_project_addon(self.io_adapter, &full_path, &dependency.name)
             }
-            DependencySource::GitSsh(p) => {
+            DependencySource::GitSsh(p) | DependencySource::GitHttp(p) => {
                 // Clone in the project .gdpm folder
                 let gdpm_path = project_path.join(".gdpm");
                 if !self.io_adapter.path_exists(&gdpm_path) {
@@ -314,7 +318,7 @@ impl<'a, I: IoAdapter> DependencyHandler<'a, I> {
                         .arg(&dependency.name)
                         .current_dir(&gdpm_path)
                         .output()
-                        .map_err(IoError::CommandExecutionError)?;
+                        .map_err(|e| Error::CommandExecutionError(e.to_string()))?;
                 }
 
                 let project_addons = project_path.join(ADDONS_FOLDER);
@@ -330,7 +334,6 @@ impl<'a, I: IoAdapter> DependencyHandler<'a, I> {
 
                 PluginInfo::from_project_addon(self.io_adapter, &plugin_path, &dependency.name)
             }
-            _ => unimplemented!(),
         }
     }
 
@@ -376,8 +379,8 @@ impl<'a, I: IoAdapter> DependencyHandler<'a, I> {
 
         if self.io_adapter.path_exists(&addons_path) {
             for entry in self.io_adapter.read_dir(&addons_path)? {
-                let entry =
-                    entry.map_err(|e| IoError::ReadDirEntryError(addons_path.to_owned(), e))?;
+                let entry = entry
+                    .map_err(|e| Error::ReadDirEntryError(addons_path.to_owned(), e.to_string()))?;
                 let path = entry.path();
 
                 // Check for plugin.cfg
@@ -404,14 +407,13 @@ impl<'a, I: IoAdapter> DependencyHandler<'a, I> {
         &self,
         project_path: &Path,
         name: &str,
-        version: &str,
         source: &str,
         no_install: bool,
     ) -> Result<(), PluginError> {
         let dependency = Dependency {
             name: name.to_string(),
             checksum: "".to_string(),
-            version: version.to_string(),
+            version: "git".to_string(),
             source: DependencySource::from_value(source),
         };
 
@@ -441,11 +443,12 @@ impl<'a, I: IoAdapter> DependencyHandler<'a, I> {
             // Check if dependency is installed
             if self.is_installed(&dep, project_path) {
                 self.uninstall(&dep, project_path)?;
-                println!(
-                    "Addon folder {} removed from project {}.",
+                write_stdout!(
+                    self.io_adapter,
+                    "Addon folder {} removed from project {}.\n",
                     dep.name.color("green"),
                     project_info.get_versioned_name().color("green")
-                );
+                )?;
             }
         }
 
@@ -498,11 +501,12 @@ impl<'a, I: IoAdapter> DependencyHandler<'a, I> {
             if conf.get_property(DEPS_SECTION, &slug).is_none() {
                 let dep = Dependency::from_plugin_info(&plugin);
                 conf.set_property(DEPS_SECTION, &slug, dep.to_gdvalue());
-                println!(
-                    "Plugin {} added as dependency for project {}.",
+                write_stdout!(
+                    self.io_adapter,
+                    "Plugin {} added as dependency for project {}.\n",
                     dep.name.color("green"),
                     project_info.get_versioned_name().color("green")
-                );
+                )?;
             }
         }
         pconf.save(project_path, conf)?;
@@ -515,11 +519,12 @@ impl<'a, I: IoAdapter> DependencyHandler<'a, I> {
                 Err(e) => Err(e),
             }?;
 
-            println!(
-                "Plugin {} installed in project {}.",
+            write_stdout!(
+                self.io_adapter,
+                "Plugin {} installed in project {}.\n",
                 dep.name.color("green"),
                 project_info.get_versioned_name().color("green")
-            );
+            )?;
         }
 
         Ok(())
@@ -545,11 +550,12 @@ impl<'a, I: IoAdapter> DependencyHandler<'a, I> {
                 if conf.get_property(DEPS_SECTION, &slug).is_none() {
                     let dep = Dependency::from_plugin_info(&plugin);
                     conf.set_property(DEPS_SECTION, &slug, dep.to_gdvalue());
-                    println!(
-                        "Plugin {} added as dependency for project {}.",
+                    write_stdout!(
+                        self.io_adapter,
+                        "Plugin {} added as dependency for project {}.\n",
                         dep.name.color("green"),
                         project_info.get_versioned_name().color("green")
-                    );
+                    )?;
                 }
             }
         }

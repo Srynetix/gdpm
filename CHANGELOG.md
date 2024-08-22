@@ -9,7 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- Upgrade all libs, including `tracing_subscriber` (and its dependency `thread_local`) fixing the CWE.
+- Upgrade dependencies
+- Rework CLI commands
+- Fix mirror URL for engine downloads
 
 ## [1.2.0] - 2022-05-23
 

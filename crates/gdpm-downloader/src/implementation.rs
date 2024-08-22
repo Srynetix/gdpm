@@ -1,5 +1,6 @@
 use crate::{error::DownloadError, DownloadAdapter};
 use async_trait::async_trait;
+use tracing::info;
 
 use std::io::Write;
 
@@ -7,10 +8,12 @@ use futures_util::StreamExt;
 use indicatif::{ProgressBar, ProgressStyle};
 use reqwest::{Client, Response, StatusCode};
 
-/// Download impl.
-pub struct DownloadImpl;
+static APP_USER_AGENT: &str = concat!(env!("CARGO_PKG_NAME"), "/", env!("CARGO_PKG_VERSION"),);
 
-impl DownloadImpl {
+/// Default download adapter.
+pub struct DefaultDownloadAdapter;
+
+impl DefaultDownloadAdapter {
     async fn download_file_at_url_async(url: &str) -> Result<Vec<u8>, DownloadError> {
         let client = Client::new();
         let res = client
@@ -27,11 +30,13 @@ impl DownloadImpl {
     }
 
     async fn download_file_inner(url: &str, res: Response) -> Result<Vec<u8>, DownloadError> {
+        info!(url = url, status = ?res.status(), "File found");
+
         let total_size = res.content_length().unwrap();
 
         let pb = ProgressBar::new(total_size);
         pb.set_style(ProgressStyle::default_bar()
-            .template("{msg}\n{spinner:.green} [{elapsed_precise}] [{wide_bar:.cyan/blue}] {bytes}/{total_bytes} ({bytes_per_sec}, {eta})")
+            .template("{msg}\n{spinner:.green} [{elapsed_precise}] [{wide_bar:.cyan/blue}] {bytes}/{total_bytes} ({bytes_per_sec}, {eta})").unwrap()
             .progress_chars("#>-")
         );
         pb.set_message(format!("Downloading {}", url));
@@ -55,20 +60,36 @@ impl DownloadImpl {
 }
 
 #[async_trait]
-impl DownloadAdapter for DownloadImpl {
+impl DownloadAdapter for DefaultDownloadAdapter {
     async fn download_file_at_url(&self, url: &str) -> Result<Vec<u8>, DownloadError> {
         Self::download_file_at_url_async(url).await
     }
 
-    async fn get_url_contents(&self, url: &str) -> Result<String, DownloadError> {
-        let client = Client::new();
-        let res = client
-            .get(url)
+    async fn lookup_remote_versions(&self) -> Result<Vec<String>, DownloadError> {
+        #[derive(serde::Deserialize, Debug)]
+        struct ApiRelease {
+            name: String,
+        }
+
+        let response = Client::builder()
+            .user_agent(APP_USER_AGENT)
+            .build()
+            .unwrap()
+            .get("https://api.github.com/repos/godotengine/godot-builds/releases")
             .send()
             .await
-            .map_err(|e| DownloadError::ReqwestError(url.into(), e))?;
-        res.text()
-            .await
-            .map_err(|e| DownloadError::ReqwestError(url.into(), e))
+            .unwrap()
+            .error_for_status()
+            .unwrap();
+
+        let releases: Vec<ApiRelease> = response.json().await.unwrap();
+
+        let mut releases: Vec<_> = releases
+            .into_iter()
+            .map(|r| r.name.replace("-stable", "").replace('-', "."))
+            .collect();
+
+        releases.sort();
+        Ok(releases)
     }
 }

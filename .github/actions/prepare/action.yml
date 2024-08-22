@@ -5,7 +5,7 @@ runs:
   using: "composite"
   steps:
     - name: Cache toolchain
-      uses: actions/cache@v2
+      uses: actions/cache@v4
       with:
         path: |
           ~/.rustup/toolchains
@@ -14,6 +14,6 @@ runs:
         key: toolchain-${{ hashFiles('rust-toolchain.toml') }}
     - run: rustup show
       shell: bash
-    - uses: extractions/setup-just@v1
+    - uses: extractions/setup-just@v2
       env:
         GITHUB_TOKEN: ${{ github.token }}

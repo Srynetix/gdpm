@@ -86,9 +86,9 @@ impl GdValue {
     }
 }
 
-impl ToString for GdValue {
-    fn to_string(&self) -> String {
-        serialize_gdvalue(self)
+impl std::fmt::Display for GdValue {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(&serialize_gdvalue(self))
     }
 }
 

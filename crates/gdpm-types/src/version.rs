@@ -1,10 +1,21 @@
 //! Versions.
 
-use std::{fmt::Display, str::FromStr};
+use std::{
+    fmt::{Display, Write},
+    str::FromStr,
+};
 
 use gdsettings_parser::GdValue;
+use slugify::slugify;
 
-use crate::TypeError;
+#[derive(Debug, thiserror::Error)]
+pub enum Error {
+    #[error("Wrong version: {0}")]
+    WrongVersion(String),
+
+    #[error("Wrong version kind: {0}")]
+    WrongVersionKind(String),
+}
 
 /// System version.
 #[derive(Debug, Clone)]
@@ -26,7 +37,7 @@ pub enum SystemVersion {
 }
 
 /// Godot version.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct GodotVersion {
     version: String,
     kind: GodotVersionKind,
@@ -34,7 +45,7 @@ pub struct GodotVersion {
 }
 
 /// Godot version kind.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub enum GodotVersionKind {
     /// Stable release.
     Stable,
@@ -44,6 +55,8 @@ pub enum GodotVersionKind {
     Alpha(u16),
     /// Beta release.
     Beta(u16),
+    /// Custom release.
+    Custom(String),
 }
 
 impl SystemVersion {
@@ -183,6 +196,11 @@ impl GodotVersion {
         self.mono
     }
 
+    /// Get version slug.
+    pub fn slug(&self) -> String {
+        slugify!(&self.to_string())
+    }
+
     /// To GdValue.
     pub fn to_gdvalue(&self) -> GdValue {
         GdValue::Object(vec![
@@ -215,6 +233,19 @@ impl GodotVersion {
             None
         }
     }
+
+    /// Get export template name
+    pub fn get_export_template_name(&self) -> String {
+        let mut output = String::new();
+        output.write_str(&self.version).unwrap();
+        output.write_fmt(format_args!(".{}", self.kind)).unwrap();
+
+        if self.mono {
+            output.write_str(".mono").unwrap();
+        }
+
+        output
+    }
 }
 
 impl Display for GodotVersion {
@@ -234,7 +265,7 @@ impl Display for GodotVersion {
 }
 
 impl FromStr for GodotVersion {
-    type Err = TypeError;
+    type Err = Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let mut parts: Vec<_> = s.split('.').collect();
@@ -263,6 +294,14 @@ impl FromStr for GodotVersion {
     }
 }
 
+impl TryFrom<&str> for GodotVersion {
+    type Error = Error;
+
+    fn try_from(value: &str) -> Result<Self, Self::Error> {
+        Self::from_str(value)
+    }
+}
+
 impl Display for GodotVersionKind {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
@@ -273,12 +312,13 @@ impl Display for GodotVersionKind {
             Self::Alpha(n) => write!(f, "alpha{}", n),
             Self::Beta(n) if *n == 0 => write!(f, "beta"),
             Self::Beta(n) => write!(f, "beta{}", n),
+            Self::Custom(c) => write!(f, "custom.{c}"),
         }
     }
 }
 
 impl FromStr for GodotVersionKind {
-    type Err = TypeError;
+    type Err = Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         if s == "stable" {
@@ -292,9 +332,20 @@ impl FromStr for GodotVersionKind {
         } else if s.starts_with("beta") {
             let number = s.chars().skip(4).collect::<String>().parse().unwrap_or(0);
             Ok(Self::Beta(number))
+        } else if s.starts_with("custom.") {
+            let custom_string = s.chars().skip(7).collect::<String>();
+            Ok(Self::Custom(custom_string))
         } else {
-            Err(TypeError::WrongVersionKind(s.to_string()))
+            Err(Error::WrongVersionKind(s.to_string()))
         }
+    }
+}
+
+impl TryFrom<&str> for GodotVersionKind {
+    type Error = Error;
+
+    fn try_from(value: &str) -> Result<Self, Self::Error> {
+        Self::from_str(value)
     }
 }
 
@@ -359,6 +410,22 @@ mod tests {
         assert_eq!(
             GodotVersion::from_str("3.1.2.mono").unwrap(),
             GodotVersion::new("3.1.2", GodotVersionKind::Stable, true)
+        );
+    }
+
+    #[test]
+    fn test_export_template_name() {
+        assert_eq!(
+            GodotVersion::from_str("3.1.2")
+                .unwrap()
+                .get_export_template_name(),
+            "3.1.2.stable"
+        );
+        assert_eq!(
+            GodotVersion::from_str("3.1.2.mono")
+                .unwrap()
+                .get_export_template_name(),
+            "3.1.2.stable.mono"
         );
     }
 }

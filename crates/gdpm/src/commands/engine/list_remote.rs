@@ -1,12 +1,15 @@
 use clap::Parser;
 use color_eyre::Result;
-use gdpm_core::{downloader::DownloadAdapter, io::IoAdapter};
+use gdpm_core::{
+    downloader::DownloadAdapter,
+    io::{write_stdout, IoAdapter},
+};
 
 use crate::context::Context;
 
 /// List engines from remote
 #[derive(Parser)]
-#[clap(name = "list-remote")]
+#[clap(name = "list-remote", alias = "ls-remote")]
 pub struct ListRemote;
 
 impl ListRemote {
@@ -26,7 +29,7 @@ impl ListRemote {
         let versions = context.download().lookup_remote_versions().await?;
 
         for version in versions {
-            println!("{version}");
+            write_stdout!(context.io(), "{}\n", version)?;
         }
 
         Ok(())

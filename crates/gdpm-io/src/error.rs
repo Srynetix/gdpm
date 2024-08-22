@@ -52,4 +52,7 @@ pub enum Error {
 
     #[error("Could not extract zip file '{0}' to '{1}': {2}")]
     ExtractZipError(PathBuf, PathBuf, String),
+
+    #[error("Write error: '{0}'")]
+    WriteError(String),
 }

@@ -65,4 +65,30 @@ pub trait IoAdapter {
 
         Ok(())
     }
+
+    /// Write message to stdout.
+    fn write_stdout(&self, message: String) -> Result<(), Error>;
+
+    /// Write message to stderr.
+    fn write_stderr(&self, message: String) -> Result<(), Error>;
+}
+
+#[macro_export]
+macro_rules! write_stdout {
+    ($adapter:expr, $msg:literal, $($args:expr),*) => {
+        $adapter.write_stdout(format!($msg, $($args),*))
+    };
+    ($adapter:expr, $msg:literal) => {
+        $adapter.write_stdout($msg.to_string())
+    }
+}
+
+#[macro_export]
+macro_rules! write_stderr {
+    ($adapter:expr, $msg:literal, $($args:expr),*) => {
+        $adapter.write_stderr(format!($msg, $($args),*))
+    };
+    ($adapter:expr, $msg:literal) => {
+        $adapter.write_stderr($msg.to_string())
+    }
 }

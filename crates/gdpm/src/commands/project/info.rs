@@ -4,7 +4,11 @@ use clap::Parser;
 use color_eyre::Result;
 
 use colored::Colorize;
-use gdpm_core::{downloader::DownloadAdapter, io::IoAdapter, plugins::DependencyHandler};
+use gdpm_core::{
+    downloader::DownloadAdapter,
+    io::{write_stdout, IoAdapter},
+    plugins::DependencyHandler,
+};
 
 use crate::{common::get_project_info_or_exit, context::Context};
 
@@ -17,24 +21,26 @@ pub struct Info {
 
 impl Info {
     pub fn execute<I: IoAdapter, D: DownloadAdapter>(self, context: &Context<I, D>) -> Result<()> {
-        let info = get_project_info_or_exit(context.io(), &self.path);
-        info.show();
+        let info = get_project_info_or_exit(context, &self.path)?;
+        info.write_repr(context.io())?;
 
         let dhandler = DependencyHandler::new(context.io());
         let dependencies = dhandler.list_project_dependencies(&self.path)?;
         if dependencies.is_empty() {
-            println!(
-                "Project '{}' has no dependency.",
+            write_stdout!(
+                context.io(),
+                "Project '{}' has no dependency.\n",
                 info.get_versioned_name().color("green")
-            );
+            )?;
         } else {
-            println!(
-                "Dependencies from project '{}':",
+            write_stdout!(
+                context.io(),
+                "Dependencies from project '{}':\n",
                 info.get_versioned_name().color("green")
-            );
+            )?;
 
             for dep in dependencies {
-                println!("- {}", dep.get_verbose_name());
+                write_stdout!(context.io(), "- {}\n", dep.get_verbose_name())?;
             }
         }
 

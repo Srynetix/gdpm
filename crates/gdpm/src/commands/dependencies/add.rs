@@ -4,7 +4,11 @@ use clap::Parser;
 use color_eyre::Result;
 
 use colored::Colorize;
-use gdpm_core::{downloader::DownloadAdapter, io::IoAdapter, plugins::DependencyHandler};
+use gdpm_core::{
+    downloader::DownloadAdapter,
+    io::{write_stdout, IoAdapter},
+    plugins::DependencyHandler,
+};
 
 use crate::{common::get_project_info_or_exit, context::Context};
 
@@ -26,7 +30,7 @@ pub struct Add {
 
 impl Add {
     pub fn execute<I: IoAdapter, D: DownloadAdapter>(self, context: &Context<I, D>) -> Result<()> {
-        let info = get_project_info_or_exit(context.io(), &self.path);
+        let info = get_project_info_or_exit(context, &self.path)?;
         let dhandler = DependencyHandler::new(context.io());
         dhandler.add_dependency(
             &self.path,
@@ -37,21 +41,23 @@ impl Add {
         )?;
 
         if self.no_sync {
-            println!(
-                "Dependency {} (v{}) from {} added to project {}.",
+            write_stdout!(
+                context.io(),
+                "Dependency {} (v{}) from {} added to project {}.\n",
                 self.name.color("green"),
                 self.version.color("green"),
                 self.source.color("blue"),
                 info.get_versioned_name().color("green")
-            );
+            )?;
         } else {
-            println!(
-                "Dependency {} (v{}) from {} added and installed to project {}.",
+            write_stdout!(
+                context.io(),
+                "Dependency {} (v{}) from {} added and installed to project {}.\n",
                 self.name.color("green"),
                 self.version.color("green"),
                 self.source.color("blue"),
                 info.get_versioned_name().color("green")
-            );
+            )?;
         }
 
         Ok(())

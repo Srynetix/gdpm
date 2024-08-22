@@ -1,13 +1,17 @@
 use clap::Parser;
 use color_eyre::Result;
 use colored::Colorize;
-use gdpm_core::{downloader::DownloadAdapter, engine::EngineHandler, io::IoAdapter};
+use gdpm_core::{
+    downloader::DownloadAdapter,
+    engine::EngineHandler,
+    io::{write_stdout, IoAdapter},
+};
 
 use crate::context::Context;
 
 /// List engines
 #[derive(Parser)]
-#[clap(name = "list")]
+#[clap(name = "list", alias = "ls")]
 pub struct List;
 
 impl List {
@@ -17,24 +21,25 @@ impl List {
         let default_entry = ehandler.get_default()?;
 
         if entries.is_empty() {
-            println!(
-                "{}",
+            write_stdout!(
+                context.io(),
+                "{}\n",
                 "No engine registered. Use `engine register` to register an engine."
                     .color("yellow")
-            );
+            )?;
         } else {
             for entry in entries {
                 if let Some(default) = &default_entry {
                     if entry.has_same_slug(default) {
-                        print!("{} ", "*".color("green"));
+                        write_stdout!(context.io(), "{} ", "*".color("green"))?;
                     } else {
-                        print!("  ");
+                        write_stdout!(context.io(), "  ")?;
                     }
                 } else {
-                    print!("  ");
+                    write_stdout!(context.io(), "  ")?;
                 }
 
-                println!("{}", entry.get_verbose_name());
+                write_stdout!(context.io(), "{}\n", entry.get_verbose_name())?;
             }
         }
 

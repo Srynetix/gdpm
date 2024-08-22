@@ -6,7 +6,7 @@ use colored::Colorize;
 use gdpm_core::{
     downloader::{download::Downloader, error::DownloadError, DownloadAdapter},
     engine::{EngineHandler, EngineInfo},
-    io::IoAdapter,
+    io::{write_stderr, write_stdout, IoAdapter},
     types::version::{GodotVersion, SystemVersion},
 };
 use tracing::info;
@@ -51,8 +51,9 @@ impl Add {
             Ok(c) => {
                 let path =
                     ehandler.install_from_official_zip(c, version.clone(), system.clone())?;
-                println!(
-                    "{}",
+                write_stdout!(
+                    context.io(),
+                    "{}\n",
                     format!(
                         "Version '{}' installed for system '{}' at path '{}'",
                         version,
@@ -60,28 +61,28 @@ impl Add {
                         path.display()
                     )
                     .color("green")
-                );
+                )?;
             }
             Err(DownloadError::NotFound(u)) => {
-                println!(
-                    "{}",
+                write_stdout!(
+                    context.io(),
+                    "{}\n",
                     format!(
                         "Version '{}' does not exist for system '{}' (or wrong url: {})",
                         version, system, u
                     )
                     .color("red")
-                );
+                )?;
             }
-            Err(e) => {
-                println!(
-                    "{}",
-                    format!(
-                        "Unexpected error while trying to download file at url '{}'\n    | {}",
-                        url, e
-                    )
-                    .color("red")
+            Err(e) => write_stdout!(
+                context.io(),
+                "{}\n",
+                format!(
+                    "Unexpected error while trying to download file at url '{}'\n    | {}",
+                    url, e
                 )
-            }
+                .color("red")
+            )?,
         }
 
         Ok(())
@@ -97,35 +98,38 @@ impl Add {
         match Downloader::download_file_at_url(context.download(), url).await {
             Ok(c) => {
                 let path = ehandler.install_export_templates(c, version.clone())?;
-                println!(
-                    "{}",
+                write_stdout!(
+                    context.io(),
+                    "{}\n",
                     format!(
                         "Export templates for version '{}' installed at path '{}'",
                         version,
                         path.display()
                     )
                     .color("green")
-                );
+                )?;
             }
             Err(DownloadError::NotFound(u)) => {
-                println!(
-                    "{}",
+                write_stdout!(
+                    context.io(),
+                    "{}\n",
                     format!(
                         "Export templates for version '{}' does not exist (or wrong url: {})",
                         version, u
                     )
                     .color("red")
-                );
+                )?;
             }
             Err(e) => {
-                println!(
-                    "{}",
+                write_stdout!(
+                    context.io(),
+                    "{}\n",
                     format!(
                         "Unexpected error while trying to download file at url '{}'\n    | {}",
                         url, e
                     )
                     .color("red")
-                )
+                )?;
             }
         }
 
@@ -134,14 +138,17 @@ impl Add {
 
     pub fn execute<I: IoAdapter, D: DownloadAdapter>(self, context: &Context<I, D>) -> Result<()> {
         let ehandler = EngineHandler::new(context.io());
-        let (version, system) = parse_godot_version_args(&self.engine, self.headless, self.server);
+        let (version, system) =
+            parse_godot_version_args(context, &self.engine, self.headless, self.server)?;
 
         let existing_version = ehandler.has_version(&version)?;
         if existing_version.is_some() {
             if !self.overwrite {
-                println!("{}",
+                write_stderr!(
+                    context.io(),
+                    "{}\n",
                     format!("Engine version '{}' is already installed. Use '--overwrite' to force installation.", version).color("yellow")
-                );
+                )?;
                 std::process::exit(1);
             } else {
                 info!(
@@ -157,7 +164,7 @@ impl Add {
             let ehandler = EngineHandler::new(context.io());
             ehandler.register(engine_info)?;
 
-            println!("{} is registered.", verbose_name);
+            write_stdout!(context.io(), "{} is registered.\n", verbose_name)?;
             return Ok(());
         }
 
@@ -168,7 +175,10 @@ impl Add {
                 .unwrap();
             rt.block_on(Self::download_file_at_url(context, &url, version, system))?;
 
-            println!("Cannot fetch export templates, missing URL.");
+            write_stderr!(
+                context.io(),
+                "Cannot fetch export templates, missing URL.\n"
+            )?;
         } else {
             let editor_url = Downloader::get_official_editor_url_for_version(
                 version.clone(),

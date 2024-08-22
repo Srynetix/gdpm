@@ -168,4 +168,12 @@ impl IoAdapter for DefaultIoAdapter {
 
         Ok(())
     }
+
+    fn write_stderr(&self, message: String) -> Result<(), Error> {
+        write!(std::io::stderr(), "{}", message).map_err(|e| Error::WriteError(e.to_string()))
+    }
+
+    fn write_stdout(&self, message: String) -> Result<(), Error> {
+        write!(std::io::stdout(), "{}", message).map_err(|e| Error::WriteError(e.to_string()))
+    }
 }

@@ -10,7 +10,7 @@ pub mod project;
 
 pub mod io {
     //! IO module.
-    pub use gdpm_io::{DefaultIoAdapter, IoAdapter};
+    pub use gdpm_io::{write_stderr, write_stdout, DefaultIoAdapter, IoAdapter};
 }
 
 pub mod downloader {

@@ -3,7 +3,7 @@
 use std::path::Path;
 
 use colored::Colorize;
-use gdpm_io::IoAdapter;
+use gdpm_io::{write_stdout, IoAdapter};
 use gdpm_types::version::GodotVersion;
 use gdsettings_parser::{GdSettings, GdValue};
 
@@ -64,19 +64,21 @@ impl GdProjectInfo {
     }
 
     /// Show project info
-    pub fn show(&self) {
-        println!("Project: {}", self.project_name.color("green"));
+    pub fn write_repr<I: IoAdapter>(&self, io: &I) -> Result<(), ProjectError> {
+        write_stdout!(io, "Project: {}\n", self.project_name.color("green"))?;
         if let Some(v) = &self.version {
-            println!("- Version: {}", v.color("green"));
+            write_stdout!(io, "- Version: {}\n", v.color("green"))?;
         }
 
         if let Some(v) = &self.engine_version {
-            println!("- Engine version: v{}", v.to_string().color("green"));
+            write_stdout!(io, "- Engine version: v{}\n", v.to_string().color("green"))?;
         }
 
         if let Some(s) = &self.main_scene {
-            println!("- Main scene: {}", s.color("green"));
+            write_stdout!(io, "- Main scene: {}\n", s.color("green"))?;
         }
+
+        Ok(())
     }
 }
 

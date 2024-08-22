@@ -6,15 +6,15 @@ A command line utility to manage a Godot project.
 
 [CHANGELOG](./CHANGELOG.md)
 
-## Roadmap
+## Install
 
-The Rust way (you need to have Rust and Cargo):
+You can also get the latest release on the [GitHub release page](https://github.com/Srynetix/gdpm/releases).
+
+You can also use the Rust way (you need to have Rust and Cargo):
 
 ```bash
-cargo install --git https://github.com/Srynetix/gdpm#main gdpm
+cargo install --git https://github.com/Srynetix/gdpm#v1.3.0
 ```
-
-You can also get the latest release on the [GitHub release page](https://github.com/Srynetix/gdpm/releases), and put the executable in your PATH.
 
 ## Workflow
 

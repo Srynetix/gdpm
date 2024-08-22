@@ -25,14 +25,14 @@ You can use the following workflow.
 
 Before you start to manage your projects, you have to register engine instances.\
 For example, imagine you have two Godot instances on your disk:
-- Godot Engine **4.1**, stored in `C:\Godot\4.1\godot.exe`
+- Godot Engine **4.3**, stored in `C:\Godot\4.3\godot.exe`
 - Godot Engine **4.2.beta1**, stored in `C:\Godot\4.2beta1\godot.exe`
 
 You have to use the `gdpm engine add` command to register each version in a gdpm configuration file.\
 Following these examples, you have to execute:
 
 ```bash
-gdpm engine add 4.1 --target-path C:\Godot\4.1\godot.exe
+gdpm engine add 4.3 --target-path C:\Godot\4.3\godot.exe
 gdpm engine add 4.2.beta1 --target-path C:\Godot\4.2beta1\godot.exe
 ```
 
@@ -46,8 +46,8 @@ gdpm engine default 4.2.beta1
 If you do not have already installed engine versions, you can also use the `engine add` command to let `gdpm` download and install them for you.
 
 ```bash
-# If you want the 4.2.1 stable, mono edition
-gdpm engine add 4.2.1.mono
+# If you want the 4.3 stable, mono edition
+gdpm engine add 4.3.mono
 
 # If you want the 4.2 beta 2, gdscript edition
 gdpm engine add 4.2.beta2
@@ -56,7 +56,7 @@ gdpm engine add 4.2.beta2
 > **Note**: Quick-tip for speed.
 >
 > Each command can be shortened, if they are not ambiguous.\
-> For example, to add an engine, you can write `gdpm eng add 4.2.1.mono` or even `gdpm e a 4.2.1.mono`.
+> For example, to add an engine, you can write `gdpm eng add 4.3.mono` or even `gdpm e a 4.2.1.mono`.
 
 ### 2. Create a project / Assign your engine version
 
@@ -103,10 +103,10 @@ How do we specify this? How can we retrieve the plugin code in our project? It's
 
 ```bash
 # Let's add plugin2 from the ../other-project project
-gdpm deps add plugin2 1.0.0 ../other-project
+gdpm deps add plugin2 ../other-project
 
 # Then add `gitplugin` from the `git@github.com:example/example-project` project
-gdpm deps add gitplugin 1.0.0 git@github.com:example/example-project
+gdpm deps add gitplugin git@github.com:example/example-project
 ```
 
 Your plugins will be copied in your project.

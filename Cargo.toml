@@ -6,6 +6,7 @@ members = [
     "crates/gdpm-io",
     "crates/gdpm-scaffolder",
     "crates/gdpm-types",
+    "crates/gdpm-testutils",
     "crates/gdsettings-parser",
 ]
 resolver = "2"

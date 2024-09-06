@@ -24,7 +24,7 @@ impl List {
             write_stdout!(
                 context.io(),
                 "{}\n",
-                "No engine registered. Use `engine register` to register an engine."
+                "No engine registered. Use `engine add` or `engine register` to register an engine."
                     .color("yellow")
             )?;
         } else {

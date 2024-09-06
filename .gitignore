@@ -4,3 +4,4 @@
 /work
 *.profraw
 lcov.info
+.direnv

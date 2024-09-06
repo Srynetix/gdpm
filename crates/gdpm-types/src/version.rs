@@ -18,22 +18,24 @@ pub enum Error {
 }
 
 /// System version.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SystemVersion {
     /// Windows 32-bit
     Win32,
     /// Windows 64-bit
     Win64,
-    /// Linux 32-bit
-    X1132,
-    /// Linux 64-bit
-    X1164,
+    /// Windows ARM 64-bit
+    WinArm64,
+    /// Linux x86 32-bit
+    LinuxX32,
+    /// Linux x86 64-bit
+    LinuxX64,
+    /// Linux ARM 32-bit
+    LinuxArm32,
+    /// Linux ARM 64-bit
+    LinuxArm64,
     /// MacOS
-    OSX,
-    /// Server (Linux 64-bit)
-    LinuxServer64,
-    /// Headless (Linux 64-bit)
-    LinuxHeadless64,
+    MacOS,
 }
 
 /// Godot version.
@@ -41,6 +43,7 @@ pub enum SystemVersion {
 pub struct GodotVersion {
     version: String,
     kind: GodotVersionKind,
+    system: SystemVersion,
     mono: bool,
 }
 
@@ -72,14 +75,18 @@ impl SystemVersion {
             }
         } else if cfg!(target_os = "linux") {
             if cfg!(target_arch = "x86") {
-                SystemVersion::X1132
+                SystemVersion::LinuxX32
             } else if cfg!(target_arch = "x86_64") {
-                SystemVersion::X1164
+                SystemVersion::LinuxX64
+            } else if cfg!(target_arch = "arm") {
+                SystemVersion::LinuxArm32
+            } else if cfg!(target_arch = "aarch64") {
+                SystemVersion::LinuxArm64
             } else {
                 panic!("Unsupported Linux architecture.")
             }
         } else if cfg!(target_os = "macos") {
-            SystemVersion::OSX
+            SystemVersion::MacOS
         } else {
             panic!("Unsupported OS.")
         }
@@ -87,17 +94,24 @@ impl SystemVersion {
 
     /// Check if system is linux-based.
     pub fn is_linux(&self) -> bool {
-        matches!(self, SystemVersion::X1132 | SystemVersion::X1164)
+        matches!(
+            self,
+            SystemVersion::LinuxArm32
+                | SystemVersion::LinuxArm64
+                | SystemVersion::LinuxX32
+                | SystemVersion::LinuxX64
+        )
     }
 
     /// Get executable extension for current system.
     pub fn get_extension(&self) -> &'static str {
         match self {
-            SystemVersion::Win32 | SystemVersion::Win64 => "exe",
-            SystemVersion::X1132 | SystemVersion::X1164 => "x11",
-            SystemVersion::LinuxHeadless64 => "headless.x11",
-            SystemVersion::LinuxServer64 => "server.x11",
-            SystemVersion::OSX => "osx",
+            SystemVersion::Win32 | SystemVersion::Win64 | SystemVersion::WinArm64 => "exe",
+            SystemVersion::LinuxX32 => "x86_32",
+            SystemVersion::LinuxX64 => "x86_64",
+            SystemVersion::LinuxArm32 => "arm32",
+            SystemVersion::LinuxArm64 => "arm64",
+            SystemVersion::MacOS => "app",
         }
     }
 
@@ -118,39 +132,46 @@ impl SystemVersion {
                     "win64.exe"
                 }
             }
-            SystemVersion::X1132 => {
+            SystemVersion::WinArm64 => {
                 if with_mono {
-                    "mono_x11_32"
+                    "mono_windows_arm64"
                 } else {
-                    "x11.32"
+                    "windows_arm64.exe"
                 }
             }
-            SystemVersion::X1164 => {
+            SystemVersion::LinuxX32 => {
                 if with_mono {
-                    "mono_x11_64"
+                    "mono_linux_x86_32"
                 } else {
-                    "x11.64"
+                    "linux.x86_32"
                 }
             }
-            SystemVersion::OSX => {
+            SystemVersion::LinuxX64 => {
                 if with_mono {
-                    "mono_osx.64"
+                    "mono_linux_x86_64"
                 } else {
-                    "osx.universal"
+                    "linux.x86_64"
                 }
             }
-            SystemVersion::LinuxServer64 => {
+            SystemVersion::MacOS => {
                 if with_mono {
-                    "mono_linux_server_64"
+                    "mono_macos.64"
                 } else {
-                    "linux_server.64"
+                    "macos.universal"
                 }
             }
-            SystemVersion::LinuxHeadless64 => {
+            SystemVersion::LinuxArm32 => {
                 if with_mono {
-                    "mono_linux_headless_64"
+                    "mono_linux_arm32"
                 } else {
-                    "linux_server.64"
+                    "linux.arm32"
+                }
+            }
+            SystemVersion::LinuxArm64 => {
+                if with_mono {
+                    "mono_linux_arm64"
+                } else {
+                    "linux.arm64"
                 }
             }
         }
@@ -162,21 +183,41 @@ impl Display for SystemVersion {
         match self {
             Self::Win32 => write!(f, "win32"),
             Self::Win64 => write!(f, "win64"),
-            Self::X1132 => write!(f, "linux32"),
-            Self::X1164 => write!(f, "linux64"),
-            Self::OSX => write!(f, "osx"),
-            Self::LinuxServer64 => write!(f, "linuxserver64"),
-            Self::LinuxHeadless64 => write!(f, "linuxheadless64"),
+            Self::WinArm64 => write!(f, "win-arm64"),
+            Self::LinuxX32 => write!(f, "linux-x32"),
+            Self::LinuxX64 => write!(f, "linux-x64"),
+            Self::MacOS => write!(f, "macos"),
+            Self::LinuxArm32 => write!(f, "linux-arm32"),
+            Self::LinuxArm64 => write!(f, "linux-arm64"),
+        }
+    }
+}
+
+impl FromStr for SystemVersion {
+    type Err = Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "win32" => Ok(SystemVersion::Win32),
+            "win64" => Ok(SystemVersion::Win64),
+            "win-arm64" => Ok(SystemVersion::WinArm64),
+            "linux-x32" => Ok(SystemVersion::LinuxX32),
+            "linux-x64" => Ok(SystemVersion::LinuxX64),
+            "macos" => Ok(SystemVersion::MacOS),
+            "linux-arm32" => Ok(SystemVersion::LinuxArm32),
+            "linux-arm64" => Ok(SystemVersion::LinuxArm64),
+            _ => Err(Error::WrongVersion(format!("Unknown version {}", s))),
         }
     }
 }
 
 impl GodotVersion {
     /// Creates a new Godot version.
-    pub fn new(version: &str, kind: GodotVersionKind, mono: bool) -> Self {
+    pub fn new(version: &str, kind: GodotVersionKind, system: SystemVersion, mono: bool) -> Self {
         Self {
             version: version.to_owned(),
             kind,
+            system,
             mono,
         }
     }
@@ -201,6 +242,11 @@ impl GodotVersion {
         slugify!(&self.to_string())
     }
 
+    /// Get system version.
+    pub fn system(&self) -> SystemVersion {
+        self.system
+    }
+
     /// To GdValue.
     pub fn to_gdvalue(&self) -> GdValue {
         GdValue::Object(vec![
@@ -222,11 +268,17 @@ impl GodotVersion {
                 .and_then(|x| x.to_str())
                 .map(|x| GodotVersionKind::from_str(&x).unwrap())
                 .unwrap_or(GodotVersionKind::Stable);
+            let system: SystemVersion = map
+                .get("system")
+                .and_then(|x| x.to_str())
+                .map(|x| x.parse().unwrap())
+                .unwrap_or_else(|| SystemVersion::determine_system_kind());
             let mono = map.get("mono").and_then(|x| x.to_bool()).unwrap_or(false);
 
             Some(Self {
                 version,
                 kind,
+                system,
                 mono,
             })
         } else {
@@ -264,31 +316,68 @@ impl Display for GodotVersion {
     }
 }
 
+/*
+Syntax
+
+4.3.mono
+4.3.mono.win64
+4.1.2.mono.win64
+4.2.beta1.mono.win64
+*/
+
 impl FromStr for GodotVersion {
     type Err = Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let mut parts: Vec<_> = s.split('.').collect();
+        let parts: Vec<_> = s.split('.').collect();
         let mut kind = GodotVersionKind::Stable;
         let mut mono = false;
+        let mut version_number: Vec<&str> = vec![];
+        let mut system = SystemVersion::determine_system_kind();
+        let mut version_number_done = false;
 
-        if let Some(&"mono") = parts.last() {
-            mono = true;
-            parts.pop();
-        }
+        for part in parts {
+            // Try to parse a version
+            if part.parse::<u16>().is_ok() {
+                if version_number_done {
+                    return Err(Error::WrongVersion(s.to_string()));
+                }
 
-        if let Some(&x) = parts.last() {
-            if x.parse::<u16>().is_err() {
-                kind = GodotVersionKind::from_str(x)?;
-                parts.pop();
+                version_number.push(part);
+                continue;
             }
-        }
 
-        let version = parts.join(".");
+            // We finished reading numbers
+            if !version_number_done {
+                version_number_done = true;
+            }
+
+            // Now that's a string
+            if part == "mono" {
+                mono = true;
+                continue;
+            }
+
+            // Try to parse a kind
+            if let Ok(kind_) = part.parse::<GodotVersionKind>() {
+                kind = kind_;
+                continue;
+            }
+
+            // Try to parse a system version
+            if let Ok(version) = part.parse::<SystemVersion>() {
+                system = version;
+                continue;
+            }
+
+            // That's another thing, error out
+            return Err(Error::WrongVersion(s.to_string()));
+        }
 
         Ok(Self {
-            version,
+            version: version_number.join("."),
             kind,
+            system,
             mono,
         })
     }
@@ -352,65 +441,37 @@ impl TryFrom<&str> for GodotVersionKind {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use GodotVersionKind::*;
+    use SystemVersion::*;
+    use test_case::test_case;
 
-    #[test]
-    fn test_parse_version_kind() {
-        assert_eq!(
-            GodotVersionKind::from_str("rc").unwrap(),
-            GodotVersionKind::ReleaseCandidate(0)
-        );
-        assert_eq!(
-            GodotVersionKind::from_str("rc9").unwrap(),
-            GodotVersionKind::ReleaseCandidate(9)
-        );
-        assert_eq!(
-            GodotVersionKind::from_str("alpha").unwrap(),
-            GodotVersionKind::Alpha(0)
-        );
-        assert_eq!(
-            GodotVersionKind::from_str("alpha2").unwrap(),
-            GodotVersionKind::Alpha(2)
-        );
-        assert_eq!(
-            GodotVersionKind::from_str("beta").unwrap(),
-            GodotVersionKind::Beta(0)
-        );
-        assert_eq!(
-            GodotVersionKind::from_str("beta1").unwrap(),
-            GodotVersionKind::Beta(1)
-        );
-        assert_eq!(
-            GodotVersionKind::from_str("stable").unwrap(),
-            GodotVersionKind::Stable
-        );
+    fn system_auto() -> SystemVersion {
+        SystemVersion::determine_system_kind()
     }
 
-    #[test]
-    fn test_parse_version() {
-        assert_eq!(
-            GodotVersion::from_str("3.0").unwrap(),
-            GodotVersion::new("3.0", GodotVersionKind::Stable, false)
-        );
-        assert_eq!(
-            GodotVersion::from_str("3.0.mono").unwrap(),
-            GodotVersion::new("3.0", GodotVersionKind::Stable, true)
-        );
-        assert_eq!(
-            GodotVersion::from_str("3.0.alpha1").unwrap(),
-            GodotVersion::new("3.0", GodotVersionKind::Alpha(1), false)
-        );
-        assert_eq!(
-            GodotVersion::from_str("3.1.beta2.mono").unwrap(),
-            GodotVersion::new("3.1", GodotVersionKind::Beta(2), true)
-        );
-        assert_eq!(
-            GodotVersion::from_str("3.1.2").unwrap(),
-            GodotVersion::new("3.1.2", GodotVersionKind::Stable, false)
-        );
-        assert_eq!(
-            GodotVersion::from_str("3.1.2.mono").unwrap(),
-            GodotVersion::new("3.1.2", GodotVersionKind::Stable, true)
-        );
+    const NO_MONO: bool = false;
+    const MONO: bool = true;
+
+    #[test_case("rc", ReleaseCandidate(0))]
+    #[test_case("rc9", ReleaseCandidate(9))]
+    #[test_case("alpha", Alpha(0))]
+    #[test_case("alpha2", Alpha(2))]
+    #[test_case("beta", Beta(0))]
+    #[test_case("beta1", Beta(1))]
+    #[test_case("stable", Stable)]
+    fn test_parse_version_kind(version: &str, kind: GodotVersionKind) {
+        assert_eq!(version.parse::<GodotVersionKind>().unwrap(), kind);
+    }
+
+    #[test_case("3.0", "3.0", Stable, system_auto(), NO_MONO)]
+    #[test_case("3.0.mono", "3.0", Stable, system_auto(), MONO)]
+    #[test_case("3.0.beta1", "3.0", Beta(1), system_auto(), NO_MONO)]
+    #[test_case("3.0.beta1.win32", "3.0", Beta(1), Win32, NO_MONO)]
+    #[test_case("3.0.beta1.mono.linux-arm64", "3.0", Beta(1), LinuxArm64, MONO)]
+    #[test_case("3.0.rc1.mono.linux-x32", "3.0", ReleaseCandidate(1), LinuxX32, MONO)]
+    #[test_case("3.0.mono.macos", "3.0", Stable, MacOS, MONO)]
+    fn test_parse_version(version: &str, gd_version: &str, kind: GodotVersionKind, system: SystemVersion, mono: bool) {
+        assert_eq!(version.parse::<GodotVersion>().unwrap(), GodotVersion::new(gd_version, kind, system, mono));
     }
 
     #[test]

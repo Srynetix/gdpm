@@ -38,7 +38,7 @@ impl EngineInfo {
         version: GodotVersion,
         path: PathBuf,
     ) -> Result<Self, EngineError> {
-        if !io_adapter.path_is_file(&path) {
+        if !io_adapter.path_exists(&path) {
             Err(EngineError::EngineMissingFromPath(version, path))
         } else {
             Ok(Self { version, path })
@@ -337,30 +337,50 @@ impl<'a, I: IoAdapter> EngineHandler<'a, I> {
         self.io_adapter
             .open_and_extract_zip(&zip_path, &extraction_path)?;
 
+        // Special case for MacOS
+        let zip_folder_name = if system == SystemVersion::MacOS {
+            format!("Godot.app")
+        } else {
+            format!(
+                "Godot_v{}-{}_{}",
+                version.version(),
+                version.kind(),
+                system.get_archive_basename(version.mono())
+            )
+        };
+
         // Folder name
-        let zip_folder_name = format!(
-            "Godot_v{}-{}_{}",
-            version.version(),
-            version.kind(),
-            system.get_archive_basename(version.mono())
-        );
         let zip_folder_path = extraction_path.join(&zip_folder_name);
 
         // Mono versions have an additional folder
         let zip_exec_path = if version.mono() {
-            let zip_exec_name = format!("{}.{}", &zip_folder_name, system.get_extension());
+            let zip_exec_name = zip_folder_name.replace(
+                &format!("_{}", system.get_extension()),
+                &format!(".{}", system.get_extension()),
+            );
             extraction_path.join(&zip_folder_name).join(zip_exec_name)
         } else {
             zip_folder_path.with_extension(system.get_extension())
         };
 
-        let zip_exec_target = Path::new(&version_path)
-            .join(GODOT_EXECUTABLE_NAME)
-            .with_extension(system.get_extension());
+        let zip_exec_target = if system == SystemVersion::MacOS {
+            Path::new(&version_path).join("Godot.app")
+        } else {
+            Path::new(&version_path)
+                .join(GODOT_EXECUTABLE_NAME)
+                .with_extension(system.get_extension())
+        };
 
-        // Copy to current dir
-        self.io_adapter
-            .copy_file(&zip_exec_path, &zip_exec_target)?;
+        // On Mac you need to copy the .app directory
+        if system == SystemVersion::MacOS {
+            // Godot.app path
+            self.io_adapter.copy_dir(&zip_exec_path, &version_path)?;
+        } else {
+            // Copy to current dir
+            self.io_adapter
+                .copy_file(&zip_exec_path, &zip_exec_target)?;
+        }
+
         if version.mono() {
             let mono_folder_src = zip_folder_path.join("GodotSharp");
             let mono_folder_dst = &version_path;

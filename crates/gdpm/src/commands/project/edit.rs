@@ -61,9 +61,8 @@ impl Edit {
                 CheckEngineResponse::Download(v) => {
                     let cmd = Add {
                         engine: v.clone(),
-                        headless: false,
                         overwrite: false,
-                        server: false,
+                        system_version: None,
                         target_path: None,
                         target_url: None,
                     };

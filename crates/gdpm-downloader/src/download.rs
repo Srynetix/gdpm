@@ -86,7 +86,7 @@ mod tests {
         let check = |(v, k, s, m), expected| {
             assert_eq!(
                 Downloader::get_official_editor_url_for_version(
-                    GodotVersion::new(v, k, m),
+                    GodotVersion::new(v, k, SystemVersion::determine_system_kind(), m),
                     s,
                     root
                 ),
@@ -118,20 +118,20 @@ mod tests {
             (
                 "1.2.3",
                 GodotVersionKind::ReleaseCandidate(2),
-                SystemVersion::LinuxServer64,
+                SystemVersion::LinuxArm32,
                 false,
             ),
-            "http://localhost/subdir/1.2.3-rc2/Godot_v1.2.3-rc2_linux_server.64.zip",
+            "http://localhost/subdir/1.2.3-rc2/Godot_v1.2.3-rc2_linux_arm32.zip",
         );
 
         check(
             (
                 "1.2.3",
                 GodotVersionKind::ReleaseCandidate(2),
-                SystemVersion::LinuxServer64,
+                SystemVersion::LinuxArm64,
                 true,
             ),
-            "http://localhost/subdir/1.2.3-rc2/Godot_v1.2.3-rc2_mono_linux_server_64.zip",
+            "http://localhost/subdir/1.2.3-rc2/Godot_v1.2.3-rc2_mono_linux_arm64.zip",
         );
     }
 
@@ -141,7 +141,7 @@ mod tests {
         let check = |(v, k, m), expected| {
             assert_eq!(
                 Downloader::get_official_export_templates_url_for_version(
-                    GodotVersion::new(v, k, m),
+                    GodotVersion::new(v, k, SystemVersion::determine_system_kind(), m),
                     root
                 ),
                 expected

@@ -6,7 +6,7 @@ use gdpm_core::{
     engine::EngineHandler,
     error::EngineError,
     io::{write_stdout, IoAdapter},
-    types::version::GodotVersion,
+    types::version::{GodotVersion, SystemVersion},
 };
 
 use crate::{common::parse_godot_version_args, context::Context};
@@ -17,6 +17,9 @@ use crate::{common::parse_godot_version_args, context::Context};
 pub struct Remove {
     /// Engine version
     engine: GodotVersion,
+    /// System version
+    #[clap(long)]
+    system_version: Option<SystemVersion>,
     /// Headless?
     #[clap(long)]
     headless: bool,
@@ -27,8 +30,7 @@ pub struct Remove {
 
 impl Remove {
     pub fn execute<I: IoAdapter, D: DownloadAdapter>(self, context: &Context<I, D>) -> Result<()> {
-        let (version, _system) =
-            parse_godot_version_args(context, &self.engine, self.headless, self.server)?;
+        let (version, _system) = parse_godot_version_args(&self.engine, self.system_version)?;
 
         let ehandler = EngineHandler::new(context.io());
         match ehandler.uninstall(&version) {

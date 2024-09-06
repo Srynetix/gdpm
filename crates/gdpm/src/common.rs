@@ -5,7 +5,7 @@ use colored::Colorize;
 use gdpm_core::{
     downloader::DownloadAdapter,
     engine::{EngineHandler, EngineInfo},
-    io::{write_stderr, write_stdout, IoAdapter},
+    io::{write_stdout, IoAdapter},
     project::{GdProjectInfo, ProjectHandler},
     types::version::{GodotVersion, SystemVersion},
 };
@@ -119,7 +119,7 @@ pub(crate) fn validate_engine_version_or_exit<I: IoAdapter, D: DownloadAdapter>(
                 .map(|x| format!("- {}", x.get_verbose_name().color("green")))
                 .collect();
 
-            write_stdout!(context.io(), "{}", format!("Unknown engine with version `{}`. You need to `engine register` this version before using it.\n", version.to_string().color("green")).color("yellow"))?;
+            write_stdout!(context.io(), "{}", format!("Unknown engine with version `{}`. You need to `engine add` or `engine register` this version before using it.\n", version.to_string().color("green")).color("yellow"))?;
 
             if available_engine_names.is_empty() {
                 write_stdout!(
@@ -138,31 +138,15 @@ pub(crate) fn validate_engine_version_or_exit<I: IoAdapter, D: DownloadAdapter>(
     }
 }
 
-pub(crate) fn parse_godot_version_args<I: IoAdapter, D: DownloadAdapter>(
-    context: &Context<I, D>,
-    version: &GodotVersion,
-    headless: bool,
-    server: bool,
+pub(crate) fn parse_godot_version_args(
+    godot_version: &GodotVersion,
+    system_version: Option<SystemVersion>,
 ) -> Result<(GodotVersion, SystemVersion)> {
-    let system = SystemVersion::determine_system_kind();
+    let system = if let Some(system_version) = system_version {
+        system_version
+    } else {
+        SystemVersion::determine_system_kind()
+    };
 
-    if !system.is_linux() && headless {
-        write_stderr!(
-            context.io(),
-            "{}",
-            "You can not install an headless version of Godot Engine on a non-Linux platform.\n"
-                .color("red")
-        )?;
-        std::process::exit(1);
-    } else if !system.is_linux() && server {
-        write_stderr!(
-            context.io(),
-            "{}",
-            "You can not install an server version of Godot Engine on a non-Linux platform.\n"
-                .color("red")
-        )?;
-        std::process::exit(1);
-    }
-
-    Ok((version.clone(), system))
+    Ok((godot_version.clone(), system))
 }

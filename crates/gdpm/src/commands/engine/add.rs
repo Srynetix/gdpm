@@ -21,12 +21,9 @@ pub(crate) const MIRROR_URL: &str =
 pub(crate) struct Add {
     /// Engine version
     pub(crate) engine: GodotVersion,
-    /// Headless?
+    /// System version
     #[clap(long)]
-    pub(crate) headless: bool,
-    /// Server?
-    #[clap(long)]
-    pub(crate) server: bool,
+    pub(crate) system_version: Option<SystemVersion>,
     /// Target URL
     #[clap(long)]
     pub(crate) target_url: Option<String>,
@@ -138,8 +135,7 @@ impl Add {
 
     pub fn execute<I: IoAdapter, D: DownloadAdapter>(self, context: &Context<I, D>) -> Result<()> {
         let ehandler = EngineHandler::new(context.io());
-        let (version, system) =
-            parse_godot_version_args(context, &self.engine, self.headless, self.server)?;
+        let (version, system) = parse_godot_version_args(&self.engine, self.system_version)?;
 
         let existing_version = ehandler.has_version(&version)?;
         if existing_version.is_some() {

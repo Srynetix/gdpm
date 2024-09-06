@@ -252,6 +252,7 @@ impl GodotVersion {
         GdValue::Object(vec![
             ("version".into(), GdValue::String(self.version.clone())),
             ("kind".into(), GdValue::String(self.kind.to_string())),
+            ("system".into(), GdValue::String(self.system.to_string())),
             ("mono".into(), GdValue::Boolean(self.mono)),
         ])
     }
@@ -312,6 +313,7 @@ impl Display for GodotVersion {
             write!(f, ".mono")?;
         }
 
+        write!(f, ".{}", self.system)?;
         Ok(())
     }
 }
@@ -441,9 +443,9 @@ impl TryFrom<&str> for GodotVersionKind {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use test_case::test_case;
     use GodotVersionKind::*;
     use SystemVersion::*;
-    use test_case::test_case;
 
     fn system_auto() -> SystemVersion {
         SystemVersion::determine_system_kind()
@@ -470,8 +472,17 @@ mod tests {
     #[test_case("3.0.beta1.mono.linux-arm64", "3.0", Beta(1), LinuxArm64, MONO)]
     #[test_case("3.0.rc1.mono.linux-x32", "3.0", ReleaseCandidate(1), LinuxX32, MONO)]
     #[test_case("3.0.mono.macos", "3.0", Stable, MacOS, MONO)]
-    fn test_parse_version(version: &str, gd_version: &str, kind: GodotVersionKind, system: SystemVersion, mono: bool) {
-        assert_eq!(version.parse::<GodotVersion>().unwrap(), GodotVersion::new(gd_version, kind, system, mono));
+    fn test_parse_version(
+        version: &str,
+        gd_version: &str,
+        kind: GodotVersionKind,
+        system: SystemVersion,
+        mono: bool,
+    ) {
+        assert_eq!(
+            version.parse::<GodotVersion>().unwrap(),
+            GodotVersion::new(gd_version, kind, system, mono)
+        );
     }
 
     #[test]

@@ -1,5 +1,3 @@
-use std::alloc::System;
-
 use gdpm_io::IoAdapter;
 use gdpm_types::version::{GodotVersion, SystemVersion};
 
@@ -17,7 +15,7 @@ impl<I: IoAdapter> GodotTemplatePackageBuilder<I> {
 
 pub fn get_engine_archive_name_from_version(version: &GodotVersion) -> String {
     let mut builder = String::from("Godot_v");
-    builder.push_str(&version.version());
+    builder.push_str(version.version());
     builder.push('-');
     builder.push_str(&version.kind().to_string());
     builder.push('_');
@@ -46,7 +44,7 @@ pub fn get_engine_archive_name_from_version(version: &GodotVersion) -> String {
 
 pub fn get_template_archive_name_from_version(version: &GodotVersion) -> String {
     let mut builder = String::from("Godot_v");
-    builder.push_str(&version.version());
+    builder.push_str(version.version());
     builder.push('-');
     builder.push_str(&version.kind().to_string());
 
@@ -71,29 +69,10 @@ mod tests {
             );
         }
 
-        check(
-            "4.3.mono.win32",
-            "Godot_v4.3-stable_mono_win32.zip",
-        );
-
-        check(
-            "4.3.win32",
-            "Godot_v4.3-stable_win32.exe.zip",
-        );
-
-        check(
-            "4.2.1.win64",
-            "Godot_v4.2.1-stable_win64.exe.zip"
-        );
-
-        check(
-            "4.3.beta1.mono.win64",
-            "Godot_v4.3-beta1_mono_win64.zip"
-        );
-
-        check(
-            "4.3.macos",
-            "Godot_v4.3-stable_macos.universal.zip"
-        );
+        check("4.3.mono.win32", "Godot_v4.3-stable_mono_win32.zip");
+        check("4.3.win32", "Godot_v4.3-stable_win32.exe.zip");
+        check("4.2.1.win64", "Godot_v4.2.1-stable_win64.exe.zip");
+        check("4.3.beta1.mono.win64", "Godot_v4.3-beta1_mono_win64.zip");
+        check("4.3.macos", "Godot_v4.3-stable_macos.universal.zip");
     }
 }

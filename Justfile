@@ -33,7 +33,7 @@ test:
 
 # Run
 run *ARGS:
-	cargo run -- {{ARGS}}
+	cargo run -p gdpm -- {{ARGS}}
 
 # Set crates version
 set-version v:

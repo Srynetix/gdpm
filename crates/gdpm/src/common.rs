@@ -7,7 +7,7 @@ use gdpm_core::{
     engine::{EngineHandler, EngineInfo},
     io::{write_stdout, IoAdapter},
     project::{GdProjectInfo, ProjectHandler},
-    types::version::{GodotVersion, SystemVersion},
+    types::version::GodotVersion,
 };
 use question::{Answer, Question};
 
@@ -136,17 +136,4 @@ pub(crate) fn validate_engine_version_or_exit<I: IoAdapter, D: DownloadAdapter>(
             std::process::exit(1);
         }
     }
-}
-
-pub(crate) fn parse_godot_version_args(
-    godot_version: &GodotVersion,
-    system_version: Option<SystemVersion>,
-) -> Result<(GodotVersion, SystemVersion)> {
-    let system = if let Some(system_version) = system_version {
-        system_version
-    } else {
-        SystemVersion::determine_system_kind()
-    };
-
-    Ok((godot_version.clone(), system))
 }

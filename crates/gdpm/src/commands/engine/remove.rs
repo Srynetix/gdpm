@@ -6,10 +6,10 @@ use gdpm_core::{
     engine::EngineHandler,
     error::EngineError,
     io::{write_stdout, IoAdapter},
-    types::version::{GodotVersion, SystemVersion},
+    types::version::GodotVersion,
 };
 
-use crate::{common::parse_godot_version_args, context::Context};
+use crate::context::Context;
 
 /// Uninstall engine
 #[derive(Parser)]
@@ -17,9 +17,6 @@ use crate::{common::parse_godot_version_args, context::Context};
 pub struct Remove {
     /// Engine version
     engine: GodotVersion,
-    /// System version
-    #[clap(long)]
-    system_version: Option<SystemVersion>,
     /// Headless?
     #[clap(long)]
     headless: bool,
@@ -30,27 +27,28 @@ pub struct Remove {
 
 impl Remove {
     pub fn execute<I: IoAdapter, D: DownloadAdapter>(self, context: &Context<I, D>) -> Result<()> {
-        let (version, _system) = parse_godot_version_args(&self.engine, self.system_version)?;
-
         let ehandler = EngineHandler::new(context.io());
-        match ehandler.uninstall(&version) {
+        match ehandler.uninstall(&self.engine) {
             Ok(()) => write_stdout!(
                 context.io(),
                 "{}\n",
-                format!("Engine version '{}' was successfully uninstalled.", version)
-                    .color("green")
+                format!(
+                    "Engine version '{}' was successfully uninstalled.",
+                    self.engine
+                )
+                .color("green")
             )?,
             Err(e) => match e {
                 EngineError::EngineNotFound(_) => {
                     write_stdout!(
                         context.io(),
                         "{}\n",
-                        format!("Unknown engine version '{}'.", version).color("red")
+                        format!("Unknown engine version '{}'.", self.engine).color("red")
                     )?;
                     std::process::exit(1);
                 }
                 EngineError::EngineNotInstalled(_) => {
-                    ehandler.unregister(&version)?;
+                    ehandler.unregister(&self.engine)?;
                 }
                 e => return Err(e.into()),
             },

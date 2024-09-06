@@ -7,11 +7,11 @@ use gdpm_core::{
     downloader::{download::Downloader, error::DownloadError, DownloadAdapter},
     engine::{EngineHandler, EngineInfo},
     io::{write_stderr, write_stdout, IoAdapter},
-    types::version::{GodotVersion, SystemVersion},
+    types::version::GodotVersion,
 };
 use tracing::info;
 
-use crate::{common::parse_godot_version_args, context::Context};
+use crate::context::Context;
 
 pub(crate) const MIRROR_URL: &str =
     "https://github.com/godotengine/godot-builds/releases/download/";
@@ -19,11 +19,25 @@ pub(crate) const MIRROR_URL: &str =
 /// Download and install engine from official mirror or specific URL / path (e.g. 3.3.4, 3.3.4.mono, 3.5.rc1, 3.5.rc1.mono)
 #[derive(Parser)]
 pub(crate) struct Add {
-    /// Engine version
+    /// Engine version.
+    ///
+    /// Sample syntax:
+    /// - "4.3": Install Godot 4.3 stable for the current system
+    /// - "4.3.mono": Install Godot 4.3, Mono edition for the current system
+    /// - "4.4.dev1.mono": Install Godot 4.4 dev1, Mono edition for the current system
+    /// - "4.3.win64": Install Godot 4.3 stable for Windows x86-64.
+    ///
+    /// System versions:
+    /// - "win32": Windows x86-32
+    /// - "win64": Windows x86-64
+    /// - "win-arm64": Windows ARM64
+    /// - "linux-x32": Linux x86-32
+    /// - "linux-x64": Linux x86-64
+    /// - "linux-arm32": Linux ARM32
+    /// - "linux-arm64": Linux ARM64
+    /// - "macos": Mac OS
+    #[clap(verbatim_doc_comment)]
     pub(crate) engine: GodotVersion,
-    /// System version
-    #[clap(long)]
-    pub(crate) system_version: Option<SystemVersion>,
     /// Target URL
     #[clap(long)]
     pub(crate) target_url: Option<String>,
@@ -40,21 +54,19 @@ impl Add {
         context: &Context<I, D>,
         url: &str,
         version: GodotVersion,
-        system: SystemVersion,
     ) -> Result<()> {
         let ehandler = EngineHandler::new(context.io());
 
         match Downloader::download_file_at_url(context.download(), url).await {
             Ok(c) => {
-                let path =
-                    ehandler.install_from_official_zip(c, version.clone(), system.clone())?;
+                let path = ehandler.install_from_official_zip(c, version.clone())?;
                 write_stdout!(
                     context.io(),
                     "{}\n",
                     format!(
                         "Version '{}' installed for system '{}' at path '{}'",
-                        version,
-                        system,
+                        version.version(),
+                        version.system(),
                         path.display()
                     )
                     .color("green")
@@ -66,7 +78,9 @@ impl Add {
                     "{}\n",
                     format!(
                         "Version '{}' does not exist for system '{}' (or wrong url: {})",
-                        version, system, u
+                        version.version(),
+                        version.system(),
+                        u
                     )
                     .color("red")
                 )?;
@@ -135,21 +149,20 @@ impl Add {
 
     pub fn execute<I: IoAdapter, D: DownloadAdapter>(self, context: &Context<I, D>) -> Result<()> {
         let ehandler = EngineHandler::new(context.io());
-        let (version, system) = parse_godot_version_args(&self.engine, self.system_version)?;
 
-        let existing_version = ehandler.has_version(&version)?;
+        let existing_version = ehandler.has_version(&self.engine)?;
         if existing_version.is_some() {
             if !self.overwrite {
                 write_stderr!(
                     context.io(),
                     "{}\n",
-                    format!("Engine version '{}' is already installed. Use '--overwrite' to force installation.", version).color("yellow")
+                    format!("Engine version '{}' is already installed. Use '--overwrite' to force installation.", self.engine).color("yellow")
                 )?;
                 std::process::exit(1);
             } else {
                 info!(
                     "Will overwrite existing engine version '{}'.",
-                    version.to_string().color("green")
+                    self.engine.to_string().color("green")
                 );
             }
         }
@@ -169,20 +182,21 @@ impl Add {
                 .enable_all()
                 .build()
                 .unwrap();
-            rt.block_on(Self::download_file_at_url(context, &url, version, system))?;
+            rt.block_on(Self::download_file_at_url(
+                context,
+                &url,
+                self.engine.clone(),
+            ))?;
 
             write_stderr!(
                 context.io(),
                 "Cannot fetch export templates, missing URL.\n"
             )?;
         } else {
-            let editor_url = Downloader::get_official_editor_url_for_version(
-                version.clone(),
-                system.clone(),
-                MIRROR_URL,
-            );
+            let editor_url =
+                Downloader::get_official_editor_url_for_version(self.engine.clone(), MIRROR_URL);
             let templates_url = Downloader::get_official_export_templates_url_for_version(
-                version.clone(),
+                self.engine.clone(),
                 MIRROR_URL,
             );
 
@@ -193,14 +207,22 @@ impl Add {
             rt.block_on(Self::download_file_at_url(
                 context,
                 &editor_url,
-                version.clone(),
-                system,
+                self.engine.clone(),
             ))?;
-            rt.block_on(Self::download_and_install_export_templates(
-                context,
-                &templates_url,
-                version,
-            ))?;
+
+            if !self.overwrite && ehandler.has_export_templates(&self.engine)? {
+                write_stdout!(
+                    context.io(),
+                    "Templates already installed for engine version '{}', skipping...",
+                    self.engine.version()
+                )?;
+            } else {
+                rt.block_on(Self::download_and_install_export_templates(
+                    context,
+                    &templates_url,
+                    self.engine,
+                ))?;
+            }
         }
 
         Ok(())

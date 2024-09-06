@@ -4,18 +4,14 @@ use reqwest::Url;
 use tracing::info;
 
 use crate::{error::DownloadError, DownloadAdapter};
-use gdpm_types::version::{GodotVersion, SystemVersion};
+use gdpm_types::version::GodotVersion;
 
 /// Downloader.
 pub struct Downloader;
 
 impl Downloader {
     /// Get editor URL for version from a mirror URL.
-    pub fn get_official_editor_url_for_version(
-        version: GodotVersion,
-        system: SystemVersion,
-        mirror_url: &str,
-    ) -> String {
+    pub fn get_official_editor_url_for_version(version: GodotVersion, mirror_url: &str) -> String {
         let kind = version.kind().clone();
         let mut route = String::new();
         let path = Url::parse(mirror_url).unwrap();
@@ -30,7 +26,7 @@ impl Downloader {
             "Godot_v{}-{}_{}.zip",
             version.version(),
             kind,
-            system.get_archive_basename(version.mono())
+            version.system().get_archive_basename(version.mono())
         );
         route.push('/');
         route.push_str(&filename);
@@ -83,11 +79,10 @@ mod tests {
     #[test]
     fn test_get_official_editor_url_for_version() {
         let root = "http://localhost/subdir/";
-        let check = |(v, k, s, m), expected| {
+        let check = |v: &str, expected| {
             assert_eq!(
                 Downloader::get_official_editor_url_for_version(
-                    GodotVersion::new(v, k, SystemVersion::determine_system_kind(), m),
-                    s,
+                    v.parse::<GodotVersion>().unwrap(),
                     root
                 ),
                 expected
@@ -95,42 +90,22 @@ mod tests {
         };
 
         check(
-            (
-                "1.2.3",
-                GodotVersionKind::Stable,
-                SystemVersion::Win64,
-                false,
-            ),
+            "1.2.3.win64",
             "http://localhost/subdir/1.2.3-stable/Godot_v1.2.3-stable_win64.exe.zip",
         );
 
         check(
-            (
-                "1.2.3",
-                GodotVersionKind::Beta(1),
-                SystemVersion::Win32,
-                false,
-            ),
+            "1.2.3.beta1.win32",
             "http://localhost/subdir/1.2.3-beta1/Godot_v1.2.3-beta1_win32.exe.zip",
         );
 
         check(
-            (
-                "1.2.3",
-                GodotVersionKind::ReleaseCandidate(2),
-                SystemVersion::LinuxArm32,
-                false,
-            ),
+            "1.2.3.rc2.linux-arm32",
             "http://localhost/subdir/1.2.3-rc2/Godot_v1.2.3-rc2_linux_arm32.zip",
         );
 
         check(
-            (
-                "1.2.3",
-                GodotVersionKind::ReleaseCandidate(2),
-                SystemVersion::LinuxArm64,
-                true,
-            ),
+            "1.2.3.rc2.mono.linux-arm64",
             "http://localhost/subdir/1.2.3-rc2/Godot_v1.2.3-rc2_mono_linux_arm64.zip",
         );
     }

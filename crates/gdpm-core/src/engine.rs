@@ -321,7 +321,6 @@ impl<'a, I: IoAdapter> EngineHandler<'a, I> {
         &self,
         zip_data: Vec<u8>,
         version: GodotVersion,
-        system: SystemVersion,
     ) -> Result<PathBuf, EngineError> {
         let udir = UserDir::new(self.io_adapter);
         let engine_path = udir.get_or_create_directory(Path::new(ENGINE_DIR))?;
@@ -337,9 +336,11 @@ impl<'a, I: IoAdapter> EngineHandler<'a, I> {
         self.io_adapter
             .open_and_extract_zip(&zip_path, &extraction_path)?;
 
+        let system = version.system();
+
         // Special case for MacOS
         let zip_folder_name = if system == SystemVersion::MacOS {
-            format!("Godot.app")
+            "Godot.app".into()
         } else {
             format!(
                 "Godot_v{}-{}_{}",
@@ -434,23 +435,22 @@ impl<'a, I: IoAdapter> EngineHandler<'a, I> {
         Ok(templates_path_for_version)
     }
 
+    /// Check export templates.
+    pub fn has_export_templates(&self, version: &GodotVersion) -> Result<bool, EngineError> {
+        let gdir = GodotDir::new(self.io_adapter);
+        let templates_directory = gdir.get_or_create_export_templates_directory()?;
+        let templates_path_for_version =
+            templates_directory.join(version.get_export_template_name());
+
+        Ok(self.io_adapter.path_exists(&templates_path_for_version))
+    }
+
     /// Uninstall version.
     pub fn uninstall(&self, version: &GodotVersion) -> Result<(), EngineError> {
         let udir = UserDir::new(self.io_adapter);
-        let gdir = GodotDir::new(self.io_adapter);
         let engine_path = udir.get_or_create_directory(Path::new(ENGINE_DIR))?;
         let version_path = engine_path.join(version.to_string());
         self.get_version(version)?;
-
-        // Remove export templates
-        let export_templates_path = gdir.get_specific_export_templates_directory(version)?;
-        if self.io_adapter.path_exists(&export_templates_path) {
-            info!(
-                "Removing export templates {} ...",
-                export_templates_path.display().to_string().color("green")
-            );
-            self.io_adapter.remove_dir_all(&export_templates_path)?;
-        }
 
         if self.io_adapter.path_exists(&version_path) {
             self.unregister(version)?;

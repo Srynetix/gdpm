@@ -45,7 +45,11 @@ impl Run {
                     self.args.join(" ").color("blue"),
                     v.to_string().color("green")
                 )?;
-                ehandler.exec_version_for_project(&v, &self.args, Path::new("."))?;
+                ehandler.exec_version_for_project(
+                    &v,
+                    &args_to_slice(&self.args),
+                    Path::new("."),
+                )?;
             }
         } else if let Some(e) = ehandler.get_default()? {
             if self.args.is_empty() {
@@ -55,7 +59,11 @@ impl Run {
                     self.args.join(" ").color("blue"),
                     e.to_string().color("green")
                 )?;
-                ehandler.exec_version_for_project(&e, &self.args, Path::new("."))?;
+                ehandler.exec_version_for_project(
+                    &e,
+                    &args_to_slice(&self.args),
+                    Path::new("."),
+                )?;
             } else {
                 write_stdout!(
                     context.io(),
@@ -70,4 +78,8 @@ impl Run {
 
         Ok(())
     }
+}
+
+fn args_to_slice(args: &[String]) -> Vec<&str> {
+    args.iter().map(String::as_str).collect::<Vec<_>>()
 }

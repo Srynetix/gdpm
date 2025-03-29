@@ -18,7 +18,7 @@ pub enum Error {
 }
 
 /// System version.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum SystemVersion {
     /// Windows 32-bit
     Win32,
@@ -28,8 +28,8 @@ pub enum SystemVersion {
     X1132,
     /// Linux 64-bit
     X1164,
-    /// MacOS
-    OSX,
+    /// MacOs
+    MacOs,
     /// Server (Linux 64-bit)
     LinuxServer64,
     /// Headless (Linux 64-bit)
@@ -55,6 +55,8 @@ pub enum GodotVersionKind {
     Alpha(u16),
     /// Beta release.
     Beta(u16),
+    /// Dev release.
+    Dev(u16),
     /// Custom release.
     Custom(String),
 }
@@ -79,7 +81,7 @@ impl SystemVersion {
                 panic!("Unsupported Linux architecture.")
             }
         } else if cfg!(target_os = "macos") {
-            SystemVersion::OSX
+            SystemVersion::MacOs
         } else {
             panic!("Unsupported OS.")
         }
@@ -97,7 +99,7 @@ impl SystemVersion {
             SystemVersion::X1132 | SystemVersion::X1164 => "x11",
             SystemVersion::LinuxHeadless64 => "headless.x11",
             SystemVersion::LinuxServer64 => "server.x11",
-            SystemVersion::OSX => "osx",
+            SystemVersion::MacOs => "app",
         }
     }
 
@@ -132,11 +134,11 @@ impl SystemVersion {
                     "x11.64"
                 }
             }
-            SystemVersion::OSX => {
+            SystemVersion::MacOs => {
                 if with_mono {
-                    "mono_osx.64"
+                    "mono_macos.64"
                 } else {
-                    "osx.universal"
+                    "macos.universal"
                 }
             }
             SystemVersion::LinuxServer64 => {
@@ -164,7 +166,7 @@ impl Display for SystemVersion {
             Self::Win64 => write!(f, "win64"),
             Self::X1132 => write!(f, "linux32"),
             Self::X1164 => write!(f, "linux64"),
-            Self::OSX => write!(f, "osx"),
+            Self::MacOs => write!(f, "macos"),
             Self::LinuxServer64 => write!(f, "linuxserver64"),
             Self::LinuxHeadless64 => write!(f, "linuxheadless64"),
         }
@@ -312,6 +314,7 @@ impl Display for GodotVersionKind {
             Self::Alpha(n) => write!(f, "alpha{}", n),
             Self::Beta(n) if *n == 0 => write!(f, "beta"),
             Self::Beta(n) => write!(f, "beta{}", n),
+            Self::Dev(n) => write!(f, "dev{}", n),
             Self::Custom(c) => write!(f, "custom.{c}"),
         }
     }
@@ -332,6 +335,9 @@ impl FromStr for GodotVersionKind {
         } else if s.starts_with("beta") {
             let number = s.chars().skip(4).collect::<String>().parse().unwrap_or(0);
             Ok(Self::Beta(number))
+        } else if s.starts_with("dev") {
+            let number = s.chars().skip(3).collect::<String>().parse().unwrap_or(0);
+            Ok(Self::Dev(number))
         } else if s.starts_with("custom.") {
             let custom_string = s.chars().skip(7).collect::<String>();
             Ok(Self::Custom(custom_string))

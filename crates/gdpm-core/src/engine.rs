@@ -38,7 +38,7 @@ impl EngineInfo {
         version: GodotVersion,
         path: PathBuf,
     ) -> Result<Self, EngineError> {
-        if !io_adapter.path_is_file(&path) {
+        if !io_adapter.path_exists(&path) {
             Err(EngineError::EngineMissingFromPath(version, path))
         } else {
             Ok(Self { version, path })
@@ -229,15 +229,7 @@ impl<'a, I: IoAdapter> EngineHandler<'a, I> {
         version: &GodotVersion,
         path: &Path,
     ) -> Result<(), EngineError> {
-        let engine = self.get_version(version)?;
-        Command::new(engine.path)
-            .arg("--path")
-            .arg(path)
-            .arg("-e")
-            .status()
-            .map_err(|e| Error::CommandExecutionError(e.to_string()))?;
-
-        Ok(())
+        self.exec_version_for_project(version, &["-e"], path)
     }
 
     /// Run engine version for project, no editor.
@@ -246,21 +238,14 @@ impl<'a, I: IoAdapter> EngineHandler<'a, I> {
         version: &GodotVersion,
         path: &Path,
     ) -> Result<(), EngineError> {
-        let engine = self.get_version(version)?;
-        Command::new(engine.path)
-            .arg("--path")
-            .arg(path)
-            .status()
-            .map_err(|e| Error::CommandExecutionError(e.to_string()))?;
-
-        Ok(())
+        self.exec_version_for_project(version, &[], path)
     }
 
     /// Execute engine version command for project.
     pub fn exec_version_for_project(
         &self,
         version: &GodotVersion,
-        args: &[String],
+        args: &[&str],
         path: &Path,
     ) -> Result<(), EngineError> {
         let engine = self.get_version(version)?;
@@ -350,17 +335,34 @@ impl<'a, I: IoAdapter> EngineHandler<'a, I> {
         let zip_exec_path = if version.mono() {
             let zip_exec_name = format!("{}.{}", &zip_folder_name, system.get_extension());
             extraction_path.join(&zip_folder_name).join(zip_exec_name)
+        } else if system == SystemVersion::MacOs {
+            extraction_path.join("Godot.app")
         } else {
             zip_folder_path.with_extension(system.get_extension())
         };
 
-        let zip_exec_target = Path::new(&version_path)
-            .join(GODOT_EXECUTABLE_NAME)
-            .with_extension(system.get_extension());
+        let mut zip_exec_target = if system == SystemVersion::MacOs {
+            Path::new(&version_path)
+                .join("Godot")
+                .with_extension(system.get_extension())
+        } else {
+            Path::new(&version_path)
+                .join(GODOT_EXECUTABLE_NAME)
+                .with_extension(system.get_extension())
+        };
 
         // Copy to current dir
-        self.io_adapter
-            .copy_file(&zip_exec_path, &zip_exec_target)?;
+        if system == SystemVersion::MacOs {
+            self.io_adapter.create_dir(&zip_exec_target)?;
+            self.io_adapter
+                .copy_dir(&zip_exec_path.join("Contents"), &zip_exec_target)?;
+
+            zip_exec_target = zip_exec_target.join("Contents/MacOS/Godot");
+        } else {
+            self.io_adapter
+                .copy_file(&zip_exec_path, &zip_exec_target)?;
+        }
+
         if version.mono() {
             let mono_folder_src = zip_folder_path.join("GodotSharp");
             let mono_folder_dst = &version_path;
